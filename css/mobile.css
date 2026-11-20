@@ -1,0 +1,110 @@
+/* ============================================================================
+ * UAE CAPITALISM LAB - phone / tablet layout (PWA build only)
+ * Desktop layout stays as in css/style.css; these rules kick in on small or
+ * touch screens: the side rail becomes a bottom dock, panels go full-screen.
+ * ==========================================================================*/
+html, body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+
+/* touch: no hover tooltips, bigger hit targets */
+@media (pointer: coarse) {
+  #rail button::after { display: none; }
+  .btn { min-height: 30px; }
+  .btn.sm { min-height: 26px; }
+  input.in, select.in { min-height: 30px; font-size: 12.5px; }
+  .maplibregl-ctrl-attrib { font-size: 9px; }
+}
+
+@media (max-width: 820px), (max-height: 520px) {
+  :root { --dock: 54px; }
+  /* compact text for phones (Galaxy A73 = 412 x 915 CSS px) */
+  body { font-size: 12px; }
+  table.t { font-size: 11px; }
+  table.t th { font-size: 9px; padding: 5px 5px; }
+  table.t td { padding: 4px 5px; }
+  .btn { font-size: 11px; padding: 5px 9px; }
+  .btn.sm { font-size: 10.5px; padding: 3px 7px; }
+  .tabs button { font-size: 10.5px; }
+  .note, .row label { font-size: 10.5px; }
+  .box h3 { font-size: 10.5px; }
+  .card b { font-size: 13.5px; }
+  .card small, .tile .ds { font-size: 9.5px; }
+  .toast { font-size: 11.5px; }
+  #modal h2 { font-size: 12.5px; }
+  #drawer select, #modal select, #drawer input:not([type=checkbox]):not([type=radio]):not([type=range]), #modal input:not([type=checkbox]):not([type=radio]):not([type=range]) { font-size: 11.5px; padding: 4px 6px; min-height: 28px; }
+
+  /* top bar: date, speed, cash only */
+  #topbar { left: 6px; right: 6px; top: calc(6px + env(safe-area-inset-top)); height: 42px; padding: 0 6px; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+  #topbar::-webkit-scrollbar { display: none; }
+  #topbar .brand, #topbar .kpi.opt { display: none; }
+  .kpi { padding: 0 6px; }
+  .kpi span { font-size: 11px; } .kpi label { font-size: 8px; }
+  #speed { padding: 0 4px; gap: 2px; flex: none; }
+  #speed button { width: 28px; height: 28px; font-size: 10px; }
+  #coSwitch { max-width: 110px; font-size: 12px; }
+
+  /* left rail -> bottom dock, scrolls sideways */
+  #rail { top: auto; left: 6px; right: 6px; bottom: calc(6px + env(safe-area-inset-bottom)); width: auto; height: var(--dock);
+    flex-direction: row; padding: 0 6px; gap: 2px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+  #rail::-webkit-scrollbar { display: none; }
+  #rail .logo { display: none; }
+  #rail .sep { width: 1px; height: 30px; margin: 0 4px; flex: none; background: linear-gradient(180deg, transparent, var(--magenta), transparent); }
+  #rail button { flex: none; width: 40px; height: 40px; font-size: 17px; }
+
+  /* ticker sits just above the dock; city buttons hidden (use the 🌆 panel) */
+  #bottom { left: 6px; right: 6px; bottom: calc(var(--dock) + 12px + env(safe-area-inset-bottom)); }
+  #cities { display: none; }
+  #ticker { height: 22px; }
+  #ticker .track { font-size: 10px; }
+
+  /* map buttons: smaller column on the right */
+  #mapctl { right: 6px; top: calc(54px + env(safe-area-inset-top)); gap: 4px; }
+  #mapctl button { width: 32px; height: 32px; font-size: 12.5px; }
+  #coords { display: none !important; }
+
+  /* panels fill the screen between top bar and dock */
+  #drawer { top: calc(54px + env(safe-area-inset-top)); left: 0; right: 0; width: auto; bottom: calc(var(--dock) + 12px + env(safe-area-inset-bottom)); border-radius: 10px; margin: 0 6px; }
+  #drawer header { padding: 8px 10px; gap: 6px; }
+  #drawer header h2 { font-size: 11px; letter-spacing: .08em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #drawer header .x, #drawer header .back { width: 30px; height: 30px; }
+  #drawer .body { padding: 10px 10px 18px; -webkit-overflow-scrolling: touch; }
+  #drawer .body table { font-size: 11px; }
+  .tabs button { padding: 5px 8px; }
+
+  /* modals */
+  #modal .win { width: 96vw; max-height: 84vh; padding: 14px 14px; }
+  #buildBanner { top: calc(54px + env(safe-area-inset-top)); left: 6px; right: 50px; transform: none; font-size: 11px; padding: 6px 9px; }
+
+  /* title screen */
+  #title { padding-left: 4vw; padding-right: 4vw; justify-content: center; background: linear-gradient(180deg, rgba(0,0,0,.92), rgba(0,0,0,.78)); }
+  #title .inner { width: 100%; max-width: 520px; }
+  #title h1 { font-size: 24px; }
+  #title .tag { font-size: 11.5px; margin: 8px 0 10px; }
+  #title .form { padding: 10px 12px; } #title .go { padding: 9px; font-size: 12px; } #title .credits { font-size: 9px; }
+  #title .form .row label { min-width: 96px; font-size: 11px; }
+  #toasts { top: calc(60px + env(safe-area-inset-top)); left: 8px; right: 8px; transform: none; }
+  .split { grid-template-columns: 1fr; }
+  .grid2 { grid-template-columns: 1fr; }
+}
+
+/* narrow portrait phone: date + speed + cash must fit in one row */
+@media (max-width: 520px) {
+  #coSwitch { display: none; }
+  #speed button { width: 27px; }
+  .kpi { padding: 0 5px; }
+  #topbar .spacer { display: none; }
+}
+
+/* phone held sideways: low height, keep the dock but shrink the chrome */
+@media (max-height: 520px) {
+  :root { --dock: 48px; }
+  #rail button { width: 40px; height: 40px; font-size: 18px; }
+  #ticker { display: none; }
+  #mapctl { flex-direction: row; top: auto; bottom: calc(var(--dock) + 12px); right: 6px; }
+  #title h1 .l3 { display: none; }
+}
+
+/* install / update banner */
+#pwaBar { position: absolute; left: 50%; transform: translateX(-50%); top: calc(10px + env(safe-area-inset-top)); z-index: 60; display: none;
+  gap: 8px; align-items: center; padding: 8px 12px; border-radius: 10px; font-size: 12.5px; max-width: 94vw; }
+#pwaBar.open { display: flex; }

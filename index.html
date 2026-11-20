@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#03070b">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>UAE Capitalism Lab</title>
+<!-- fonts and the map engine ship with the game (vendor/) so the desktop app starts without a CDN -->
+<link href="vendor/fonts.css" rel="stylesheet">
+<link href="vendor/maplibre-gl.css" rel="stylesheet">
+<link href="css/style.css" rel="stylesheet">
+<link href="css/mobile.css" rel="stylesheet">
+</head>
+<body>
+<!-- 70% photoreal: satellite imagery of the real UAE.  30% hyper-rendered: 3D buildings + neon structures -->
+<div id="map"></div>
+<div id="vignette"></div>
+
+<!-- ================= TITLE / NEW GAME ================= -->
+<div id="title">
+  <div class="inner">
+    <h1><span class="l1">UAE</span><span class="l2">CAPITALISM LAB</span><span class="l3">Seven Emirates · One Economy</span></h1>
+    <p class="tag">Build an empire from Jebel Ali to Fujairah. Real map, real companies on DFM &amp; ADX, real UAE tax rules,
+      city-level macroeconomics, full corporate finance and AI rivals that expand just like you.</p>
+    <div class="form glass neon">
+      <div class="row"><label>Your name</label><input class="in" id="ngName" value="Sanchez"></div>
+      <div class="row"><label>Company name</label><input class="in" id="ngCo" value="Sanchez Holdings"></div>
+      <div class="row"><label>Ticker</label><input class="in" id="ngTick" value="SANCHZ" maxlength="8"></div>
+      <div class="row"><label>Headquarters city</label><select class="in" id="ngCity"></select></div>
+      <div class="row"><label>Starting capital</label><select class="in" id="ngDiff">
+        <option value="easy">Easy · AED 1bn</option><option value="normal" selected>Normal · AED 300m</option><option value="hard">Hard · AED 100m</option></select></div>
+      <div class="row"><label>Company status</label><select class="in" id="ngList">
+        <option value="private">Private (IPO later)</option><option value="DFM">Listed on DFM (simulated)</option><option value="ADX">Listed on ADX (simulated)</option></select></div>
+      <div class="row"><label>AI start-up rivals</label><input class="in" id="ngAI" type="number" min="0" max="18" value="10"></div>
+      <div class="row"><label>Real UAE companies</label><select class="in" id="ngReal"><option value="1">Include (Emaar, ADNOC, ENBD, FAB …)</option><option value="0">Fictional world only</option></select></div>
+      <div class="row"><label>Random seed</label><input class="in" id="ngSeed" type="number" value="20261120"></div>
+      <button class="btn a go" id="ngGo">▶ Start Empire</button>
+      <div class="row" style="margin-top:8px"><button class="btn sm" id="ngLoad">Load saved game</button><button class="btn sm m" id="ngImport">Import .json save</button><input type="file" id="ngFile" accept=".json" class="hidden"></div>
+    </div>
+    <div class="credits">Imagery © Esri, Maxar, Earthstar Geographics · Map data © OpenStreetMap contributors, OpenFreeMap · Data snapshot 20 Nov 2026 (REAL / EST / SYN tags in-game)</div>
+  </div>
+</div>
+
+<!-- ================= HUD ================= -->
+<nav id="rail" class="glass neon hidden">
+  <svg class="logo" viewBox="0 0 40 40"><defs><linearGradient id="lg" x1="0" x2="1"><stop offset="0" stop-color="#00f0ff"/><stop offset="1" stop-color="#ff2bd6"/></linearGradient></defs>
+    <path d="M20 2 L24 14 L22 38 L18 38 L16 14 Z" fill="none" stroke="url(#lg)" stroke-width="2"/><path d="M8 38 L32 38" stroke="#b8ff2c" stroke-width="2"/></svg>
+  <button class="build" data-act="build" data-tip="Build Firm (B)">🏗</button>
+  <button data-act="info" data-tip="Information Center (I)">ℹ</button>
+  <button data-act="firms" data-tip="My Firms">🏭</button>
+  <button data-act="fin" data-tip="Financials (F6)">📊</button>
+  <button data-act="corp" data-tip="Corporate Details (F10)">🏢</button>
+  <button data-act="factions" data-tip="Financial Actions (F11)">💼</button>
+  <button data-act="stock" data-tip="Stock Market (F4)">📈</button>
+  <button data-act="bonds" data-tip="Bond Market">🧾</button>
+  <div class="sep"></div>
+  <button data-act="cities" data-tip="Cities & Macroeconomy">🌆</button>
+  <button data-act="rank" data-tip="Rankings & CEOs">🏆</button>
+  <button data-act="hq" data-tip="Headquarters (H)">👔</button>
+  <button data-act="ceo" data-tip="CEO: expansion, scope, policies (C)">🧠</button>
+  <button data-act="pdetail" data-tip="Product Details (P)">🔎</button>
+  <button data-act="info" data-arg="marketing" data-tip="Marketing">📣</button>
+  <button data-act="news" data-tip="Event Tracker (F5)">📰</button>
+  <div class="sep"></div>
+  <button data-act="save" data-tip="Save / Load / Settings (F9)">⚙</button>
+</nav>
+
+<header id="topbar" class="glass neon hidden">
+  <div class="brand"><b>UAE</b> CAPITALISM <i>LAB</i></div>
+  <div class="kpi"><label>Date</label><span id="kDate">—</span></div>
+  <div id="speed">
+    <button data-s="0" title="Pause (0)">❚❚</button><button data-s="1" title="Speed 1">1</button><button data-s="2">2</button>
+    <button data-s="3">3</button><button data-s="4">4</button><button data-s="5">5</button>
+  </div>
+  <div class="kpi"><label>Cash</label><span id="kCash" class="t-a">—</span></div>
+  <div class="kpi opt"><label>Net profit TTM</label><span id="kNI">—</span></div>
+  <div class="kpi opt"><label>Company value</label><span id="kVal">—</span></div>
+  <div class="kpi opt opt2"><label>Net worth</label><span id="kNW">—</span></div>
+  <div class="kpi opt"><label>DFM GI</label><span id="kDFM">—</span></div>
+  <div class="kpi opt"><label>ADX FADGI</label><span id="kADX">—</span></div>
+  <div class="spacer"></div>
+  <select id="coSwitch" title="Active company"></select>
+</header>
+
+<div id="mapctl" class="hidden">
+  <button id="zIn" title="Zoom in">＋</button>
+  <button id="zOut" title="Zoom out">－</button>
+  <button id="z3d" class="on" title="Toggle 3D / 2D">3D</button>
+  <button id="zRot" title="Reset north">🧭</button>
+  <button id="zSat" class="on" title="Satellite / Dark map">🛰</button>
+  <button id="zZones" title="Show buildable zones">◎</button>
+  <button id="zRes" title="Natural resource sites (oil, gas, limestone, sand)">⛏</button>
+  <button id="zTraf" title="Customer traffic overlay">🚶</button>
+  <button id="zUAE" title="Whole UAE">🇦🇪</button>
+</div>
+<div id="coords" class="glass hidden"></div>
+
+<div id="bottom" class="hidden">
+  <div id="cities" class="glass neon"></div>
+  <div id="ticker" class="glass neon-m"><div class="track" id="tickTrack"></div></div>
+</div>
+
+<div id="buildBanner" class="glass neon-a"></div>
+<section id="drawer" class="glass neon">
+  <header><button class="back" id="dBack" title="Back">◀</button><h2 id="dTitle">Panel</h2><button class="x" id="dClose" title="Close (Esc)">✕</button></header>
+  <div class="body" id="dBody"></div>
+</section>
+<div id="modal"><div class="win glass neon-a" id="mWin"></div></div>
+<div id="toasts"></div>
+
+<!-- Map engine (WebGL, open source) -->
+<script src="js/pwa.js"></script>
+<script src="vendor/maplibre-gl.js"></script>
+<!-- Game data (edit these to change the world) -->
+<script src="js/data/geo.js"></script>
+<script src="js/data/resources.js"></script>
+<script src="js/data/economy.js"></script>
+<script src="js/data/companies.js"></script>
+<!-- Simulation engine (no DOM access - runs headless too: node tools/headless_test.js) -->
+<script src="js/engine/core.js"></script>
+<script src="js/engine/plots.js"></script>
+<script src="js/engine/setup.js"></script>
+<script src="js/engine/sim.js"></script>
+<script src="js/engine/micro.js"></script>
+<script src="js/engine/mall.js"></script>
+<script src="js/engine/macro.js"></script>
+<script src="js/engine/market.js"></script>
+<script src="js/engine/ai.js"></script>
+<script src="js/engine/ceo.js"></script>
+<script src="js/engine/save.js"></script>
+<!-- User interface -->
+<script src="js/ui/base.js"></script>
+<script src="js/ui/charts.js"></script>
+<script src="js/ui/map.js"></script>
+<script src="js/ui/firm.js"></script>
+<script src="js/ui/panels.js"></script>
+<script src="js/ui/product.js"></script>
+<script src="js/ui/persons.js"></script>
+<script src="js/ui/city.js"></script>
+<script src="js/ui/app.js"></script>
+</body>
+</html>
