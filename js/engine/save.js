@@ -24,6 +24,7 @@ UAE.deserialize = function (json) {
   UAE.allCos().forEach(function (co) { UAE.policy(co); });
   UAE.S._plotIdx = null;
   if (UAE.ensureGlobalMarkets) UAE.ensureGlobalMarkets();
+  if (UAE.legacyRebase) UAE.legacyRebase();                          // one-time: real groups back on a realistic growth path (engine/sim.js)
   if (UAE.govRestoreZones) UAE.govRestoreZones();
   if (UAE.nameSyncAll) UAE.nameSyncAll();       // firm names say what each firm makes (engine/invest.js)
   if (UAE.fixAccidentalTakeovers) UAE.fixAccidentalTakeovers();     // one-time: undo the CEOs' accidental takeovers (runs on load, even while paused)                  // zones the government has opened become districts again          // older saves get NYSE + NASDAQ

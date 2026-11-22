@@ -249,11 +249,18 @@ UAE.AI.operate = function (co, slice, review) {
     });
     if ((k === 'factory' || k === 'farm' || k === 'mine' || k === 'oil') && !f.lines.some(function (l) { return l.priceSet; }))
       f.lines.forEach(function (l) { var s = f.stock[l.pid], px = UAE.wholesalePrice(l.pid); l.price = Math.max(s ? s.cost * 1.04 : 0, px * (0.97 + 0.06 * (UAE.priceLevel(co, l.pid) - 1))); });
-    if (k === 'hotel') { if (f.occ > 0.9) f.adr *= 1.04; else if (f.occ < 0.6) f.adr *= 0.96; }
+    if (k === 'hotel') {
+      var hc = UAE.S.cities[f.city], hC = UAE.CITIES[f.city], hd = UAE.geo.district(f.district);
+      var hSc = Math.max(((hc && hc.cpiIdx) || 100) / 100, (hc && hc.wageIdx) || 1);
+      var hRef = hC.hotelADR * hSc * Math.sqrt(Math.max(0.4, hd.foot) / 1.2) * (f.stars === 7 ? 3 : 1);
+      if (f.adr < hRef * 0.75) f.adr = f.adr * 0.65 + hRef * 0.35;               // catch up faster after long-term inflation
+      else if (f.occ > 0.9) f.adr *= 1.04; else if (f.occ < 0.6) f.adr *= 0.96;
+    }
     if (k === 'service') {
-      var svc = UAE.SERVICES[f.svc];
-      if (f.customers > svc.base * f.size * 1.2) f.price *= 1.03; else if (f.customers < svc.base * 0.5) f.price *= 0.97;
-      f.price = Math.max(svc.price * 0.6, Math.min(svc.price * 1.8, f.price));
+      var svc = UAE.SERVICES[f.svc], sc0 = UAE.S.cities[f.city], sSc = Math.max(((sc0 && sc0.cpiIdx) || 100) / 100, (sc0 && sc0.wageIdx) || 1), sRef = svc.price * sSc;
+      if (f.price < sRef * 0.75) f.price = f.price * 0.65 + sRef * 0.35;
+      else if (f.customers > svc.base * f.size * 1.2) f.price *= 1.03; else if (f.customers < svc.base * 0.5) f.price *= 0.97;
+      f.price = Math.max(sRef * 0.6, Math.min(sRef * 1.8, f.price));
     }
     if (k === 'sports') { if (f.visitors > 1500 * f.size) f.price *= 1.03; else f.price *= 0.99; }
     if (k === 'mall' && f.mallPol) { f.mallPol.rentNew = f.occ > 0.92 ? Math.min(1.3, f.mallPol.rentNew + 0.02) : f.occ < 0.7 ? Math.max(0.8, f.mallPol.rentNew - 0.02) : f.mallPol.rentNew; }

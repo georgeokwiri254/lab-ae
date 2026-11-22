@@ -30,6 +30,9 @@ UAE.fmt = {
   px: function (v) { return v == null ? '—' : v >= 100 ? v.toFixed(1) : v >= 10 ? v.toFixed(2) : v.toFixed(3); }
 };
 
+/** Total income for screens: sales + interest income + investment income (dividends, gains). Banks, insurers and
+ *  holding companies report it this way; the game's 'revenue' line alone is sales of goods and services. */
+UAE.totalRevenue = function (t) { return (t.revenue || 0) + Math.max(0, t.interestInc || 0) + Math.max(0, t.investInc || 0); };
 UAE.isTradable = function (co) { return co.status === 'LISTED' && co.exch && co.price > 0; };
 UAE.mcap = function (co) { return UAE.isTradable(co) ? co.price * co.shares : 0; };
 UAE.bookValue = function (co) { return UAE.totals(co).equity; };

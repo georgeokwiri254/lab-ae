@@ -169,16 +169,38 @@ UAE.ctoMonth = function (co) {
     cand = Object.keys(mine).filter(function (pid) { return UAE.WM[pid] && UAE.P[pid].kind !== 'software' && (UAE.techPriority(co, pid) || 0) > 0; })
       .sort(function (a, b) { return UAE.techPriority(co, b) - UAE.techPriority(co, a); }).concat(cand.filter(function (pid) { return !UAE.WM[pid]; }));
   }
-  var used = {};
+  var used = {}, cap = UAE.MAX_AUTO_RND || 4;
+  var rndIdle = [], swCands = [];
   UAE.firmsOf(co.id).forEach(function (f) {
-    if (f.status !== 'open' || f.project) { if (f.project) used[f.project.pid] = 1; return; }
-    if (f.type === 'software') { f.autoResearch = true; UAE.startResearch(f, UAE.swPid(f)); return; }
+    if (f.status !== 'open' || f.project) { if (f.project) used[f.project.pid] = (used[f.project.pid] || 0) + 1; return; }
+    if (f.type === 'software') { f.autoResearch = true; swCands.push(f); return; }
     if (f.type !== 'rnd') return;
-    if (f.entryFor) { f.target = f.entryFor; if (co.bs.cash > UAE.researchQuote(f, f.entryFor).cost * 0.5) UAE.startResearch(f, f.entryFor); return; }   // market-entry lab (engine/invest.js)
-    var pid = cand.find(function (x) { return !used[x] && UAE.P[x].kind !== 'software'; }) || f.target;
-    used[pid] = 1; f.target = pid; f.autoResearch = true;
-    if (co.bs.cash > UAE.researchQuote(f, pid).cost * 0.5) UAE.startResearch(f, pid);
+    if (f.entryFor) { f.target = f.entryFor; if (co.bs.cash > UAE.researchQuote(f, f.entryFor).cost * 0.5) { UAE.startResearch(f, f.entryFor); used[f.entryFor] = (used[f.entryFor] || 0) + 1; } return; }
+    rndIdle.push(f);
   });
+  // Software studios: pick the highest-revenue studio per title (at most 1 running per title) so duplicate studios don't burn cash into losses
+  swCands.sort(function (a, b) { return (b.last && b.last.rev || 0) - (a.last && a.last.rev || 0); });
+  swCands.forEach(function (f) {
+    var sp = UAE.swPid(f);
+    if (!used[sp] && (!UAE.canAutoSoftwareResearch || UAE.canAutoSoftwareResearch(co, f, sp))) {
+      if (UAE.startResearch(f, sp).ok) used[sp] = (used[sp] || 0) + 1;
+    }
+  });
+  // R&D labs: spread across all lagging products, capped at MAX_AUTO_RND active teams per product
+  var nonSw = cand.filter(function (x) { return UAE.P[x] && UAE.P[x].kind !== 'software'; });
+  var assigned = [];
+  rndIdle.forEach(function (f) {
+    var pick = null;
+    for (var round = 0; round < cap && !pick; round++) {
+      pick = nonSw.find(function (x) { return (used[x] || 0) <= round; });
+    }
+    if (!pick) return;
+    used[pick] = (used[pick] || 0) + 1; f.target = pick; f.autoResearch = true; assigned.push(f);
+  });
+  if (assigned.length) {
+    if (UAE._idx) UAE._idx.rndT = null;                   // refresh team counts so parallel R&D cost scaling is exact
+    assigned.forEach(function (f) { if (co.bs.cash > UAE.researchQuote(f, f.target).cost * 0.5) UAE.startResearch(f, f.target); });
+  }
 };
 
 /* ------------------------------------------------------------------ CMO --- */
@@ -196,10 +218,13 @@ UAE.FIRM_BRAND_BY_KIND = { retail: 'Retail', factory: 'Industry', farm: 'Industr
 UAE.firmBrandGroup = function (f) { return UAE.SERVICE_BRAND[f.type] || UAE.FIRM_BRAND_BY_KIND[UAE.FIRM_TYPES[f.type].kind] || null; };
 /* CMO targets: 4% of each business's revenue on advertising, at least AED 30k a month per firm (so new firms are marketed too).
  * The CEO may raise the CMO budget (% of revenue) by up to 3 points a month, to at most 15%, when it does not cover that. */
-UAE.CMO = { rate: 0.04, minPerFirm: 30000, maxPct: 15, step: 3 };
+UAE.CMO = { rate: 0.04, minPerFirm: 30000, maxPct: 15, step: 3, maxDivisionAd: 25e6 };
 /** What the CMO needs this month to market every firm and the top-selling products. */
 UAE.cmoNeed = function (co) {
-  var firms = UAE.firmsOf(co.id).filter(function (f) { return f.status === 'open' && UAE.firmBrandGroup(f); });
+  var allOpen = UAE.firmsOf(co.id).filter(function (f) { return f.status === 'open' && UAE.firmBrandGroup(f); });
+  // Banking & Insurance corporate brand ads are placed centrally at Bank HQ / Insurance HQ (not on branches / front offices,
+  // which previously burned hundreds of millions/month per branch on saturated brand spend). Warehouses are internal depots.
+  var firms = allOpen.filter(function (f) { return f.type !== 'bankbranch' && f.type !== 'insoffice' && f.type !== 'warehouse'; });
   var prod = {};
   firms.forEach(function (f) {
     var k = UAE.FIRM_TYPES[f.type].kind, nat = k === 'software' || k === 'internet';
@@ -209,11 +234,26 @@ UAE.cmoNeed = function (co) {
       prod[key] = (prod[key] || 0) + Math.max(1, (l.sold || 0) * (l.price || P.ref || 1) * (nat ? 1 : 30));
     });
   });
-  // a firm's revenue for marketing = its brand group's revenue shared by size (insurance premiums and bank interest are
-  // booked at the HQ, so offices and branches show no revenue of their own but sell the division's products)
-  var gRev = {}, gSize = {};
-  firms.forEach(function (f) { var g = UAE.firmBrandGroup(f); gRev[g] = (gRev[g] || 0) + Math.max(0, f.last.rev); gSize[g] = (gSize[g] || 0) + f.size; });
-  var list = firms.map(function (f) { var g = UAE.firmBrandGroup(f), rev = (g === 'Banking' || g === 'Insurance') ? gRev[g] * f.size / Math.max(1, gSize[g]) : Math.max(0, f.last.rev); return { f: f, group: g, rev: rev, need: Math.max(UAE.CMO.minPerFirm, rev * UAE.CMO.rate) }; });
+  var gRev = {};
+  allOpen.forEach(function (f) { var g = UAE.firmBrandGroup(f); gRev[g] = (gRev[g] || 0) + Math.max(0, f.last.rev); });
+  var day = UAE.S ? UAE.S.day : 0;
+  var list = firms.map(function (f) {
+    var g = UAE.firmBrandGroup(f);
+    var isFinHq = f.type === 'bankhq' || f.type === 'inshq';
+    var rev = isFinHq ? (gRev[g] || 0) : Math.max(0, f.last.rev);
+    var isNew = day - (f.openDay || 0) < 180;
+    // Brand-new firms (<180 days) get a launch floor; mature zero-revenue firms are not forced to burn AED 30k/mo.
+    var floor = (rev > 0 || isNew) ? UAE.CMO.minPerFirm : 0;
+    var need = Math.max(floor, rev * UAE.CMO.rate);
+    // Corporate service brand formula saturates well below AED 25m/mo: cap Bank/Insurance HQ brand ads so excess cash isn't wasted.
+    if (isFinHq) need = Math.min(UAE.CMO.maxDivisionAd, need);
+    // Never let CMO firm-level ads push a mature low-margin or internal-transfer firm into a loss (cap at 25% of pre-ad profit).
+    else if (!isNew && f.last) {
+      var preAd = (f.last.profit || 0) + (f.adBudget || 0);
+      need = preAd > 0 ? Math.min(need, preAd * 0.25) : 0;
+    }
+    return { f: f, group: g, rev: rev, need: need };
+  });
   var keys = Object.keys(prod).sort(function (x, y) { return prod[y] - prod[x]; }).slice(0, 25);
   var prodNeed = keys.reduce(function (t, k) { return t + prod[k] * UAE.CMO.rate; }, 0), firmNeed = list.reduce(function (t, x) { return t + x.need; }, 0);
   return { firms: list, prod: prod, keys: keys, prodNeed: prodNeed, firmNeed: firmNeed, total: prodNeed + firmNeed };

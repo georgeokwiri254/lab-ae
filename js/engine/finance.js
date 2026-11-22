@@ -125,6 +125,19 @@ UAE.bankDay = function (hqs) {
     B.m = { intInc: intInc, intExp: intExp, fees: fees, treas: treas, prov: prov };
     if (UAE.segAdd) { UAE.segAdd(B, 'intInc', intInc); UAE.segAdd(B, 'treas', treas); UAE.segAdd(B, 'fees', fees); UAE.segAdd(B, 'intExp', intExp); UAE.segAdd(B, 'prov', prov); }
     B.prov = (B.prov || 0) * (1 - 1 / 365) + prov;
+    // Internal revenue attribution from Bank HQ to open branches by presence share (nets to 0 for the bank division and company).
+    var branches = UAE.firmsOf(co.id).filter(function (g) { return g.type === 'bankbranch' && g.status === 'open'; });
+    if (branches.length) {
+      var hqW = f.size * (1.2 + 0.3 * Math.max(0, Object.keys(S.cities).length - 1));
+      var brW = branches.reduce(function (s, g) { return s + g.size * 0.7; }, 0);
+      var intlInc = B.intlLast && B.intlLast.day === S.day ? (B.intlLast.inc || 0) : 0;
+      var netBankRev = Math.max(0, intInc + treas + fees + intlInc - intExp);
+      var allocTot = netBankRev * brW / (hqW + brW);
+      if (allocTot > 0 && brW > 0) {
+        f.m.rev -= allocTot;
+        branches.forEach(function (g) { g.m.rev += allocTot * (g.size * 0.7 / brW); });
+      }
+    }
   });
   // distribute the brokerage pool (fees collected on every share trade) among banks by presence
   var pool = S.brokeragePool || 0; S.brokeragePool = 0;
@@ -252,6 +265,18 @@ UAE.insDay = function (hqs) {
     UAE.fIncome(f, 'revenue', gwp); UAE.fExpense(f, 'cogs', claims - recovered); UAE.fExpense(f, 'otherOpex', ceded + comm); UAE.fIncome(f, 'interestInc', invest);
     I.m = { gwp: gwp, claims: claims, ceded: ceded, recovered: recovered, comm: comm, invest: invest, byLine: byLine };
     if (UAE.segAdd) { UAE.segAdd(I, 'gwp', gwp); UAE.segAdd(I, 'ceded', ceded); UAE.segAdd(I, 'claims', claims); UAE.segAdd(I, 'recovered', recovered); UAE.segAdd(I, 'comm', comm); UAE.segAdd(I, 'invest', invest); }
+    // Internal revenue attribution from Insurance HQ to open front offices by presence share (nets to 0 for the insurer and company).
+    var offs = UAE.firmsOf(co.id).filter(function (g) { return g.type === 'insoffice' && g.status === 'open'; });
+    if (offs.length) {
+      var hqW = f.size * (1.2 + 0.3 * Math.max(0, Object.keys(S.cities).length - 1));
+      var offW = offs.reduce(function (s, g) { return s + g.size * 0.7; }, 0);
+      var netInsRev = Math.max(0, gwp - ceded - comm - Math.max(0, claims - recovered));
+      var allocTot = netInsRev * offW / (hqW + offW);
+      if (allocTot > 0 && offW > 0) {
+        f.m.rev -= allocTot;
+        offs.forEach(function (g) { g.m.rev += allocTot * (g.size * 0.7 / offW); });
+      }
+    }
     I.gwpYear = (I.gwpYear || gwp * 365) * (1 - 1 / 365) + gwp; I.claimsYear = (I.claimsYear || claims * 365) * (1 - 1 / 365) + claims;
     co._claims = I.claimsYear / Math.max(1, I.gwpYear);
   });

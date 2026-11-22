@@ -108,11 +108,14 @@ UI.researchBox = function (f, pid, mine) {
     h += '<div class="row"><b>Researching ' + UI.esc(UAE.modelName(co, pid).replace(/(Gen |v)\d+/, function (m) { return m.replace(/\d+/, pr.gen); })) + '</b>' + (pr.paused ? ' <span class="t-m">⏸ paused: not enough cash</span>' : '') + '</div>' +
       '<div>' + UI.bar(pr.done / pr.days * 100, '#b98cff', pr.done + ' / ' + pr.days + ' days · spent ' + UAE.fmt.aed(pr.spent) + ' of ' + UAE.fmt.aed(pr.cost)) + '</div>' +
       (mine ? '<div class="row"><button class="btn sm m" data-act="resCancel" data-arg="' + f.id + '">Cancel project</button></div>' : '');
-  } else if ((co.tech[pid] || 0) >= 99.5) {
+  } else if (UAE.canResearch ? !UAE.canResearch(co, pid) : (co.tech[pid] || 0) >= 99.5) {
     h += '<div class="row"><b class="t-a">✔ Maximum technology reached</b><span class="muted">this title / product cannot be improved further, so no research money is spent</span></div>';
   } else if (mine) {
+    var gainTxt = (co.tech[pid] || 0) >= 99.5 && q.gGain != null
+      ? 'world tech index +' + q.gGain.toFixed(1) + ' (now ' + q.gNow.toFixed(1) + ' vs leader ' + q.frontier.toFixed(1) + ')'
+      : 'technology +' + q.gain.toFixed(1) + (q.gGain != null ? ' · world +' + q.gGain.toFixed(1) : '');
     h += '<div class="row"><button class="btn a" data-act="resStart" data-arg="' + f.id + '|' + pid + '">🔬 Research next model (' + (UAE.P[pid].kind === 'software' ? 'v' + q.next + '.0' : 'Gen ' + q.next) + ')</button>' +
-      '<span class="muted">' + UAE.fmt.aed(q.cost) + ' over ' + q.days + ' days · technology +' + q.gain.toFixed(1) + '</span></div>';
+      '<span class="muted">' + UAE.fmt.aed(q.cost) + ' over ' + q.days + ' days · ' + gainTxt + '</span></div>';
   }
   if (mine) h += '<div class="row"><label style="min-width:0"><input type="checkbox" data-ch="autoRes" data-arg="' + f.id + '"' + (UAE.autoResearchOn(f) ? ' checked' : '') + '> 🔁 Auto-research next ' + (UAE.P[pid].kind === 'software' ? 'version' : 'model') + '</label>' +
     '<span class="muted">starts the next project automatically whenever none is running (needs half the project cost in cash)</span></div>';

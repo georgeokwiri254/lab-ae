@@ -69,7 +69,7 @@ UAE.mallRate = function (m) {
   var svc = ten.filter(function (f) { return f.type === 'service'; }).length;
   var classes = {}, rs = 0, rn = 0;
   ten.forEach(function (f) {
-    if (f.type === 'service') { classes['svc:' + f.svc] = 1; rs += Math.min(100, 50 * Math.pow((f.quality || 50) / 50, 0.5) * Math.pow(UAE.SERVICES[f.svc].price / f.price, 0.5)); rn++; }
+    if (f.type === 'service') { var sc0 = UAE.S.cities[f.city], scpi = Math.max(((sc0 && sc0.cpiIdx) || 100) / 100, (sc0 && sc0.wageIdx) || 1); classes['svc:' + f.svc] = 1; rs += Math.min(100, 50 * Math.pow((f.quality || 50) / 50, 0.5) * Math.pow((UAE.SERVICES[f.svc].price * scpi) / f.price, 0.5)); rn++; }
     f.lines.forEach(function (l) { classes[UAE.P[l.pid].cls] = 1; rs += UAE.lineRatings(f, l).overall; rn++; });
   });
   var info = {
@@ -107,6 +107,10 @@ UAE.mallDay = function (m) {
       var r = f.lease.rent / 30;
       UAE.fExpense(f, 'otherOpex', r); UAE.fIncome(m, 'revenue', r);
       f.lease.paid = (f.lease.paid || 0) + r;
+    } else if (f.owner === m.owner && f.status === 'open') {
+      // Internal rent credit for own stores inside own mall (nets to 0 for the company; avoids paper losses on anchor malls)
+      var ir = UAE.unitMarketRent(m) * f.size * 0.85 / 30;
+      m.m.rev += ir; f.m.cost += ir;
     }
     if (S.day >= f.lease.until) {
       var market = UAE.unitMarketRent(m) * f.size, newRent = f.owner === m.owner ? 0 : market * m.mallPol.rentRenew;

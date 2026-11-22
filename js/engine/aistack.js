@@ -91,27 +91,34 @@ UAE.dcDay = function (list) {
     f._dcA = (f.servers || 0) * Math.pow((f.serverQual || 60) / 60, 0.6) * Math.pow(UAE.CLOUD.pricePerServer / Math.max(1000, f.cloudPrice), 1.6);
     sum += f._dcA;
   });
-  var subsOf = {}, needOf = {}, labsOf = {};                  // computed once per company, not once per firm
+  var subsOf = {}, needOf = {}, labsOf = {}, capOf = {};      // computed once per company, not once per firm
   list.forEach(function (f) {
     if (needOf[f.owner] == null) {
       needOf[f.owner] = UAE.ownComputeNeed(f.owner);
-      subsOf[f.owner] = Math.max(1, UAE.ownSubs(f.owner));                                               // own AI labs fill their own cloud first
+      subsOf[f.owner] = Math.max(1, UAE.ownSubs(f.owner));    // own AI labs fill their own cloud first
       labsOf[f.owner] = UAE.firmsOf(f.owner).filter(function (g) { return g.type === 'software' && g.subs; });
+      capOf[f.owner] = UAE.cloudCapacity(f.owner);
     }
-    var own = needOf[f.owner];
+    var own = needOf[f.owner], cap = capOf[f.owner], srv = f.servers || 0;
+    // Own AI labs use their own cloud first (proportionally across all open data centres, up to 100% of each DC);
+    // spare capacity serves external UAE cloud customers.
+    var ownUse = cap > 0 && srv > 0 ? Math.min(srv, own * srv / cap) : 0;
     var ext = demand * f._dcA / sum;
-    var rented = Math.min(f.servers || 0, ext + Math.min(own, (f.servers || 0) * 0.5));
-    f.util = f.servers ? Math.min(1, rented / f.servers) : 0;
+    var extSold = Math.min(Math.max(0, srv - ownUse), ext);
+    var rented = ownUse + extSold;
+    f.util = srv ? Math.min(1, rented / srv) : 0;
     f.rented = rented;
-    var ownUse = Math.min(own, rented), rev = Math.max(0, rented - ownUse) * f.cloudPrice / 30;
+    var rev = extSold * f.cloudPrice / 30;
     UAE.fIncome(f, 'revenue', rev);
     // your own AI labs pay the data centre internally at FULL cost + 10% (power, staff, upkeep, server wear - last month's
-    // cost per server; was a flat AED 1,600, below cost, so data centres serving their own labs showed paper losses).
-    // It shows in each firm's profit and nets to zero for the company.
-    var perSrv = f.last && f.last.cost > 0 && f.servers ? f.last.cost / f.servers : 3500;
+    // cost per server, with a current-month floor for newly opened centres). Shows in each firm's profit and nets to zero for the company.
+    var em = UAE.CITIES[f.city].emirate, c = S.cities[f.city], C = UAE.CITIES[f.city], T = UAE.FIRM_TYPES.datacenter;
+    var estFixed = T.staff * (1 + 0.8 * (f.size - 1)) * C.wage * (c.wageIdx || 1) * T.wageMult + (f.ppe || 0) * (0.012 / 12 + 1 / (UAE.RULES.depreciationYears * 12));
+    var estPerSrv = srv > 0 ? 1400 * (UAE.RULES.utilityMult[em] || 1) + estFixed / srv : 3500;
+    var perSrv = f.last && f.last.cost > 0 && srv ? Math.max(f.last.cost / srv, estPerSrv * 0.9) : Math.max(3500, estPerSrv);
     var internal = ownUse * Math.max(1600, perSrv * 1.1) / 30; f.m.rev += internal; f.ownUse = ownUse;   // cost + 10% (usual internal transfer price)
     labsOf[f.owner].forEach(function (g) { g.m.cost += internal * (g.subs / subsOf[f.owner]); });
-    UAE.fExpense(f, 'utilities', (f.servers || 0) * 1400 / 30 * (UAE.RULES.utilityMult[UAE.CITIES[f.city].emirate] || 1));   // ~10 kW per rack (EST)
+    UAE.fExpense(f, 'utilities', srv * 1400 / 30 * (UAE.RULES.utilityMult[em] || 1));   // ~10 kW per rack (EST)
   });
 };
 /** Server-months of compute a company's own AI subscriptions need. */

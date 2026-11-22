@@ -59,6 +59,38 @@ UAE.researchQuote = function (f, pid) {
   }
   return out;
 };
+/** Count how many open firms of company co already have an active research project on pid (cached per game day). */
+UAE.activeResearchCount = function (co, pid) {
+  var X = UAE._idx, key = co.id + '|' + pid;
+  if (X && X.actR && X.actR[key] != null) return X.actR[key];
+  var n = 0;
+  UAE.firmsOf(co.id).forEach(function (g) { if (g.status === 'open' && g.project && g.project.pid === pid) n++; });
+  if (X) { X.actR = X.actR || {}; X.actR[key] = n; }
+  return n;
+};
+/** Max automatic parallel projects on one product (4 labs already captures strong speed without burning
+ *  duplicate budgets into n^-0.7 diminishing returns). */
+UAE.MAX_AUTO_RND = 4;
+/** Can company co still run research projects on pid? Local UAE tech stops at 100,
+ *  but world-market products have an uncapped World Tech Index racing advancing leaders. */
+UAE.canResearch = function (co, pid) {
+  return (co.tech[pid] || 0) < 99.5 || !!(UAE.WM && UAE.WM[pid]);
+};
+/** Should auto-research start another project on pid? Pauses once local tech is 100 and
+ *  (for world-market products) already 10+ index points ahead of the world leader. */
+UAE.needsAutoResearch = function (co, pid) {
+  if ((co.tech[pid] || 0) < 99.5) return true;
+  return !!(UAE.WM && UAE.WM[pid] && UAE.gtech(co, pid) < UAE.wmFrontier(pid) + 10);
+};
+/** Guard for automatic software-studio research: at most 1 active project per title on a studio,
+ *  and once local tech is 100 only auto-run on studios whose revenue comfortably covers the project cost. */
+UAE.canAutoSoftwareResearch = function (co, f, pid) {
+  if (!UAE.needsAutoResearch(co, pid)) return false;
+  if (UAE.activeResearchCount(co, pid) >= 1) return false;
+  if ((co.tech[pid] || 0) < 99.5) return true;
+  var q = UAE.researchQuote(f, pid), mCost = q.cost / Math.max(1, q.days) * 30;
+  return (f.last && f.last.rev || 0) * 0.7 >= mCost;
+};
 UAE.startResearch = function (f, pid) {
   var co = UAE.co(f.owner), k = UAE.FIRM_TYPES[f.type].kind, P = UAE.P[pid];
   if (!P) return { ok: false, why: 'Unknown product.' };
@@ -66,14 +98,18 @@ UAE.startResearch = function (f, pid) {
   if (k === 'software' && pid !== UAE.swPid(f)) return { ok: false, why: 'A software company researches its own title.' };
   if (f.status !== 'open') return { ok: false, why: 'The firm is not open yet.' };
   if (f.project) return { ok: false, why: 'A project is already running here: ' + UAE.P[f.project.pid].name + '.' };
-  if ((co.tech[pid] || 0) >= 99.5) return { ok: false, why: P.name + ' is already at maximum technology (100).' };
+  if (!UAE.canResearch(co, pid)) return { ok: false, why: P.name + ' is already at maximum technology (100).' };
   var q = UAE.researchQuote(f, pid);
   if (co.bs.cash < q.cost * 0.25) return { ok: false, why: 'Needs at least ' + UAE.fmt.aed(q.cost * 0.25) + ' cash to start.' };
   f.project = { pid: pid, cost: q.cost, days: q.days, done: 0, spent: 0, gen: q.next, start: UAE.S.day };
   if (k === 'rnd') f.target = pid;
+  if (UAE._idx && UAE._idx.actR) UAE._idx.actR[co.id + '|' + pid] = (UAE._idx.actR[co.id + '|' + pid] || 0) + 1;
   return { ok: true, quote: q };
 };
-UAE.cancelResearch = function (f) { f.project = null; };
+UAE.cancelResearch = function (f) {
+  if (f.project && UAE._idx && UAE._idx.actR) delete UAE._idx.actR[f.owner + '|' + f.project.pid];
+  f.project = null;
+};
 
 /** Auto-research: software companies default ON, R&D centres default OFF (tick the box). */
 UAE.autoResearchOn = function (f) { return f.autoResearch != null ? f.autoResearch : f.type === 'software'; };
@@ -81,12 +117,15 @@ UAE.autoResearchOn = function (f) { return f.autoResearch != null ? f.autoResear
 /** Daily: project spending and completion (all R&D centres and software companies). */
 UAE.researchDay = function (f) {
   if (!f.project && f.status === 'open' && UAE.autoResearchOn(f) && UAE.isHuman(UAE.co(f.owner))) {
-    var pid0 = f.type === 'software' ? UAE.swPid(f) : f.target, q0 = UAE.researchQuote(f, pid0);
-    if ((UAE.co(f.owner).tech[pid0] || 0) < 99.5 && UAE.co(f.owner).bs.cash >= q0.cost * 0.5 && UAE.startResearch(f, pid0).ok)       // keeps a cash buffer before starting
-      UAE.news(f.name + ' auto-started research on ' + UAE.modelName(UAE.co(f.owner), pid0).replace(/(Gen |v)\d+/, function (m) { return m.replace(/\d+/, q0.next); }) + ' (' + UAE.fmt.aed(q0.cost) + ', ' + q0.days + ' days).', 'firm');
+    var co0 = UAE.co(f.owner), pid0 = f.type === 'software' ? UAE.swPid(f) : f.target, q0 = UAE.researchQuote(f, pid0);
+    var allowAuto = f.type === 'software'
+      ? UAE.canAutoSoftwareResearch(co0, f, pid0)
+      : (UAE.needsAutoResearch(co0, pid0) && UAE.activeResearchCount(co0, pid0) < UAE.MAX_AUTO_RND);
+    if (allowAuto && co0.bs.cash >= q0.cost * 0.5 && UAE.startResearch(f, pid0).ok)       // keeps a cash buffer before starting
+      UAE.news(f.name + ' auto-started research on ' + UAE.modelName(co0, pid0).replace(/(Gen |v)\d+/, function (m) { return m.replace(/\d+/, q0.next); }) + ' (' + UAE.fmt.aed(q0.cost) + ', ' + q0.days + ' days).', 'firm');
   }
   var p = f.project; if (!p) return;
-  if ((UAE.co(f.owner).tech[p.pid] || 0) >= 99.5) { f.project = null; return; }   // already at maximum: stop spending
+  if (!UAE.canResearch(UAE.co(f.owner), p.pid)) { f.project = null; return; }   // non-world product at maximum: stop spending
   var co = UAE.co(f.owner), daily = p.cost / p.days;
   if (co.bs.cash < daily) { p.paused = true; return; }
   p.paused = false;
@@ -101,8 +140,10 @@ UAE.researchDay = function (f) {
     co.gtech[p.pid] = UAE.gtech(co, p.pid) + gg;
   }
   f.project = null;
-  UAE.news(f.name + ' completed ' + UAE.modelName(co, p.pid) + ' - technology now ' + co.tech[p.pid].toFixed(1) + '.', UAE.isHuman(co) ? 'firm' : 'ai');
-  if (!UAE.isHuman(co) && co.bs.cash > p.cost * 3) UAE.startResearch(f, p.pid);   // AI keeps its pipeline going
+  if (UAE._idx && UAE._idx.actR) delete UAE._idx.actR[co.id + '|' + p.pid];
+  var wNote = UAE.WM && UAE.WM[p.pid] && co.gtech && co.gtech[p.pid] != null ? ' · world tech index ' + co.gtech[p.pid].toFixed(1) : '';
+  UAE.news(f.name + ' completed ' + UAE.modelName(co, p.pid) + ' - technology now ' + co.tech[p.pid].toFixed(1) + wNote + '.', UAE.isHuman(co) ? 'firm' : 'ai');
+  if (!UAE.isHuman(co) && UAE.needsAutoResearch(co, p.pid) && UAE.activeResearchCount(co, p.pid) < UAE.MAX_AUTO_RND && co.bs.cash > p.cost * 3) UAE.startResearch(f, p.pid);   // AI keeps its pipeline going
 };
 
 /** Daily operation of every software company: development drift, licence stock, online direct sales. */

@@ -123,16 +123,19 @@ UAE.worldDay = function (open) {
       } else {
         // goods: ship from factory stock, keeping ~3 days of output for UAE buyers and own factories
         var want = dayAED / base, gwCost = function (f) { var gw = UAE.geo.nearestGateway(f.c); return P.t * (gw.km * 1.25 + 3) * UAE.RULES.freightPerTonKm; };
+        var exp = UAE.hasFirmIn(x.co.id, 'exporter') ? 1 : 0.95;
         var avail = x.firms.map(function (f) {
           var l = f.lines.find(function (y) { return y.pid === pid; }), s = f.stock[pid];
           var daily = l ? Math.max(1, l.made / Math.max(1, (S.day % 30) + 1)) : 1;
-          return { f: f, l: l, q: s ? Math.max(0, s.q - daily * 3) : 0 };
+          var netPx = price * exp - gwCost(f);
+          // Do not dump exports below unit manufacturing cost (hold stock until R&D lifts world pricing or sell locally)
+          var ok = s && (netPx >= s.cost * 1.02 || (l && l.forceExport));
+          return { f: f, l: l, q: ok ? Math.max(0, s.q - daily * 3) : 0, netPx: Math.max(0, netPx) };
         });
         var have = avail.reduce(function (s, a) { return s + a.q; }, 0), fill = have > 0 ? Math.min(1, want / have) : 0;
-        var exp = UAE.hasFirmIn(x.co.id, 'exporter') ? 1 : 0.95;
         avail.forEach(function (a) {
           var q = a.q * fill; if (q <= 0) return;
-          var basis = UAE.stockTake(a.f, pid, q), r = q * Math.max(0, price * exp - gwCost(a.f));
+          var basis = UAE.stockTake(a.f, pid, q), r = q * a.netPx;
           UAE.fIncome(a.f, 'revenue', r); UAE.fCogs(a.f, basis);
           if (a.l) { a.l.exported = (a.l.exported || 0) + q; a.l.worldSold = q; }
           a.f.worldRev = r; S.cities[a.f.city].exportsM = (S.cities[a.f.city].exportsM || 0) + r;
@@ -251,12 +254,27 @@ UAE.ceoTechRace = function (co) {
     else if (!f.project && co.bs.cash > UAE.researchQuote(f, f.entryFor).cost * 0.5) { f.target = f.entryFor; UAE.startResearch(f, f.entryFor); }
   });
   var idle = UAE.firmsOf(co.id).filter(function (f) { return f.type === 'rnd' && f.status === 'open' && !f.project && !f.entryFor; });
-  idle.forEach(function (f, i) {
-    // spread the centres over the top gaps (the biggest gap gets the most centres)
-    var pick = cand[i % Math.min(cand.length, 4)].pid;
-    f.target = pick; f.autoResearch = true;
-    if (co.bs.cash > UAE.researchQuote(f, pick).cost * 0.5) UAE.startResearch(f, pick);
-  });
+  if (idle.length) {
+    // Spread labs across all lagging world products, capped at MAX_AUTO_RND active teams per product so
+    // hundreds of labs don't pile duplicate multi-billion projects onto the same product.
+    var cap = UAE.MAX_AUTO_RND || 4, assigned = [];
+    idle.forEach(function (f) {
+      var pick = null;
+      for (var round = 0; round < cap && !pick; round++) {
+        var c = cand.find(function (x) { return (used[x.pid] || 0) <= round; });
+        if (c) pick = c.pid;
+      }
+      if (!pick) return;
+      used[pick] = (used[pick] || 0) + 1;
+      f.target = pick; f.autoResearch = true; assigned.push(f);
+    });
+    if (assigned.length) {
+      if (UAE._idx) UAE._idx.rndT = null;                 // refresh team counts before quoting parallel R&D budgets
+      assigned.forEach(function (f) {
+        if (co.bs.cash > UAE.researchQuote(f, f.target).cost * 0.5) UAE.startResearch(f, f.target);
+      });
+    }
+  }
   // export capacity: the world wants more than the factories can make (and it pays) -> build more factories
   if (!human || delegated) UAE.ceoExportCapacity(co);
   // no R&D centre yet but selling to the world: the CEO opens one (AI companies / CEO-run)

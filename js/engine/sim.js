@@ -254,10 +254,31 @@ UAE.procure = function (f, pid, q, supplierId) {
   var qual = s.qual, fr = UAE.freight(pid, g.c, f.c, f.owner, f.city);
   var basis = UAE.stockTake(g, pid, q);
   UAE.S.freightPool[f.city] = (UAE.S.freightPool[f.city] || 0) + fr * q;
-  if (g.owner === f.owner) {                 // internal transfer at cost (no profit, consolidates cleanly)
+  if (g.owner === f.owner) {                 // internal transfer at cost on company books (consolidates cleanly)
     UAE.L.buyInventory(buyer, fr * q);       // freight paid in cash, capitalised into stock
     UAE.stockAdd(f, pid, q, basis / q + fr, qual);
     var gl = g.lines.find(function (l) { return l.pid === pid; }); if (gl) gl.sold += q;   // counts as delivered this month
+    // Cost-plus overhead internal transfer pricing for firm-level P&L (like Data Centres -> AI Labs):
+    // covers the supplying factory/farm/mine/warehouse's fixed overhead + 20% margin without squeezing
+    // downstream factories, warehouses or stores with full retail markups. Company ledger untouched; nets to 0.
+    if (f.type !== 'datacenter' && f.type !== 'warehouse' && g.type !== 'software') {
+      var unitCost = basis / q, Tg = UAE.FIRM_TYPES[g.type], Cg = UAE.CITIES[g.city], cg = UAE.S.cities[g.city];
+      var staffG = Tg.staff * (1 + 0.8 * (g.size - 1)), nLines = Math.max(1, g.lines.length);
+      var fixedM = staffG * Cg.wage * (cg ? cg.wageIdx : 1) * Tg.wageMult + (g.ppe || 0) * (0.012 / 12 + 1 / (UAE.RULES.depreciationYears * 12)) + (Tg.kwh || 0) * (1 + 0.8 * (g.size - 1)) * 0.44;
+      var P0 = UAE.P[pid], capM = 0;
+      if (Tg.kind === 'factory' && P0 && P0.rec) capM = P0.rec.cap * (1 + 0.8 * (g.size - 1)) * (g.eff || 1) * 1.5 / nLines * 30;
+      else if (Tg.kind === 'farm' && UAE.FARM[pid]) capM = UAE.FARM[pid].out * Math.max((cg && cg.cpiIdx || 100) / 100, cg && cg.wageIdx || 1) * g.size * (g.eff || 1) / nLines * 30;
+      else if ((Tg.kind === 'mine' || Tg.kind === 'oil') && UAE.RESOURCE[pid]) capM = UAE.RESOURCE[pid].out * g.size * (g.eff || 1) * 30;
+      else capM = Math.max(1, 2.5e6 * g.size / Math.max(1, unitCost) * 4);
+      var refPx = gl && gl.price > 0 ? gl.price : unitCost * 1.15;
+      var impCap = UAE.landedImport(pid, f).unit * (g.type === 'warehouse' ? 1.0 : 0.95);
+      var maxMarkup = Math.max(0, Math.min(refPx, impCap) - unitCost);
+      var markup = Math.min(maxMarkup, fixedM / Math.max(1, capM) * 1.25);
+      if (markup > 0) {
+        g.m.rev += (unitCost + markup) * q; g.m.cost += basis;
+        f.m.cost += markup * q;
+      }
+    }
   } else {                                   // arm's-length sale
     var line = g.lines.find(function (l) { return l.pid === pid; });
     var price = line ? line.price : basis / q;
@@ -369,14 +390,16 @@ UAE.lineCap = function (f, l) {
 
 /* -------------------------------------------------------------- farms */
 UAE.produceFarm = function (f) {
-  var co = UAE.co(f.owner);
+  var co = UAE.co(f.owner), c = UAE.S.cities[f.city];
+  var scale = Math.max(((c && c.cpiIdx) || 100) / 100, (c && c.wageIdx) || 1);
   f.lines.forEach(function (l) {
     var spec = UAE.FARM[l.pid]; if (!spec) return;
     var mult = 1;
-    if (spec.harvest) mult = spec.harvest.indexOf(UAE.cal.month()) >= 0 ? 3.2 : 0.15;
-    if (l.pid === 'veg') mult = UAE.SEASON.tourism[UAE.cal.month()] > 0.9 ? 1.2 : 0.6; // greenhouse output lower in summer heat
-    var q = spec.out * f.size * f.eff * mult / Math.max(1, f.lines.length) * (l.rate == null ? 1 : l.rate);
-    if (UAE.stockQ(f, l.pid) > spec.out * f.size * 15) return;   // storage full
+    if (spec.harvest) mult = spec.harvest.indexOf(UAE.cal.month()) >= 0 ? 3.2 : 0.65;  // cold-storage / year-round packing off-season
+    if (l.pid === 'veg') mult = UAE.SEASON.tourism[UAE.cal.month()] > 0.9 ? 1.2 : 0.75; // climate-controlled greenhouse
+    // Agritech productivity rises with long-term city wages/CPI so fixed-price farm output keeps pace with 2050s wages
+    var q = spec.out * scale * f.size * f.eff * mult / Math.max(1, f.lines.length) * (l.rate == null ? 1 : l.rate);
+    if (UAE.stockQ(f, l.pid) > spec.out * scale * f.size * 15) return;   // storage full
     var unit = spec.cost * (UAE.RULES.utilityMult[UAE.CITIES[f.city].emirate] || 1);
     UAE.L.buyInventory(co, unit * q);
     UAE.stockAdd(f, l.pid, q, unit, 45 + (co.tech[l.pid] || 50) * 0.4);
@@ -527,21 +550,21 @@ UAE.servicesDay = function (open) {
   var svcN = {}, svcKey = function (g) { return g.district + '|' + g.svc + '|' + (g.mall || ''); };   // competitors in the same district / mall (counted once, not per firm)
   get('service').forEach(function (g) { var key = svcKey(g); svcN[key] = (svcN[key] || 0) + 1; });
   get('service').forEach(function (f) {
-    var svc = UAE.SERVICES[f.svc], c = S.cities[f.city];
+    var svc = UAE.SERVICES[f.svc], c = S.cities[f.city], sc = Math.max((c.cpiIdx || 100) / 100, c.wageIdx || 1);
     var n = svcN[svcKey(f)];
     var cust = svc.base * (0.8 + 0.4 * UAE.corpBrand(f, 'Hospitality')) * (1 + 0.8 * (f.size - 1)) * Math.pow(Math.max(0.2, UAE.trafficIndex(f)), 0.8) * Math.pow(f.quality / 50, 0.5) * UAE.popMult(f) *
-               Math.pow(svc.price / f.price, 1.3) * UAE.season('retail') * UAE.CITIES[f.city].income * c.wageIdx /
+               Math.pow((svc.price * sc) / f.price, 1.3) * UAE.season('retail') * UAE.CITIES[f.city].income * c.wageIdx /
                (1 + 0.35 * (n - 1)) * f.eff * (0.85 + 0.3 * tour / 1.1);
     var gross = cust * f.price, net = gross / 1.05;
     UAE.fIncome(f, 'revenue', net); UAE.fExpense(f, 'cogs', net * svc.foodCost);
     c.vat += gross - net; c.govRevYtd += gross - net; f.customers = cust;
   });
 
-  // --- hotels: occupancy vs city benchmark (DXB 80.7% / ADR AED 579, REAL 2025)
+  // --- hotels: occupancy vs city benchmark (DXB 80.7% / ADR AED 579, REAL 2025, indexed to city CPI / wage growth)
   get('hotel').forEach(function (f) {
-    var C = UAE.CITIES[f.city], d = UAE.geo.district(f.district), c = S.cities[f.city];
+    var C = UAE.CITIES[f.city], d = UAE.geo.district(f.district), c = S.cities[f.city], sc = Math.max((c.cpiIdx || 100) / 100, c.wageIdx || 1);
     var rooms = UAE.FIRM_TYPES.hotel.roomsPerLevel * f.size;
-    var refADR = C.hotelADR * Math.sqrt(Math.max(0.4, d.foot) / 1.2) * (f.stars === 7 ? 3 : 1);
+    var refADR = C.hotelADR * sc * Math.sqrt(Math.max(0.4, d.foot) / 1.2) * (f.stars === 7 ? 3 : 1);
     var target = C.hotelOcc * tour * Math.pow(refADR / f.adr, 1.4) * Math.pow(f.quality / 50, 0.3) * (1 + (c.fx.hotel || 0)) * (0.85 + 0.3 * UAE.corpBrand(f, 'Hospitality'));
     target = Math.max(0.05, Math.min(0.97, target));
     f.occ = f.occ + (target - f.occ) * 0.1;
@@ -578,8 +601,9 @@ UAE.servicesDay = function (open) {
     });
   });
 
-  // --- internet companies (national market: users x take-rate x GMV / ARPU)
-  var net = get('internet'), uaePop = 0; Object.keys(S.cities).forEach(function (k) { uaePop += S.cities[k].pop; });
+  // --- internet companies (national market: users x take-rate x GMV / ARPU, indexed to UAE CPI)
+  var net = get('internet'), uaePop = 0, cpiSum = 0; Object.keys(S.cities).forEach(function (k) { uaePop += S.cities[k].pop; cpiSum += S.cities[k].pop * ((S.cities[k].cpiIdx || 100) / 100); });
+  var uaeCpi = uaePop > 0 ? cpiSum / uaePop : 1;
   var netSum = {};
   net.forEach(function (f) { var co = UAE.co(f.owner); f._s = f.size * Math.pow(f.quality / 50, 1.2) * (1 + (co.brand.Internet || co.brandBase || 10) / 50); netSum[f.model] = (netSum[f.model] || 6) + f._s; });
   net.forEach(function (f) {
@@ -587,8 +611,8 @@ UAE.servicesDay = function (open) {
     var pen = { ecommerce: 0.55, delivery: 0.45, search: 0.85, social: 0.8, streaming: 0.35 }[f.model];
     var target = uaePop * pen * f._s / netSum[f.model] * m.tech;
     f.users += (target - f.users) * 0.01;
-    var rev = f.users * (M.gmvPerUser * M.takeRate + M.arpu) / 365;
-    f.gmv = f.users * M.gmvPerUser / 365;
+    var rev = f.users * (M.gmvPerUser * M.takeRate + M.arpu) * uaeCpi / 365;
+    f.gmv = f.users * M.gmvPerUser * uaeCpi / 365;
     UAE.fIncome(f, 'revenue', rev); UAE.fExpense(f, 'otherOpex', rev * 0.35); // servers, payments, couriers
   });
   UAE.ecomDay(net);                                 // engine/aistack.js: e-commerce catalogue sales + membership
@@ -624,14 +648,15 @@ UAE.servicesDay = function (open) {
     S.cities[f.city].vat += gross - netv;
   });
 
-  // --- logistics: share of freight paid in the city yesterday + contract base
+  // --- logistics: share of freight paid in the city yesterday + contract base (indexed to city CPI & GDP growth)
   var logi = get('logistics'), lc = {};
   logi.forEach(function (f) { (lc[f.city] || (lc[f.city] = [])).push(f); });
   Object.keys(lc).forEach(function (city) {
-    var pool = S._freightYesterday[city] || 0, sum = 3;
+    var c = S.cities[city], C = UAE.CITIES[city], cpi = (c.cpiIdx || 100) / 100, gdpScale = Math.sqrt(Math.max(1, c.gdp / C.gdp));
+    var pool = (S._freightYesterday[city] || 0) * cpi, sum = 3;
     lc[city].forEach(function (f) { sum += f.size; });
     lc[city].forEach(function (f) {
-      var rev = pool * f.size / sum + 9000 * f.size * S.macro.logistics;
+      var rev = pool * f.size / sum + 9000 * f.size * S.macro.logistics * cpi * gdpScale;
       UAE.fIncome(f, 'revenue', rev); UAE.fExpense(f, 'otherOpex', rev * 0.45); // fuel, tolls (Salik), vehicles
     });
   });
@@ -670,6 +695,8 @@ UAE.fixedCosts = function (f) {
   UAE.fExpense(f, T.kind === 'rnd' ? 'rnd' : 'salaries', wages);
   UAE.fExpense(f, 'utilities', util);
   UAE.fExpense(f, 'maintenance', (f.ppe * 0.012) / 365);
+  // Clear legacy CMO ad budgets left on bank branches / insurance offices / warehouses from older saves
+  if (f.adByCmo && (f.type === 'bankbranch' || f.type === 'insoffice' || f.type === 'warehouse')) { f.adBudget = 0; f.adByCmo = false; }
   if (f.adBudget) { UAE.fExpense(f, 'advertising', f.adBudget / 30); UAE.S.adPool[f.city] = (UAE.S.adPool[f.city] || 0) + f.adBudget / 30; }
   if (f.trainBudget) { UAE.fExpense(f, 'training', f.trainBudget / 30); }
   // efficiency: training & manager push toward 1.2, otherwise drifts to 0.9; expertise adds unit levels
@@ -686,6 +713,31 @@ UAE.constructionCosts = function (f) {
 };
 
 /* --------------------------------- legacy core business of real groups */
+/* Growth of a real group's core business fades from its sector's early rate to long-run world nominal growth
+ * (4%/yr) over ~6 years. It used to compound the early rate forever: tech grew 15%/yr for 34 years (x116), so in
+ * 2060 Apple's revenue was ~100x the whole world smartphone market. */
+UAE.LEGACY_LR = 0.04; UAE.LEGACY_FADE = 6;
+UAE.legacyGrow = function (L, yrs) { return L.grow > UAE.LEGACY_LR ? UAE.LEGACY_LR + (L.grow - UAE.LEGACY_LR) * Math.exp(-yrs / UAE.LEGACY_FADE) : L.grow; };
+/** Size index of the core business after `yrs` years on that path (1 = start). */
+UAE.legacyIdxPath = function (L, yrs) {
+  var g = L.grow, lr = UAE.LEGACY_LR, T = UAE.LEGACY_FADE;
+  return g > lr ? Math.exp(lr * yrs + (g - lr) * T * (1 - Math.exp(-yrs / T))) : Math.exp(g * yrs);
+};
+/** One-time restatement of saves made before the fix: core businesses that grew above the path are put back on it
+ *  (revenue history and the last 12 months' statements are scaled the same way, so TTM figures are right at once). */
+UAE.legacyRebase = function () {
+  var S = UAE.S, yrs = S.day / 365, n = 0;
+  UAE.allCos().forEach(function (co) {
+    var L = co.legacy; if (!L || L.v2) return;
+    L.v2 = 1;
+    var path = UAE.legacyIdxPath(L, yrs); if (!(L.idx > path * 1.02)) return;
+    var k = path / L.idx; L.idx = path; n++;
+    (co.is.months || []).forEach(function (m) { ['revenue', 'coreOpex', 'tax', 'cogs'].forEach(function (x) { if (m[x]) m[x] *= k; }); });
+    ['revenue', 'coreOpex'].forEach(function (x) { co.is.cur[x] *= k; });
+    (co.history || []).forEach(function (h) { if (h.rev) h.rev *= k; if (h.ni) h.ni *= k; });
+  });
+  if (n) UAE.news('📉 Restated ' + n + ' real companies: their core business now grows at a realistic rate (fading to 4% a year) instead of compounding its early growth forever.', 'finance');
+};
 UAE.legacyDay = function (co) {
   var L = co.legacy, m = UAE.S.macro, sec = co.sector;
   var macro = 1;
@@ -696,7 +748,7 @@ UAE.legacyDay = function (co) {
   if (sec === 'retail') macro = UAE.season('retail') * m.retail;
   if (sec === 'tech' || sec === 'internet' || sec === 'telecom') macro = m.tech;
   if (sec === 'bank') macro = 0.7 + 0.3 * (m.rate / UAE.RULES.baseRate);
-  L.idx *= 1 + L.grow / 365;
+  L.idx *= 1 + UAE.legacyGrow(L, UAE.S.day / 365) / 365;
   L.shock = (L.shock || 1) * (1 + UAE.rng.normal() * 0.004) * 0.98 + 0.02;
   var rev = L.rev / 365 * L.idx * macro * L.shock;
   var costBase = (L.rev - L.preTax) / 365;

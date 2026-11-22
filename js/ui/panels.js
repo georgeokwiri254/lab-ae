@@ -65,10 +65,10 @@ UI.R.corps = function () {
   var list = UAE.allCos().filter(function (c) {
     if (flt === 'listed') return c.status === 'LISTED'; if (flt === 'private') return c.status !== 'LISTED';
     if (flt === 'real') return c.real; if (flt === 'ai') return c.fictional; if (flt === 'mine') return c.controller === 'PLAYER'; return true;
-  }).map(function (c) { var t = UAE.ttm(c); return { c: c, rev: t.revenue, ni: UAE.netIncome(t), val: UAE.companyValue(c) }; })
+  }).map(function (c) { var t = UAE.ttm(c); return { c: c, rev: UAE.totalRevenue(t), ni: UAE.netIncome(t), val: UAE.companyValue(c) }; })
     .sort(function (a, b) { return b.val - a.val; });
   var h = UI.tabs('corps', [['all','All'],['listed','Listed'],['private','Private / state'],['real','Real UAE'],['ai','AI start-ups'],['mine','Mine']], flt);
-  h += '<table class="t"><tr><th>Company</th><th>Listing</th><th>HQ</th><th>Sector</th><th class="n">Revenue TTM</th><th class="n">Net profit TTM</th><th class="n">Value</th><th class="n">Firms</th></tr>';
+  h += '<table class="t"><tr><th>Company</th><th>Listing</th><th>HQ</th><th>Sector</th><th class="n" title="Sales + interest + investment income">Revenue TTM</th><th class="n">Net profit TTM</th><th class="n">Value</th><th class="n">Firms</th></tr>';
   list.forEach(function (x) {
     var c = x.c;
     h += '<tr class="click' + (c.controller === 'PLAYER' ? ' me' : '') + '" data-act="corp" data-arg="' + c.id + '"><td>' + UI.coLink(c) + (c.real ? ' ' + UI.tag(c.finSrc) : c.fictional ? ' <span class="pill syn">AI</span>' : '') + '</td><td>' + UI.exch(c) + '</td><td>' + UAE.CITIES[c.hq].name + '</td><td>' + ((UAE.SECTORS[c.sector] || {}).name || c.sector) + '</td>' +
@@ -106,7 +106,7 @@ UI.corpOverview = function (co) {
   var t = UAE.totals(co), ttm = UAE.ttm(co), ni = UAE.netIncome(ttm), ceo = UAE.person(co.ceo);
   var pe = UAE.isTradable(co) && ni > 0 ? UAE.mcap(co) / ni : null;
   var h = '<div class="cards">' +
-    UI.card('Revenue TTM', F().aed(ttm.revenue)) + UI.card('Net profit TTM', UI.money(ni), 'margin ' + F().pct(ttm.revenue ? ni / ttm.revenue : 0), ni >= 0 ? 'a' : 'm') +
+    UI.card('Revenue TTM', F().aed(UAE.totalRevenue(ttm)), UAE.totalRevenue(ttm) > ttm.revenue * 1.01 ? 'sales ' + F().aed(ttm.revenue) + ' + interest ' + F().aed(Math.max(0, ttm.interestInc)) + ' + investments ' + F().aed(Math.max(0, ttm.investInc)) : '') + UI.card('Net profit TTM', UI.money(ni), 'margin ' + F().pct(UAE.totalRevenue(ttm) ? ni / UAE.totalRevenue(ttm) : 0), ni >= 0 ? 'a' : 'm') +
     UI.card(UAE.isTradable(co) ? 'Market cap' : 'Est. equity value', F().aed(UAE.companyValue(co)), UAE.isTradable(co) ? 'AED ' + F().px(co.price) + ' / share' : 'private - not tradable') +
     UI.card('Total assets', F().aed(t.assets)) + UI.card('Equity (book)', F().aed(t.equity)) + UI.card('Cash', F().aed(co.bs.cash)) +
     UI.card('P/E', pe ? pe.toFixed(1) + 'x' : '—') + UI.card('Credit rating', co.credit || '—', 'loan rate ' + F().pct(UAE.loanRate(co), 2)) + '</div>';
@@ -644,7 +644,7 @@ UI.act.bondTrade = function (arg) {
 UI.act.rank = function () { UI.open('Rankings & CEOs', UI.R.rank); };
 UI.rankTable = function (by, highlight) {
   var rows = UAE.allCos().filter(function (c) { return c.status !== 'BANKRUPT' && !c.foreign; }).map(function (c) {
-    var t = UAE.ttm(c); return { c: c, rev: t.revenue, ni: UAE.netIncome(t), value: UAE.companyValue(c), assets: UAE.totals(c).assets };
+    var t = UAE.ttm(c); return { c: c, rev: UAE.totalRevenue(t), ni: UAE.netIncome(t), value: UAE.companyValue(c), assets: UAE.totals(c).assets };
   }).sort(function (a, b) { return b[by] - a[by]; });
   var h = '<table class="t"><tr><th>#</th><th>Company</th><th class="n">Revenue TTM</th><th class="n">Net profit TTM</th><th class="n">Value</th><th class="n">Assets</th></tr>';
   rows.forEach(function (r, i) {

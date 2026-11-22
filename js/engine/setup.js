@@ -117,11 +117,11 @@ UAE.createFirm = function (ownerId, type, c, opts) {
   if (mall) f.lease = UAE.newLease(mall, f, ownerId);
   if (T.kind === 'mall') f.mallPol = { lease: 'any', rentNew: 1.0, rentRenew: 1.0, term: 12 };
   // kind-specific defaults
-  var C = UAE.CITIES[d.city];
-  if (T.kind === 'hotel') { f.adr = Math.round(C.hotelADR * Math.sqrt(Math.max(0.4, d.foot) / 1.2) * (opts.stars === 7 ? 3 : 1)); f.occ = C.hotelOcc; f.stars = opts.stars || 5; }
+  var C = UAE.CITIES[d.city], sc0 = UAE.S.cities[d.city], sc = Math.max(((sc0 && sc0.cpiIdx) || 100) / 100, (sc0 && sc0.wageIdx) || 1);
+  if (T.kind === 'hotel') { f.adr = Math.round(C.hotelADR * sc * Math.sqrt(Math.max(0.4, d.foot) / 1.2) * (opts.stars === 7 ? 3 : 1)); f.occ = C.hotelOcc; f.stars = opts.stars || 5; }
   if (T.kind === 'apartment') { f.rent = Math.round(UAE.marketRent(f)); f.occ = 0.6; }
   if (T.kind === 'office' || T.kind === 'mall') { f.rent = Math.round(UAE.marketRent(f)); f.occ = 0.6; }
-  if (T.kind === 'service') { f.svc = opts.svc || 'cafe'; f.price = UAE.SERVICES[f.svc].price; }
+  if (T.kind === 'service') { f.svc = opts.svc || 'cafe'; f.price = Math.round(UAE.SERVICES[f.svc].price * sc * 100) / 100; }
   if (T.kind === 'internet') { f.model = opts.model || 'ecommerce'; f.users = 0; }
   if (T.kind === 'software') { f.swClass = opts.swClass || UAE.SOFTWARE[1]; }
   if (T.kind === 'telecom') { f.subs = 0; f.arpu = 95; }
@@ -159,7 +159,9 @@ UAE.addLine = function (f, pid, o) {
 UAE.marketRent = function (f) {
   var d = UAE.geo.district(f.district), R = UAE.RENT[f.city];
   var loc = Math.pow(Math.max(50, d.land) / UAE.cityLandAvg(f.city), 0.35);
-  var idx = UAE.S.cities[f.city] ? UAE.S.cities[f.city].rentIdx : 1;
+  var c = UAE.S.cities[f.city], cpi = ((c && c.cpiIdx) || 100) / 100;
+  // Nominal rent scales with city CPI while rentIdx captures real housing supply/demand; commercial malls track wages/CPI
+  var idx = (c ? c.rentIdx : 1) * (f.type === 'mall' ? Math.max(cpi, (c && c.wageIdx) || 1) : cpi);
   if (f.type === 'apartment') return R.unit * loc * idx;
   if (f.type === 'mall') return R.office * 1.8 * Math.max(0.5, d.foot) * idx;
   return R.office * loc * idx;
@@ -281,7 +283,7 @@ UAE.seedCompany = function (s) {
   co.bs.cash = assets * (s.sec === 'bank' ? 0.05 : 0.08);
   co.bs.coreAssets = assets - co.bs.cash; co.bs.coreLiab = liab;
   co.bs.shareCap = eq * 0.3; co.bs.retained = eq * 0.7;
-  co.legacy = { rev: rev, ni: ni, preTax: ni > 0 ? ni / 0.91 : ni, grow: sec.grow, idx: 1 };
+  co.legacy = { rev: rev, ni: ni, preTax: ni > 0 ? ni / 0.91 : ni, grow: sec.grow, idx: 1, v2: 1 };
   co.seedNI = ni;
   // ownership: strategic holders (EST) + public float
   var used = 0;
