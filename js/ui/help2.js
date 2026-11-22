@@ -374,3 +374,12 @@ Object.assign(UI.HELP_TERMS, {
   'gdp aed bn/yr': 'Size of the city economy in AED billions per year.', 'in service': 'Economic projects that are finished and adding GDP.', 'gdp added bn/yr': 'Extra yearly GDP from finished projects in this city.'
 });
 Object.assign(UI.HELP_ACT, { govInvest: 'Buy development bonds: the government spends the money next month; you earn interest monthly and get it back in 10 years.', govRedeem: 'Sell this bond back to the government now for 98% of its value.', govInvSet: 'Fill in this amount.' });
+Object.assign(UI.HELP_TERMS, {
+  'savings': 'Money the emirate has saved over the years (budget surpluses). Part of it is spent every month.',
+  'spent from savings /mo': 'How much of its savings the government spends each month on projects, state companies, utilities and housing.',
+  'utilities invested': 'Total invested in power plants, desalination, grids and district cooling.',
+  'power & water price': 'How much cheaper electricity and water are for businesses in this emirate thanks to utility investment.',
+  'state company capital': 'Capital the government has put into its state-owned company (Dubai Holding, Mubadala, state enterprises).',
+  'gov. dividends ytd': 'Dividends paid this year to the government by companies it owns shares in – they go into the budget.',
+  'state-owned company': 'A company the government owns. Its CEO builds businesses with the capital; half its profit is paid back to the budget.'
+});

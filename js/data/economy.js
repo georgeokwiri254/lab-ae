@@ -203,7 +203,7 @@ UAE.P = {}; UAE.PRODUCTS.forEach(function (p) { UAE.P[p.id] = p; });
  * --------------------------------------------------------------------------*/
 UAE.FIRM_TYPES = {
   retail:     { code:'B01', name:'Retail Store',       icon:'🛍', color:'#3ad6ff', zones:['cbd','commercial','residential','tourism'], m2:600,  cpm:3200, floors:1, staff:18, wageMult:0.75, lines:4, kwh:22000, kind:'retail' },
-  rnd:        { code:'B02', name:'R&D Center',         icon:'🧪', color:'#b98cff', zones:['tech','cbd','freezone'],    m2:1500, cpm:4200, floors:3, staff:40, wageMult:2.2, lines:1, kwh:60000, kind:'rnd' },
+  rnd:        { code:'B02', name:'R&D Center',         icon:'🧪', color:'#b98cff', zones:['tech','cbd','freezone','commercial'],    m2:1500, cpm:4200, floors:3, staff:40, wageMult:2.2, lines:1, kwh:60000, kind:'rnd' },
   farm:       { code:'B03', name:'Farm',               icon:'🌴', color:'#6fdc6f', zones:['agri'],                     m2:60000,cpm:120,  floors:0.1, staff:30, wageMult:0.5, lines:2, kwh:40000, kind:'farm' },
   warehouse:  { code:'B04', name:'Warehouse',          icon:'📦', color:'#c9a25f', zones:['industrial','port','freezone'], m2:8000, cpm:1500, floors:1, staff:25, wageMult:0.7, lines:4, kwh:30000, kind:'warehouse' },
   factory:    { code:'B05', name:'Factory',            icon:'🏭', color:'#ff8a3d', zones:['industrial','freezone','port'], m2:9000, cpm:2600, floors:1.2, staff:90, wageMult:0.8, lines:3, kwh:250000, kind:'factory' },
@@ -219,8 +219,8 @@ UAE.FIRM_TYPES = {
   commercial: { code:'B15', name:'Commercial / Office Tower', icon:'🏬', color:'#9fc6ff', zones:['cbd','commercial','tech'], m2:3500, cpm:4800, floors:35, staff:20, wageMult:0.8, lines:0, kwh:500000, kind:'office', unitM2:130 },
   civic:      { code:'B16', name:'Civic Building',     icon:'🏛', color:'#9de0d0', zones:['cbd','commercial','residential'], m2:6000, cpm:5200, floors:2, staff:110, wageMult:1.2, lines:0, kwh:120000, kind:'civic', gov:true },
   sports:     { code:'B17', name:'Sports Facility',    icon:'🏟', color:'#7df0b0', zones:['residential','tourism','commercial'], m2:25000, cpm:2200, floors:0.6, staff:50, wageMult:0.7, lines:0, kwh:150000, kind:'sports' },
-  software:   { code:'B18', name:'Software Company',   icon:'💾', color:'#a98bff', zones:['tech','cbd'], dlc:'Digital Age', m2:1200, cpm:4500, floors:4, staff:70, wageMult:2.4, lines:0, kwh:45000, kind:'software' },
-  internet:   { code:'B19', name:'Internet / E-commerce Co.', icon:'🌐', color:'#5fe0ff', zones:['tech','cbd','freezone'], dlc:'Digital Age', m2:1500, cpm:4500, floors:4, staff:90, wageMult:2.0, lines:8, kwh:70000, kind:'internet' },
+  software:   { code:'B18', name:'Software Company',   icon:'💾', color:'#a98bff', zones:['tech','cbd','commercial'], dlc:'Digital Age', m2:1200, cpm:4500, floors:4, staff:70, wageMult:2.4, lines:0, kwh:45000, kind:'software' },
+  internet:   { code:'B19', name:'Internet / E-commerce Co.', icon:'🌐', color:'#5fe0ff', zones:['tech','cbd','freezone','commercial'], dlc:'Digital Age', m2:1500, cpm:4500, floors:4, staff:90, wageMult:2.0, lines:8, kwh:70000, kind:'internet' },
   telecom:    { code:'B20', name:'Telecom Company',    icon:'📡', color:'#40c8ff', zones:['tech','cbd'], dlc:'Digital Age', m2:3000, cpm:6000, floors:5, staff:200, wageMult:1.8, lines:0, kwh:600000, kind:'telecom' },
   bankhq:     { code:'B21', name:'Bank Headquarters',  icon:'🏦', color:'#4dd2a8', zones:['cbd'], dlc:'Banking & Finance', m2:2500, cpm:7000, floors:20, staff:150, wageMult:2.4, lines:0, kwh:150000, kind:'bankhq' },
   bankbranch: { code:'B22', name:'Bank Branch',        icon:'💳', color:'#68e0b9', zones:['cbd','commercial','residential','tourism'], dlc:'Banking & Finance', m2:400, cpm:4200, floors:1, staff:12, wageMult:1.3, lines:0, kwh:15000, kind:'bankbranch' },

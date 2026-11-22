@@ -74,9 +74,14 @@ UAE.MAX_AUTO_RND = 4;
 /** How many R&D teams the CEO may run in parallel on one product. 4 normally; when far behind the world leader the
  *  CEO adds teams (+1 per 3 points of gap, up to 16) if the company can afford it (cash > AED 500bn), else +1 per 8 points
  *  (up to 8). Parallel teams cost less each but add up with diminishing returns (n^0.3 overall), so they close gaps faster. */
+/** Computer-run (AI / real / state) companies keep yearly R&D within 15% of their revenue (incl. interest & investment income). */
+UAE.rndOverBudget = function (co) {
+  var t = UAE.ttm(co); return (t.rnd || 0) > 0.15 * Math.max(0, UAE.totalRevenue ? UAE.totalRevenue(t) : t.revenue);
+};
 UAE.rndTeamCap = function (co, pid) {
   var base = UAE.MAX_AUTO_RND; if (!UAE.WM || !UAE.WM[pid] || !UAE.gtech) return base;
   var gap = UAE.wmFrontier(pid) - UAE.gtech(co, pid); if (gap <= 5) return base;
+  if (!UAE.isHuman(co) && UAE.rndOverBudget(co)) return base;          // computer-run companies: R&D within 15% of revenue
   return co.bs.cash > 5e11 ? Math.min(16, base + Math.ceil(gap / 3)) : Math.min(8, base + Math.ceil(gap / 8));
 };
 /** Can company co still run research projects on pid? Local UAE tech stops at 100,

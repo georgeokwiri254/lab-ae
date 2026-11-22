@@ -277,7 +277,7 @@ UAE.ceoTechRace = function (co) {
     }
   }
   // not enough labs for the teams the gaps call for: the CEO opens more R&D centres (up to 8 a month)
-  if ((!human || delegated) && co.bs.cash > 1e11 && UAE.buildFor) {
+  if ((!human || delegated) && co.bs.cash > 1e11 && UAE.buildFor && (human || !UAE.rndOverBudget(co))) {
     var short = [], nNew = 0;
     cand.slice(0, 10).forEach(function (x) { var want = UAE.rndTeamCap(co, x.pid) - (used[x.pid] || 0); for (var q = 0; q < want; q++) short.push(x.pid); });
     for (var s2 = 0; s2 < short.length && nNew < 8; s2++) {

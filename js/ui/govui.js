@@ -24,6 +24,7 @@ UI.econ_dev = function () {
     UI.card('GDP added by projects', 'AED ' + t.projGdp.toFixed(1) + 'bn/yr', 'every AED invested adds ~' + Math.round(UAE.GOVDEV.projYield * 100) + ' fils of yearly GDP') + '</div>' +
     '<div class="note"><b>Economic projects</b> raise each city\'s GDP for good – and GDP drives what households and businesses buy, so your shops, factories and services sell more and firms create more jobs. Up to 100% of revenue can be reinvested; the higher the share, the faster homes, offices and new zones appear.</div>' +
     '<div class="note">Each month every emirate spends this share of its revenue where the shortage is biggest: <b>housing</b> (homes for newcomers), <b>commercial buildings</b> (offices the jobs need), <b>civic facilities</b> (schools, hospitals, parks – raise quality of life) and <b>roads</b>. Anything left over builds extra homes and civic facilities to attract more people. Investment also opens <b>new zones</b> (planned districts) where companies can build.</div></div>';
+  h += UI.govSavingsBox();
   h += UI.govInvestBox();
   // per-city tables (two, so they fit the window)
   var cities = Object.keys(S.cities);
@@ -85,6 +86,29 @@ UI.govInvestBox = function () {
   }
   return h + '<div class="note">On the balance sheet the bonds are an investment (Investments → "of which government development bonds"); interest is interest income. ' + G.src.split(';')[0] + '.</div></div>';
 };
+/** Savings, public utilities and state-owned companies per emirate. */
+UI.govSavingsBox = function () {
+  var S = UAE.S, A = UAE.fmt.aed, Gs = UAE.govState(), G = UAE.GOVDEV, sv = Gs.savings != null ? Gs.savings : G.savingsSpend, cut = UAE._utilCut || {};
+  var h = '<div class="box"><h3>💰 Savings, public utilities &amp; state-owned companies</h3>' +
+    '<div class="row"><label style="min-width:0">Share of savings the governments spend per year</label><input type="range" class="slider" min="0" max="50" step="2" value="' + Math.round(sv * 100) + '" data-in="govSav" style="width:220px;max-width:100%;vertical-align:middle"> <b id="govSavOut" class="t-a">' + Math.round(sv * 100) + '%</b></div>' +
+    '<div class="note">Budgets now follow <b>actual tax income</b> (incl. the corporate tax companies pay), and emirates with savings spend part of them every month: ' +
+    Math.round(G.savingsSplit.proj * 100) + '% economic projects, ' + Math.round(G.savingsSplit.soe * 100) + '% capital for <b>state-owned companies</b> (Dubai Holding, Mubadala and a state enterprise company in each other emirate – their CEOs build businesses and pay half their profit back to the budget), ' +
+    Math.round(G.savingsSplit.util * 100) + '% <b>public utilities</b> (power, desalination, grids, district cooling – cheaper electricity and water for every business, up to −' + Math.round(G.utilMaxCut * 100) + '%) and ' + Math.round(G.savingsSplit.homes * 100) + '% housing. ' +
+    Math.round(G.utilShare * 100) + '% of the normal development budget also goes to utilities.</div>';
+  h += '<table class="t"><tr><th>City</th><th class="n">Savings</th><th class="n">Spent from savings /mo</th><th class="n">Utilities invested</th><th class="n">Power &amp; water price</th><th class="n">State company capital</th><th class="n">Gov. dividends YTD</th></tr>';
+  Object.keys(S.cities).forEach(function (k) {
+    var c = S.cities[k], d = c.dev || {}, em = UAE.CITIES[k].emirate, e = cut[em];
+    h += '<tr><td><b>' + UAE.CITIES[k].name + '</b></td><td class="n">' + A(Math.max(0, -(c.govDebt || 0))) + '</td><td class="n">' + A(d.savDraw || 0) + '</td><td class="n">' + A(d.util ? d.util.inv : 0) + '</td>' +
+      '<td class="n ' + (e && e.cut > 0.005 ? 'pos' : '') + '">' + (e ? '−' + (e.cut * 100).toFixed(1) + '%' : '—') + '</td><td class="n">' + A(d.soeTotal || 0) + '</td><td class="n">' + A(c.soeDivYtd || 0) + '</td></tr>';
+  });
+  h += '</table>';
+  var soes = Object.keys(UAE.SOE_FOR).map(function (em) { var x = UAE.SOE_FOR[em], co = S.companies[x[0]]; return co ? co : null; }).filter(Boolean);
+  if (soes.length) h += '<table class="t"><tr><th>State-owned company</th><th class="n">Firms</th><th class="n">Revenue TTM</th><th class="n">Profit TTM</th><th class="n">Cash</th></tr>' + soes.map(function (co) {
+    var t = UAE.ttm(co); return '<tr class="click" data-act="corp" data-arg="' + co.id + '"><td>' + UI.logo(co, 18) + ' ' + UI.esc(co.name) + '</td><td class="n">' + UAE.firmsOf(co.id).length + '</td><td class="n">' + A(UAE.totalRevenue(t)) + '</td><td class="n">' + UI.money(UAE.netIncome(t)) + '</td><td class="n">' + A(co.bs.cash) + '</td></tr>';
+  }).join('') + '</table>';
+  return h + '</div>';
+};
+UI.act.govSav = function (a, el) { UAE.govState().savings = +el.value / 100; var o = document.getElementById('govSavOut'); if (o) o.textContent = el.value + '%'; };
 UI.act.govInvKeep = function () { UI._govInvCity = UI.$('govInvCity').value; UI._govInvProg = UI.$('govInvProg').value; UI._govInvAmt = +UI.$('govInvAmt').value; };
 UI.act.govInvSet = function (v) {
   var el = UI.$('govInvAmt'); if (!el) return;
