@@ -108,3 +108,30 @@ body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-are
 #pwaBar { position: absolute; left: 50%; transform: translateX(-50%); top: calc(10px + env(safe-area-inset-top)); z-index: 60; display: none;
   gap: 8px; align-items: center; padding: 8px 12px; border-radius: 10px; font-size: 12.5px; max-width: 94vw; }
 #pwaBar.open { display: flex; }
+
+/* ---- new screens (global tech race, world ranking, investment analysis) on a phone ---- */
+@media (max-width: 820px) {
+  .m-only { display: inline; }
+  #dBody table.t td:not(.n), #dBody table.t th:not(.n) { white-space: normal; overflow-wrap: break-word; }
+  #dBody table.t td.n, #dBody table.t th.n { white-space: nowrap; }
+  table.wm-race th:nth-child(2), table.wm-race td:nth-child(2) { display: none; }                 /* leader shown under the product */
+  table.wm-rank th:nth-child(4), table.wm-rank td:nth-child(4),
+  table.wm-rank th:nth-child(6), table.wm-rank td:nth-child(6),
+  table.wm-rank th:nth-child(8), table.wm-rank td:nth-child(8) { display: none; }                 /* gains/yr, reach, price */
+  table.inv-t th:nth-child(1), table.inv-t td:nth-child(1):not([colspan]),
+  table.inv-t th:nth-child(4), table.inv-t td:nth-child(4),
+  table.inv-t th:nth-child(5), table.inv-t td:nth-child(5),
+  table.inv-t th:nth-child(8), table.inv-t td:nth-child(8),
+  table.inv-t th:nth-child(9), table.inv-t td:nth-child(9) { display: none; }                     /* #, revenue, running cost, necessity, share */
+  table.inv-t tr.sub td:first-child { display: none; }
+  table.inv-log th:nth-child(3), table.inv-log td:nth-child(3),
+  table.inv-log th:nth-child(5), table.inv-log td:nth-child(5) { display: none; }                 /* investment, payback (both in the reason) */
+  /* executive team: portrait + name above the settings, not beside them */
+  #dBody .box .row[style*="align-items:center"] { flex-wrap: wrap; }
+  #dBody .box .row[style*="align-items:center"] > div { flex: 1 1 100% !important; min-width: 0 !important; }
+}
+@media (max-width: 820px) {
+  table.cap-rec th:nth-child(3), table.cap-rec td:nth-child(3),
+  table.cap-rec th:nth-child(5), table.cap-rec td:nth-child(5),
+  table.cap-rec th:nth-child(6), table.cap-rec td:nth-child(6) { display: none; }   /* took back, you (net), earlier - shown on the PC */
+}

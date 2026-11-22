@@ -119,6 +119,11 @@
   }
 
   /* ---------------- phone behaviour ---------------- */
+  // phone CPU: shorter simulation slices per frame (smooth touch & scrolling), less frequent map / window redraws
+  window.addEventListener('DOMContentLoaded', function () {
+    if (!window.UI) return;
+    UI.SIM_BUDGET = 35; UI.HUD_EVERY = 500; UI.MAP_EVERY = 2500; UI.PANEL_EVERY = 2500;
+  });
   // Android may kill a backgrounded app: pause and auto-save (slot 0) when it is hidden
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState !== 'hidden' || !window.UI || !UI.started || !UAE.S) return;

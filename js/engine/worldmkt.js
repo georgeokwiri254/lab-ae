@@ -235,13 +235,22 @@ UAE.ceoTechRace = function (co) {
     if (f.type === 'internet' && f.model === 'ecommerce') mine.ecom = 1;
     f.lines.forEach(function (l) { if (UAE.WM[l.pid]) mine[l.pid] = 1; });
   });
-  var cand = Object.keys(mine).filter(function (pid) { return UAE.P[pid].kind !== 'software'; })
+  // entry markets the company is researching from scratch count too (R&D first, launch later)
+  UAE.firmsOf(co.id).forEach(function (f) { if (f.type === 'rnd' && f.target && UAE.WM[f.target] && UAE.P[f.target].kind === 'software') mine[f.target] = 1; });
+  var cand = Object.keys(mine).filter(function (pid) { return UAE.P[pid].kind !== 'software' || !UAE.firmsOf(co.id).some(function (f) { return f.type === 'software' && f.lines.length && f.lines[0].pid === pid; }); })
     .map(function (pid) { return { pid: pid, p: UAE.techPriority(co, pid) }; }).filter(function (x) { return x.p > 0; })
     .sort(function (a, b) { return b.p - a.p; });
   if (!cand.length) return;
   var used = {};
   UAE.firmsOf(co.id).forEach(function (f) { if (f.project) used[f.project.pid] = (used[f.project.pid] || 0) + 1; });
-  var idle = UAE.firmsOf(co.id).filter(function (f) { return f.type === 'rnd' && f.status === 'open' && !f.project; });
+  UAE.firmsOf(co.id).forEach(function (f) {
+    if (!f.entryFor) return;
+    var launched = UAE.firmsOf(co.id).some(function (g) { return (g.type === 'factory' || g.type === 'software') && g.lines.some(function (l) { return l.pid === f.entryFor; }); }) ||
+      (f.entryFor === 'ecom' && UAE.firmsOf(co.id).some(function (g) { return g.type === 'internet' && g.model === 'ecommerce'; }));
+    if (launched) delete f.entryFor;                                                    // entered the market: normal R&D planning from now on
+    else if (!f.project && co.bs.cash > UAE.researchQuote(f, f.entryFor).cost * 0.5) { f.target = f.entryFor; UAE.startResearch(f, f.entryFor); }
+  });
+  var idle = UAE.firmsOf(co.id).filter(function (f) { return f.type === 'rnd' && f.status === 'open' && !f.project && !f.entryFor; });
   idle.forEach(function (f, i) {
     // spread the centres over the top gaps (the biggest gap gets the most centres)
     var pick = cand[i % Math.min(cand.length, 4)].pid;

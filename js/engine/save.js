@@ -25,6 +25,7 @@ UAE.deserialize = function (json) {
   UAE.S._plotIdx = null;
   if (UAE.ensureGlobalMarkets) UAE.ensureGlobalMarkets();
   if (UAE.govRestoreZones) UAE.govRestoreZones();
+  if (UAE.nameSyncAll) UAE.nameSyncAll();       // firm names say what each firm makes (engine/invest.js)
   if (UAE.fixAccidentalTakeovers) UAE.fixAccidentalTakeovers();     // one-time: undo the CEOs' accidental takeovers (runs on load, even while paused)                  // zones the government has opened become districts again          // older saves get NYSE + NASDAQ
   // older saves: loans had no term. Player companies' loans become the player's own 5-year loans (the CEO won't repay them early)
   UAE.allCos().forEach(function (co) { (co.loanList || []).forEach(function (l) {

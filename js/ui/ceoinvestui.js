@@ -70,7 +70,7 @@ UI.capRecordBox = function (co) {
     return '<tr><td>' + label + '</td><td class="n pos">' + A(s.ceo) + '</td><td class="n neg">' + A(s.outCeo) + '</td><td class="n"><b>' + A(s.ceoNet) + '</b></td><td class="n">' + A(s.you - s.outYou) + '</td><td class="n">' + A(s.earlier) + '</td><td class="n"><b>' + A(s.funded) + '</b></td></tr>';
   };
   var b = UAE.capSummary(co, 'bank'), i = UAE.capSummary(co, 'ins');
-  return '<div class="box"><h3>📒 Capital injection record</h3><table class="t"><tr><th>Headquarters</th><th class="n">CEO injected</th><th class="n">CEO took back</th><th class="n">CEO net</th><th class="n">You (net)</th><th class="n">Earlier</th><th class="n">Total now in</th></tr>' +
+  return '<div class="box"><h3>📒 Capital injection record</h3><table class="t cap-rec"><tr><th>Headquarters</th><th class="n">CEO injected</th><th class="n">CEO took back</th><th class="n">CEO net</th><th class="n">You (net)</th><th class="n">Earlier</th><th class="n">Total now in</th></tr>' +
     row('🏦 Bank HQ' + (UAE.hasBank(co) ? '' : ' <span class="neg">(no HQ)</span>'), b) + row('🛡 Insurance HQ' + (UAE.hasIns(co) ? '' : ' <span class="neg">(no HQ)</span>'), i) +
     '<tr><td><b>Both</b></td><td class="n pos">' + A(b.ceo + i.ceo) + '</td><td class="n neg">' + A(b.outCeo + i.outCeo) + '</td><td class="n"><b>' + A(b.ceoNet + i.ceoNet) + '</b></td><td class="n">' + A(b.you - b.outYou + i.you - i.outYou) + '</td><td class="n">' + A(b.earlier + i.earlier) + '</td><td class="n"><b>' + A(b.funded + i.funded) + '</b></td></tr></table>' +
     '<div class="note">"Earlier" is money that was already in before this record started (from you or the CEO). CEO amounts before then were rebuilt from the news feed. The CEO can never close a Bank or Insurance HQ.</div>' +

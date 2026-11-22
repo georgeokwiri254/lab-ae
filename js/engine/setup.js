@@ -132,6 +132,7 @@ UAE.createFirm = function (ownerId, type, c, opts) {
   // product lines
   (opts.lines || []).forEach(function (l) { UAE.addLine(f, l.pid, l); });
   UAE.S.firms[id] = f;
+  if (!opts.name) f.autoNamed = true;     // generated name: kept in step with what the firm makes (engine/invest.js UAE.nameSync)
   if (UAE.plotAdd) UAE.plotAdd(f);        // map plot index (engine/plots.js)
   if (UAE._idx) UAE._idx = {};            // firm list changed: drop the per-day lookup cache
   return f;

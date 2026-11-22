@@ -18,25 +18,24 @@ UI.econ_race = function () {
   var A = UAE.fmt.aed, S = UAE.S, tot = 0, lead = 0, top3 = 0, n = 0;
   var rows = '';
   UI.WM_GROUPS.forEach(function (g) {
-    rows += '<tr class="h"><td colspan="9">' + g[0] + '</td></tr>';
+    rows += '<tr class="h"><td colspan="5">' + g[0] + '</td></tr>';
     g[1].forEach(function (pid) {
       var M = UAE.WM[pid], P = UAE.P[pid]; if (!M || !P) return;
       var R = UAE.wmRanking(pid), top = R[0], me = R.find(function (r) { return r.human; }), st = S.world2 && S.world2[pid];
       var mine = 0; if (st) Object.keys(st.cos).forEach(function (id) { if (UAE.isHuman(UAE.co(id))) mine += st.cos[id].rev; });
       tot += mine * 30; if (me) { n++; if (me.rank === 1) lead++; if (me.rank <= 3) top3++; }
       var gap = me ? me.idx - top.idx : null;
-      rows += '<tr class="click" data-act="worldProd" data-arg="' + pid + '"><td>' + UI.esc(P.name) + '</td>' +
-        '<td class="n">' + (M.subs ? 'subscriptions' : A(UAE.wmSize(pid))) + '</td>' +
-        '<td>' + top.flag + ' ' + UI.esc(top.name) + '</td><td class="n">' + UI.wmIdx(top.idx) + '</td>' +
-        '<td>' + (me ? UI.esc(me.name) : '<span class="muted">not in this market</span>') + '</td><td class="n">' + (me ? UI.wmIdx(me.idx) : '—') + '</td>' +
-        '<td class="n ' + (gap == null ? '' : gap >= 0 ? 'pos' : 'neg') + '">' + (gap == null ? '—' : (gap >= 0 ? '+' : '') + gap.toFixed(1)) + '</td>' +
-        '<td class="n">' + (me ? '<b>#' + me.rank + '</b> / ' + R.length : '—') + '</td><td class="n">' + (mine ? A(mine * 30) : '—') + '</td></tr>';
+      var sells = me && me.co && UAE.S.world2 && UAE.S.world2[pid] && UAE.S.world2[pid].cos[me.co.id], status = UI.wmStatus(pid);
+      rows += '<tr class="click" data-act="worldProd" data-arg="' + pid + '"><td><b>' + UI.esc(UAE.shortProduct(pid)) + '</b><br><span class="muted">' + (M.subs ? 'subscriptions' : A(UAE.wmSize(pid)) + '/yr') + '</span><span class="m-only muted"><br>leader: ' + top.flag + ' ' + UI.esc(top.name) + ' ' + UI.wmIdx(top.idx) + '</span></td>' +
+        '<td>' + top.flag + ' ' + UI.esc(top.name) + '<br><span class="muted">index ' + UI.wmIdx(top.idx) + '</span></td>' +
+        '<td>' + (me ? UI.esc(me.name.split(' ').slice(0, 2).join(' ')) + '<br><span class="muted">index ' + UI.wmIdx(me.idx) + ' · <span class="' + (gap >= 0 ? 'pos' : 'neg') + '">' + (gap >= 0 ? '+' : '') + gap.toFixed(1) + '</span></span>' : '<span class="muted">not in this market</span>') + '</td>' +
+        '<td class="n">' + (me ? '<b>#' + me.rank + '</b>/' + R.length : '—') + '</td><td class="n">' + (mine ? A(mine * 30) : '—') + '<br><span class="muted">' + status + '</span></td></tr>';
     });
   });
   var h = '<div class="cards">' + UI.card('Your exports to the world', A(tot) + '/mo', 'software, chips, devices, pharma, e-commerce') +
     UI.card('World #1 in', lead + ' of ' + n, 'products you compete in') + UI.card('Top 3 in', top3 + ' of ' + n) +
     UI.card('World tech index', '100 = best in 2026', 'leaders improve every year') + '</div>';
-  h += '<div class="box"><h3>🚀 Global tech race · your best company vs the world leaders</h3><table class="t nosort"><tr><th>Product</th><th class="n">World market / yr</th><th>World leader</th><th class="n">Index</th><th>Your best company</th><th class="n">Index</th><th class="n">Gap</th><th class="n">World rank</th><th class="n">Your exports / mo</th></tr>' + rows + '</table>' +
+  h += '<div class="box"><h3>🚀 Global tech race · your best company vs the world leaders</h3><table class="t nosort wm-race" style="table-layout:auto;width:100%"><tr><th>Product · world market</th><th>World leader</th><th>Your best · index · gap</th><th class="n">Rank</th><th class="n">Exports / mo · status</th></tr>' + rows + '</table>' +
     '<div class="note"><b>How to win:</b> research raises your <b>world tech index</b> (R&amp;D centres and software companies, ~3 points per project at the top, much more when you are far behind). ' +
     'The world leaders gain 1-4 points every year, so standing still means falling behind. Your share of world demand = <b>global reach × brand × e^((your index − leader) / 10)</b>, and a higher index also lets you charge more (up to 2.2× the world price). ' +
     'Global reach is your distribution &amp; customer base abroad: it grows each month you sell a credible product abroad. Chips, devices and drugs ship from factory stock, so you need factory capacity; software and e-commerce scale digitally. Click a product for details.</div></div>';
@@ -52,7 +51,7 @@ UI.R.worldProd = function (pid) {
   var h = '<div class="cards">' + UI.card('World market', M.subs ? 'subscriptions' : A(UAE.wmSize(pid)) + '/yr', M.subs ? 'see the software company page' : '+' + Math.round((M.grow || 0) * 100) + '%/yr early, levels off at ' + M.cap + '× 2026') +
     UI.card('World frontier', UI.wmIdx(UAE.wmFrontier(pid)), R[0].name) + UI.card('Your best', me ? UI.wmIdx(me.idx) + ' · #' + me.rank : '—', me ? me.name : 'not in this market') +
     UI.card('Real-world margins', M.margin || '—') + '</div>';
-  h += '<div class="box"><h3>World ranking</h3><table class="t"><tr><th class="n">#</th><th>Company</th><th class="n">Tech index</th><th class="n">Gains / yr</th><th class="n">World share</th><th class="n">Global reach</th><th class="n">Exports / day</th><th class="n">Price vs world</th></tr>' +
+  h += '<div class="box"><h3>World ranking</h3><table class="t wm-rank"><tr><th class="n">#</th><th>Company</th><th class="n">Tech index</th><th class="n">Gains / yr</th><th class="n">World share</th><th class="n">Global reach</th><th class="n">Exports / day</th><th class="n">Price vs world</th></tr>' +
     R.map(function (r) {
       var c = r.co && st && st.cos[r.co.id], L = r.leader ? M.leaders.find(function (x) { return x[0] === r.name; }) : null;
       return '<tr' + (r.human ? ' class="me"' : '') + '><td class="n">' + r.rank + '</td><td>' + r.flag + ' ' + (r.co ? '<a data-act="company" data-arg="' + r.co.id + '">' + UI.esc(r.name) + '</a>' : UI.esc(r.name)) + '</td>' +
@@ -102,3 +101,15 @@ UI.firmBody = function (f, mine) { return UI._firmBodyBase(f, mine) + UI.worldSt
   for (var k in add) if (!W[k]) W[k] = add[k];
 })(UAE.PRODUCT_WIKI || (UAE.PRODUCT_WIKI = {}));
 UI.WM_GROUPS.push(['💳 Finance & data', ['paynet', 'findata', 'adplat']], ['🏥 Medical devices', ['meddevice', 'surgrobot']], ['✈ Aerospace', ['jetengine']], ['🛠 Chip equipment', ['chiptool']], ['👜 Luxury', ['luxbag', 'watch']]);
+
+/** Where your group stands in a world market: exporting / launch-ready / R&D under way / not started. */
+UI.wmStatus = function (pid) {
+  var S = UAE.S, st = S.world2 && S.world2[pid], human = UAE.allCos().filter(function (c) { return UAE.isHuman(c) && !c.foreign; });
+  if (st && human.some(function (c) { return st.cos[c.id] && st.cos[c.id].rev > 0; })) return 'exporting';
+  var rnd = 0, proj = 0; human.forEach(function (c) { UAE.firmsOf(c.id).forEach(function (f) { if (f.type === 'rnd' && f.target === pid) { rnd++; if (f.project) proj++; } }); });
+  var sellsLocal = UAE.WM[pid] && UAE.wmActive()[pid] && human.some(function (c) { return UAE.wmActive()[pid][c.id]; });
+  var best = human.reduce(function (b, c) { return Math.max(b, c.gtech && c.gtech[pid] != null ? c.gtech[pid] : 0); }, 0), F = UAE.wmFrontier(pid);
+  if (rnd) return '🧪 R&D: ' + rnd + ' lab' + (rnd > 1 ? 's' : '') + (proj ? ', ' + proj + ' running' : '') + (best < F - 30 ? ' · ' + Math.ceil(F - 30 - best) + ' pts to launch' : '');
+  if (sellsLocal) return best < F - 30 ? 'too far behind to export' : 'no spare output';
+  return 'not started';
+};

@@ -86,7 +86,8 @@ UAE.monthEnd = function () {
   if (UAE.econMonth) UAE.econMonth();
   if (UAE.govDevMonth) UAE.govDevMonth();     // government reinvests revenue: housing, offices, civic, roads, new zones (engine/govdev.js)      // national & world macroeconomy, central banks (engine/macro2.js)
   UAE.microMonth();          // product market history (engine/micro.js)
-  if (UAE.worldMonth) UAE.worldMonth();     // global reach, world rankings (engine/worldmkt.js)
+  if (UAE.worldMonth) UAE.worldMonth();
+  if (UAE.nameSyncAll) UAE.nameSyncAll();    // names follow the product / title / research target     // global reach, world rankings (engine/worldmkt.js)
   UAE.expertiseMonth();      // managers and CEOs gain expertise (engine/ceo.js)
   UAE.checkGoals();
 };

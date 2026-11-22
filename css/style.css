@@ -402,3 +402,6 @@ table.t.sortable th { cursor: pointer; user-select: none; }
 table.t.sortable th:hover { color: var(--cyan); }
 table.t th.sort-asc::after { content: ' ▲'; color: var(--cyan); }
 table.t th.sort-desc::after { content: ' ▼'; color: var(--cyan); }
+
+/* phone-only extras (shown by the PWA's mobile.css) */
+.m-only { display: none; }

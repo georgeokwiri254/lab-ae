@@ -105,14 +105,15 @@ UI.loop = function (t) {
       try { UAE.tick(); } catch (e) { console.error(e); UI.setSpeed(0); UI.toast('Simulation error: ' + UI.esc(e.message), 'bad'); break; }
       if (UAE.cal.month() !== month && S.settings.autosave !== false) UAE.saveSlot(0);
       // keep the screen responsive: at most ~60 ms of simulation per frame; a big empire runs slower instead of freezing
-      if (performance.now() - t0 > 60) { UI.acc = Math.min(UI.acc, ms); break; }
+      if (performance.now() - t0 > (UI.SIM_BUDGET || 60)) { UI.acc = Math.min(UI.acc, ms); break; }
     }
     if (n) UI.dirty = true;
   }
   UI.frame = (UI.frame || 0) + 1;
-  if (UI.dirty && t - (UI.hudT || 0) > 250) { UI.hudT = t; UI.refreshHUD(); }
-  if (UI.dirty && t - (UI.mapT || 0) > 1200) { UI.mapT = t; UI.refreshMap(); UI.refreshTicker(); }
-  if (UI.dirty && t - (UI.panT || 0) > 1500) { UI.panT = t; UI.liveRefresh(); UI.dirty = false; }
+  // refresh intervals (ms): the phone version uses longer ones (pwa/pwa.js) so a slower CPU spends its time on the game
+  if (UI.dirty && t - (UI.hudT || 0) > (UI.HUD_EVERY || 250)) { UI.hudT = t; UI.refreshHUD(); }
+  if (UI.dirty && t - (UI.mapT || 0) > (UI.MAP_EVERY || 1200)) { UI.mapT = t; UI.refreshMap(); UI.refreshTicker(); }
+  if (UI.dirty && t - (UI.panT || 0) > (UI.PANEL_EVERY || 1500)) { UI.panT = t; UI.liveRefresh(); UI.dirty = false; }
   requestAnimationFrame(UI.loop);
 };
 

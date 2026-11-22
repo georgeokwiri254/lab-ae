@@ -97,6 +97,7 @@ UAE.buildFor = function (co, type, pid, instant) {
         if (own) { f.lines[0].inSup = f.lines[0].inSup || {}; f.lines[0].inSup[x[0]] = own.id; }
       });
       if (type === 'software') UAE.linkOwnBuyers(f, pid || 'ai');
+      if (UAE.nameSync) UAE.nameSync(f);
       UAE.news(co.name + ' (CEO tech focus) opened ' + f.name + (pid && UAE.P[pid] ? ' for ' + UAE.P[pid].name : '') + '.', UAE.isHuman(co) ? 'firm' : 'ai');
       return f;
     }
@@ -173,6 +174,7 @@ UAE.ctoMonth = function (co) {
     if (f.status !== 'open' || f.project) { if (f.project) used[f.project.pid] = 1; return; }
     if (f.type === 'software') { f.autoResearch = true; UAE.startResearch(f, UAE.swPid(f)); return; }
     if (f.type !== 'rnd') return;
+    if (f.entryFor) { f.target = f.entryFor; if (co.bs.cash > UAE.researchQuote(f, f.entryFor).cost * 0.5) UAE.startResearch(f, f.entryFor); return; }   // market-entry lab (engine/invest.js)
     var pid = cand.find(function (x) { return !used[x] && UAE.P[x].kind !== 'software'; }) || f.target;
     used[pid] = 1; f.target = pid; f.autoResearch = true;
     if (co.bs.cash > UAE.researchQuote(f, pid).cost * 0.5) UAE.startResearch(f, pid);
