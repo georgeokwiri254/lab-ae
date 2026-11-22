@@ -183,3 +183,11 @@ body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-are
   #cities button { flex: none; padding: 2px 8px; font-size: 9.5px; line-height: 1.4; min-height: 0 !important; border-radius: 5px; }
 }
 @media (max-height: 520px) { #feed { max-height: 46vh; } }
+/* company value: thin strip at the bottom of the events log (2026-11-22) - stays visible when the log is folded */
+#feedVal { display: none; }
+@media (max-width: 820px) {
+  #feedVal { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; padding: 4px 7px; border-top: 1px solid var(--line); font-size: 9.5px; cursor: pointer; }
+  #feedVal label { font-size: 8px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  #feedVal span { font-family: var(--mono); font-size: 10.5px; color: var(--cyan); white-space: nowrap; }
+  #feed.collapsed #feedVal { border-top: 1px solid var(--line); }
+}

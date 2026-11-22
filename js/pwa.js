@@ -140,6 +140,22 @@
   window.addEventListener('DOMContentLoaded', function () {
     if (!window.UI) return;
     UI.SIM_BUDGET = 35; UI.HUD_EVERY = 500; UI.MAP_EVERY = 2500; UI.PANEL_EVERY = 2500;
+    // company value under the events log (copied from the desktop top-bar figure, which the phone hides)
+    var hudV = UI.refreshHUD;
+    UI.refreshHUD = function () {
+      var r = hudV && hudV.apply(this, arguments);
+      try {
+        var feed = document.getElementById('feed'), src = document.getElementById('kVal'); if (!feed || !src) return r;
+        var el = document.getElementById('feedVal');
+        if (!el) {
+          el = document.createElement('div'); el.id = 'feedVal'; el.title = 'Company value - tap for valuation';
+          el.innerHTML = '<label>Company value</label><span></span>'; feed.appendChild(el);
+          el.onclick = function () { try { UI.tabState.corp = 'valuation'; UI.act.corp(UAE.player().id); } catch (e) { } };
+        }
+        el.lastChild.innerHTML = src.innerHTML;
+      } catch (e) { /* ignore */ }
+      return r;
+    };
   });
   // Android may kill a backgrounded app: pause and auto-save (slot 0) when it is hidden
   document.addEventListener('visibilitychange', function () {
