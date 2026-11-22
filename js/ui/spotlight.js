@@ -19,9 +19,21 @@ UI.spotAttr = function (o) { var k = 's' + Object.keys(UI._spots).length; UI._sp
 /** Look up a Wikipedia page photo (Wikimedia Commons thumbnail). Cached in memory and localStorage. */
 UI.wikiPhoto = function (title) {
   if (UI._wikiImg[title] != null) return Promise.resolve(UI._wikiImg[title]);
-  // 'File:Name.jpg' = a specific Wikimedia Commons photo (picked by hand, e.g. modern product shots): direct 500 px thumbnail
-  if (/^File:/.test(title)) { UI._wikiImg[title] = 'https://commons.wikimedia.org/wiki/Special:FilePath/' + encodeURIComponent(title.slice(5)) + '?width=500'; return Promise.resolve(UI._wikiImg[title]); }
   try { var c = localStorage.getItem('wikiimg2:' + title); if (c) { UI._wikiImg[title] = c; return Promise.resolve(c); } } catch (e) { }
+  // 'File:Name.jpg' = a specific Wikimedia Commons photo (picked by hand, e.g. modern product shots): direct 500 px thumbnail
+  // (looked up once through the Commons API: the direct image address works offline in the phone app's photo cache;
+  //  the Special:FilePath redirect does not allow that. Remembered in localStorage like every other photo.)
+  if (/^File:/.test(title)) {
+    var fallback = 'https://commons.wikimedia.org/wiki/Special:FilePath/' + encodeURIComponent(title.slice(5)) + '?width=500';
+    return fetch('https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&prop=imageinfo&iiprop=url&iiurlwidth=500&titles=' + encodeURIComponent(title))
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        var pg = j && j.query && j.query.pages && Object.keys(j.query.pages).map(function (k) { return j.query.pages[k]; })[0];
+        var src = (pg && pg.imageinfo && pg.imageinfo[0] && pg.imageinfo[0].thumburl || '').replace(/\?.*$/, '') || fallback;
+        UI._wikiImg[title] = src; try { localStorage.setItem('wikiimg2:' + title, src); } catch (e) { }
+        return src;
+      }).catch(function () { UI._wikiImg[title] = fallback; return fallback; });   // offline / blocked: the redirect address
+  }
   return fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(title))
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (j) {

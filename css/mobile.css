@@ -143,3 +143,16 @@ body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-are
   table.stk th:nth-child(7), table.stk td:nth-child(7),
   table.stk th:nth-child(9), table.stk td:nth-child(9) { display: none; }
 }
+
+/* ---- every screen on a narrow phone (Galaxy A73 412 px, tested 2026-11-22) ----
+ * Tables use a compact font; a table that is still wider than the screen scrolls sideways inside its own box
+ * (swipe the table) instead of pushing the whole window wider. Product header stacks the picture above the name. */
+@media (max-width: 600px) {
+  #dBody table.t { font-size: 11px; }
+  #dBody table.t th { font-size: 9.5px; letter-spacing: .02em; padding: 5px 4px; }
+  #dBody table.t td { padding: 5px 4px; }
+  #dBody table.t { display: block; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  #dBody .phero { flex-direction: column; align-items: flex-start; }
+  #dBody .phero .pname { font-size: 20px; overflow-wrap: anywhere; }
+  #dBody .phero .ptxt { min-width: 0; max-width: 100%; }
+}
