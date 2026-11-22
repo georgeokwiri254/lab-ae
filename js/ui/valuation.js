@@ -24,8 +24,9 @@ UI.valuationBox = function (co) {
     '<div class="note">A company making ' + A(v.ni) + ' a year and growing fast is worth many years of that profit – the same way real markets value NVIDIA or Apple far above their book value.</div>');
 
   if (v.listed && !v.seed) {
-    h += step(3, 'Fair (fundamental) value', '<table class="t">' + row('0.70 × earnings value', A(v.earnValue * 0.7), 'investors discount future profit a little') + row('+ 0.45 × book equity', A(v.book * 0.45), 'assets give a safety cushion') +
+    h += step(3, 'Fair (fundamental) value', '<table class="t">' + row('0.70 × earnings value', A(v.earnValue * 0.7), 'investors discount future profit a little') + row('+ 0.45 × book equity' + (v.stakeCost ? ' (without shareholdings)' : ''), A(v.bookOwn * 0.45), 'assets give a safety cushion') +
       row('= Blend', A(v.blend), 'never below 0.6 × book = ' + A(v.floor)) + row('× Investor-relations boost', N(v.ir, 3), 'from your HQ investor-relations budget (max +10%)') +
+      (v.stakes || v.stakeCost ? row('+ Subsidiaries &amp; shareholdings at market value', A(v.stakes), 'your stake × each company’s value (paid ' + A(v.stakeCost) + ')') : '') +
       row('× Market mood', N(v.mood, 3), 'whole-market sentiment (crashes, booms)') + row('<b>÷ ' + UAE.fmt.num(v.shares) + ' shares = fair price</b>', '<b>AED ' + N(v.fundPrice) + '</b>', 'per share') + '</table>');
     h += step(4, 'The share price chases the fair price', '<table class="t">' + row('Today\'s share price', 'AED ' + N(v.price), (v.gap >= 0 ? 'fair price is ' : 'fair price is ') + Math.abs(v.gap * 100).toFixed(1) + '% ' + (v.gap >= 0 ? 'higher → price tends to rise' : 'lower → price tends to fall')) +
       row('× Shares', UAE.fmt.num(v.shares)) + row('<b>= Market value (market cap)</b>', '<b>' + A(v.mcap) + '</b>', 'this is the "Company value" at the top of the screen') + '</table>' +
@@ -34,9 +35,12 @@ UI.valuationBox = function (co) {
     h += step(3, 'Real listed company', '<div class="note">Real companies start at their real share price and then move with their profit: price = starting price × √(profit now ÷ profit at the start), phased in over the first year, plus market mood and daily noise.</div>' +
       '<table class="t">' + row('Fair price', 'AED ' + N(v.fundPrice)) + row('Share price', 'AED ' + N(v.price)) + row('<b>Market value</b>', '<b>' + A(v.mcap) + '</b>') + '</table>');
   } else {
-    h += step(3, 'Private company value', '<table class="t">' + row('0.5 × book equity', A(v.book * 0.5)) + row('+ profit × P/E × 0.8', A(Math.max(0, v.ni) * v.pe * 0.8), 'private shares can\'t be sold easily, so 20% less') +
-      row('= Earnings-based value', A(v.privBlend)) + row('Floor: book equity', A(v.privFloor)) + row('<b>Value = the higher of the two</b>', '<b>' + A(v.value) + '</b>') + '</table>');
+    h += step(3, 'Private company value', '<table class="t">' + row('0.5 × book equity' + (v.stakeCost ? ' (without shareholdings)' : ''), A(v.bookOwn * 0.5)) + row('+ profit × P/E × 0.8', A(Math.max(0, v.ni) * v.pe * 0.8), 'private shares can\'t be sold easily, so 20% less') +
+      row('= Earnings-based value', A(v.privBlend)) + row('Floor: book equity', A(v.privFloor)) + (v.stakes || v.stakeCost ? row('+ Subsidiaries &amp; shareholdings at market value', A(v.stakes), 'your stake × each company’s value (paid ' + A(v.stakeCost) + ')') : '') + row('<b>Value = the higher of the two' + (v.stakes ? ' + shareholdings' : '') + '</b>', '<b>' + A(v.value) + '</b>') + '</table>');
   }
+  if (v.stakeList && v.stakeList.length) h += '<h4>Subsidiaries &amp; shareholdings (sum of the parts)</h4><table class="t"><tr><th>Company</th><th class="n">Stake</th><th class="n">Paid (book)</th><th class="n">Value today</th><th class="n">Gain</th></tr>' +
+    v.stakeList.slice(0, 25).map(function (x) { return '<tr class="click" data-act="stockDetail" data-arg="' + x.c.id + '"><td>' + UI.logo(x.c, 18) + ' ' + UI.esc(x.c.name) + '</td><td class="n">' + (x.sh * 100).toFixed(1) + '%</td><td class="n">' + A(x.cost) + '</td><td class="n">' + A(x.val) + '</td><td class="n ' + (x.val >= x.cost ? 'pos' : 'neg') + '">' + A(x.val - x.cost) + '</td></tr>'; }).join('') +
+    '</table><div class="note">The balance sheet keeps shares in other companies at what was paid (cost). The valuation replaces that cost with your stake × each company’s value today (listed: market cap; private: its own estimated value). Their profits are not counted twice: only the dividends they pay reach this company’s profit.</div>';
   h += step(listed5(v), 'So where does the gap come from?', '<div class="note">Value (' + A(v.value) + ') − book equity (' + A(v.book) + ') = <b>' + A(v.implied) + '</b>. That is the market\'s price for things accounting does not record: your brand, technology, customers, team and expected growth. ' +
     'If profit falls or growth slows, this gap shrinks fast; book equity only changes when you earn, lose, raise or pay out money.</div>');
   return h + '</div>';
@@ -45,7 +49,7 @@ function listed5(v) { return v.listed && !v.seed ? 5 : 4; }
 UI.act.valuationOf = function (id) { UI.tabState.corp = 'valuation'; UI.act.corp(id); };
 
 /* ------------------------------------------------ WHY is it worth this much? */
-UI.DRIVER_COL = { assets: '#9fb3c8', brand: '#ff2bd6', tech: '#00f0ff', cust: '#b8ff2c', ops: '#ffd24d', growth: '#b98cff', mood: '#ff8a3d' };
+UI.DRIVER_COL = { stakes: '#5ad1a8', assets: '#9fb3c8', brand: '#ff2bd6', tech: '#00f0ff', cust: '#b8ff2c', ops: '#ffd24d', growth: '#b98cff', mood: '#ff8a3d' };
 UI.driversBox = function (co) {
   var D = UAE.valueDrivers(co), A = UAE.fmt.aed, T = Math.max(1, D.total);
   var pos = D.parts.filter(function (p) { return p.aed > 0; }), posSum = pos.reduce(function (s, p) { return s + p.aed; }, 0);

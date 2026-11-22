@@ -47,14 +47,17 @@ UAE.valueDrivers = function (co) {
   });
   if (co.legacy) { var lp = Math.max(0, co.legacy.ni / 12); tot.ops += lp; sumP += lp; }   // real groups' core business
   var listed = v.listed && !v.seed, assets, todayEarn, growth, mood;
+  var stakes = v.stakes || 0, bk = v.bookOwn != null ? v.bookOwn : v.book;   // subsidiaries & shareholdings: own line, at market value
   if (listed) {                                   // your / AI listed companies: the game's own formula
-    assets = v.book * 0.45 * v.ir * v.mood; todayEarn = Math.max(0, v.ni) * v.pe * 0.7 * v.ir * v.mood; growth = todayEarn * (v.growth - 1);
-    mood = v.value - (assets + todayEarn + growth);
+    stakes *= v.mood;
+    if (v.floor > v.blend) { assets = v.floor * v.ir * v.mood; todayEarn = 0; growth = 0; }
+    else { assets = bk * 0.45 * v.ir * v.mood; todayEarn = Math.max(0, v.ni) * v.pe * 0.7 * v.ir * v.mood; growth = todayEarn * (v.growth - 1); }
+    mood = v.value - (assets + todayEarn + growth + stakes);
   } else if (v.seed) {                            // real listed companies: real market price; split it into assets + earning power
-    assets = Math.min(v.value, Math.max(0, v.book) * 0.45); todayEarn = v.value - assets; growth = 0; mood = 0;
+    stakes = 0; assets = Math.min(v.value, Math.max(0, v.book) * 0.45); todayEarn = v.value - assets; growth = 0; mood = 0;
   } else {                                        // private companies
-    var floor = v.value <= v.book + 1;
-    assets = floor ? v.value : v.book * 0.5; todayEarn = floor ? 0 : v.value - assets; growth = 0; mood = 0;
+    var own = v.value - stakes, floor = own <= bk + 1;
+    assets = floor ? own : bk * 0.5; todayEarn = floor ? 0 : own - assets; growth = 0; mood = 0;
   }         // listed: share price vs fair value; seeds: real price vs formula
   var share = function (x) { return sumP > 0 ? x / sumP : 0; };
   var opsShare = sumP > 0 ? share(tot.ops) : 1;
@@ -65,7 +68,8 @@ UAE.valueDrivers = function (co) {
     { k: 'cust', name: 'Customer base', aed: todayEarn * share(tot.cust), why: 'Recurring customers who keep paying: subscribers, members, bank depositors, tenants, telecom and app users.' },
     { k: 'ops', name: 'Operations & market position', aed: todayEarn * opsShare, why: 'What your firms earn at average quality and brand: locations, factories, supply chain, scale and market share.' },
     { k: 'growth', name: 'Future expected growth', aed: growth, why: listed ? 'Investors pay extra because revenue is ' + (v.rawGrowth ? v.rawGrowth.toFixed(2) + '× a year ago' : 'growing') + ' – they expect profit to keep rising (growth factor ' + v.growth.toFixed(2) + ').' : 'Not separately priced for this company.' },
-    { k: 'mood', name: mood >= 0 ? 'Market optimism' : 'Market discount', aed: mood, why: listed ? (mood >= 0 ? 'The share price is above fair value today – investors are more optimistic than the fundamentals.' : 'The share price is still below fair value and catching up (3% of the gap per trading day).') : 'Gap between the quoted value and the formula (real market pricing).' }
+    { k: 'mood', name: mood >= 0 ? 'Market optimism' : 'Market discount', aed: mood, why: listed ? (mood >= 0 ? 'The share price is above fair value today – investors are more optimistic than the fundamentals.' : 'The share price is still below fair value and catching up (3% of the gap per trading day).') : 'Gap between the quoted value and the formula (real market pricing).' },
+    { k: 'stakes', name: 'Subsidiaries & shareholdings', aed: stakes, why: (v.stakeList && v.stakeList.length ? 'Your stakes in ' + v.stakeList.length + ' compan' + (v.stakeList.length > 1 ? 'ies' : 'y') + ' at today’s value (' + v.stakeList.slice(0, 3).map(function (x) { return x.c.name + ' ' + Math.round(x.sh * 100) + '%'; }).join(', ') + (v.stakeList.length > 3 ? ' …' : '') + '), not at the price you paid' + (v.stakeCost ? ' (' + UAE.fmt.aed(v.stakeCost) + ')' : '') + '.' : 'This company holds no shares in other companies.') }
   ];
   firms.sort(function (a, b) { return b.p - a.p; });
   var top = firms.slice(0, 8).map(function (x) {

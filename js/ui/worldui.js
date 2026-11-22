@@ -100,6 +100,61 @@ UI.firmBody = function (f, mine) { return UI._firmBodyBase(f, mine) + UI.worldSt
     adplat: 'Online_advertising', cpu: 'Central_processing_unit', ram: 'Random-access_memory', server: 'Server_(computing)', llm: 'Large_language_model' };
   for (var k in add) if (!W[k]) W[k] = add[k];
 })(UAE.PRODUCT_WIKI || (UAE.PRODUCT_WIKI = {}));
+/* Modern product photos (2026): hand-picked Wikimedia Commons files replace article lead images that were
+ * dated (2015 phones, window air-conditioners, museum shoes) or diagrams (OS, LLM, server, GPU). Free licences. */
+(function (W) {
+  var M = {
+  phone: 'File:Apple iPhone 15 Pro.jpg',
+  laptop: 'File:Apple MacBook Pro (M3).jpg',
+  tv: 'File:Samsung OLED TV.jpg',
+  watch: 'File:Apple Watch Series 10.jpg',
+  car: 'File:2022 Lucid Air Grand Touring in Zenith Red, front left.jpg',
+  ev: 'File:Tesla Model 3 (2023) Autofrühling Ulm IMG 9282.jpg',
+  os: 'File:Lenovo ThinkPad P15v 1st Gen (2020).jpg',
+  ai: 'File:Smartphone with ChatGPT app (52917381673).jpg',
+  llm: 'File:Google Data Center, Council Bluffs Iowa (49062863796).jpg',
+  office: 'File:2-in-1 laptop.jpg',
+  security: 'File:Rear of rack at NERSC data center - closeup.jpg',
+  design: 'File:M3 Macbook Pro 14 inch Space Grey model.jpg',
+  video: 'File:Mastering and production room at Audio Mix House, Studio D (13431466874).jpg',
+  audio: 'File:Solid State Logic (SSL) Matrix Mixing Console at Audio Mix House, Studio C (13430799763).jpg',
+  utility: 'File:Laptop coding programs (Unsplash).jpg',
+  game: 'File:Riot Games Arena VCT Americas February 2024.jpg',
+  server: 'File:Server Rack (54126210834).jpg',
+  ram: 'File:2023 Pamięci Corsair Vengeance RGB.jpg',
+  aichip: 'File:Nvidia DGX GB200.jpg',
+  chips: 'File:Integrated circuit on microchip.jpg',
+  chipip: 'File:NVIDIA H100 (极客湾Geekerwan) 021.png',
+  wafer: 'File:12-inch silicon wafer.jpg',
+  robot: 'File:Latest Tesla Optimus Humanoid Robot.jpg',
+  vr: 'File:Apple Vision Pro with Solo Knit Band.jpg',
+  arglasses: 'File:Ray-Ban Stories.jpg',
+  drone: 'File:DJI - Drohne Mavic 4 Pro.JPG',
+  battery: 'File:Battery pack of an EV.jpg',
+  motor: 'File:Tesla Plaid dual motor 01.jpg',
+  sensor: 'File:Velodyne High-Def LIDAR.jpg',
+  aircon: 'File:Heat pump unit.webp',
+  toys: 'File:Lego bricks.jpg',
+  footwear: 'File:HK clothing NIKE brand Vaporfly Next sneakers white n silver shoes October 2022 Px3 05 (cropped).jpg',
+  jewelry: 'File:Diamond Engagement Ring White Gold by 1791 Diamond.jpg',
+  fashion: "File:HK Central Queen's Road H&M Department Store clothing fashion figures night Aug-2012.JPG",
+  medicine: 'File:Pharmacy Products on Shelves in Chandigarh, India.jpg',
+  generic: 'File:Generic medicines with the yellow G stripe on pharmacy shelves, São Paulo.jpg',
+  api: 'File:Rundläuferpresse an der Uni Tübingen, in Betrieb 04.jpg',
+  rxdrug: 'File:Ozempic (53899794358).jpg',
+  biologic: 'File:Sotrovimab.jpg',
+  ecom: 'File:Rivian EDV-700 front.jpg',
+  adplat: 'File:Lee Ko – A Way Coming Back digital billboard display, Myeongdong, Seoul, South Korea.jpg',
+  paynet: 'File:Tappr Card Reader NFC.jpg',
+  luxbag: 'File:Luxury goods, Prada and Chanel Handbags.jpg',
+  jetengine: 'File:Airbus A350 A7-ALD Rolls-Royce Trent XWB.jpg',
+  meddevice: 'File:MRI-Philips.JPG',
+  chiptool: 'File:Extreme ultraviolet lithography tool.jpg',
+  surgrobot: 'File:Laproscopic Surgery Robot.jpg',
+  findata: 'File:Bloomberg Terminal Museum.jpg'
+  };
+  for (var k in M) W[k] = M[k];
+})(UAE.PRODUCT_WIKI);
 UI.WM_GROUPS.push(['💳 Finance & data', ['paynet', 'findata', 'adplat']], ['🏥 Medical devices', ['meddevice', 'surgrobot']], ['✈ Aerospace', ['jetengine']], ['🛠 Chip equipment', ['chiptool']], ['👜 Luxury', ['luxbag', 'watch']]);
 
 /** Where your group stands in a world market: exporting / launch-ready / R&D under way / not started. */

@@ -540,18 +540,24 @@ UI.SECTOR_FILTER = { consumer: ['retail','hospitality','aviation','education'], 
 UI.R.stock = function () {
   var ex = UI.tabState.sx || 'DFM', sec = UI.tabState.ssec || 'all', S = UAE.S;
   var IDXN = { DFM: 'DFM General Index', ADX: 'ADX FADGI', NYSE: 'NYSE Composite', NASDAQ: 'NASDAQ Composite' };
-  var h = '<div class="cards">' + Object.keys(S.index).map(function (x) { var I = S.index[x], ch = I.hist.length > 1 ? I.level / I.hist[Math.max(0, I.hist.length - 2)] - 1 : 0; return UI.card(IDXN[x] || x, I.level.toFixed(2), '<span class="' + UI.cls(ch) + '">' + F().pct(ch, 2) + '</span> · base ' + I.base + ' ' + UI.tag(I.src), x === 'ADX' || x === 'NASDAQ' ? 'm' : ''); }).join('') +
+  var WX = function (x) { return UAE.GLOBAL_EXCH[x] && UAE.GLOBAL_EXCH[x].world; };   // world exchanges: listed in their own tab, not as cards
+  var h = '<div class="cards">' + Object.keys(S.index).filter(function (x) { return !WX(x); }).map(function (x) { var I = S.index[x], ch = I.hist.length > 1 ? I.level / I.hist[Math.max(0, I.hist.length - 2)] - 1 : 0; return UI.card(IDXN[x] || x, I.level.toFixed(2), '<span class="' + UI.cls(ch) + '">' + F().pct(ch, 2) + '</span> · base ' + I.base + ' ' + UI.tag(I.src), x === 'ADX' || x === 'NASDAQ' ? 'm' : ''); }).join('') +
     UI.card('Your personal cash', F().aed(UAE.playerPerson().cash), '', 'a') + '</div>';
-  h += UI.tabs('sx', [['DFM','Dubai Financial Market'],['ADX','Abu Dhabi Securities Exchange'],['NYSE','🌐 NYSE'],['NASDAQ','🌐 NASDAQ'],['ALL','All'],['OWN','My holdings']], ex) +
+  h += UI.tabs('sx', [['DFM','Dubai Financial Market'],['ADX','Abu Dhabi Securities Exchange'],['NYSE','🌐 NYSE'],['NASDAQ','🌐 NASDAQ'],['WORLD','🌍 World'],['ALL','All'],['OWN','My holdings']], ex) +
     UI.tabs('ssec', [['all','All sectors'],['consumer','Consumer'],['tech','Tech & Media'],['realestate','Real Estate'],['finance','Banks & Investment'],['energy','Energy & Industry'],['transport','Transport']], sec);
   var me = 'P:' + S.playerPerson, myco = 'C:' + S.activeCo;
   var list = UAE.allCos().filter(function (c) {
     if (!UAE.isTradable(c)) return false;
     if (ex === 'OWN') return c.holders[me] || c.holders[myco];
-    if (ex !== 'ALL' && c.exch !== ex) return false;
+    if (ex === 'WORLD') { if (!WX(c.exch)) return false; } else if (ex !== 'ALL' && c.exch !== ex) return false;
     return sec === 'all' || UI.SECTOR_FILTER[sec].indexOf(c.sector) >= 0;
   }).sort(function (a, b) { return UAE.mcap(b) - UAE.mcap(a); });
-  h += '<table class="t"><tr><th>Ticker</th><th>Company</th><th class="n">Price</th><th class="n">1d</th><th class="n">Mkt cap</th><th class="n">P/E</th><th class="n">Float</th><th class="n">You hold</th><th>30d</th></tr>';
+  if (ex === 'WORLD') h += '<table class="t nosort"><tr><th>Exchange</th><th>Index</th><th class="n">Level</th><th class="n">1d</th><th class="n">Companies</th></tr>' + Object.keys(UAE.GLOBAL_EXCH).filter(WX).map(function (x) {
+    var E = UAE.GLOBAL_EXCH[x], I = S.index[x]; if (!I) return '';
+    var ch = I.hist.length > 1 ? I.level / I.hist[I.hist.length - 2] - 1 : 0, n = UAE.allCos().filter(function (c) { return c.exch === x && UAE.isTradable(c); }).length;
+    return '<tr><td>' + (UAE.flag ? UAE.flag(E.ctry) + ' ' : '') + UI.esc(E.name) + '</td><td>' + E.index + '</td><td class="n">' + I.level.toFixed(1) + '</td><td class="n ' + UI.cls(ch) + '">' + F().pct(ch, 2) + '</td><td class="n">' + n + '</td></tr>';
+  }).join('') + '</table>';
+  h += '<table class="t stk"><tr><th>Ticker</th><th>Company</th><th class="n">Price</th><th class="n">1d</th><th class="n">Mkt cap</th><th class="n">P/E</th><th class="n">Float</th><th class="n">You hold</th><th>30d</th></tr>';
   list.forEach(function (c, i) {
     var ph = c.priceHist, ch = ph.length > 1 ? c.price / ph[ph.length - 2] - 1 : 0, ni = UAE.netIncome(UAE.ttm(c));
     var tot = 0; for (var k in c.holders) tot += c.holders[k];
@@ -560,7 +566,7 @@ UI.R.stock = function () {
       '<td class="n">' + (ni > 0 ? (UAE.mcap(c) / ni).toFixed(1) : '—') + '</td><td class="n">' + F().pct((c.holders.PUBLIC || 0) / tot) + '</td><td class="n">' + (mine ? F().pct(mine / tot, 2) : '') + '</td><td><canvas class="spark" id="ss' + i + '"></canvas></td></tr>';
     UI.after(function () { var cv = UI.$('ss' + i); if (cv) UI.spark(cv, c.priceHist.slice(-30)); });
   });
-  h += '</table><div class="note">Private, state-owned and delisted groups (noon, Emirates, ADNOC parent, DP World, EGA, Mubadala, G42 …) have no tradable quote. Prices tagged REAL are a dated market snapshot; EST prices need refreshing from dfm.ae / adx.ae. Weekend: Saturday-Sunday. NYSE and NASDAQ are US exchanges with their own index; their shares are shown in AED (USD × 3.6725 peg). US companies only trade on the market: they do not build firms in the UAE.</div>';
+  h += '</table><div class="note">Private, state-owned and delisted groups (noon, Emirates, ADNOC parent, DP World, EGA, Mubadala, G42 …) have no tradable quote. Prices tagged REAL are a dated market snapshot; EST prices need refreshing from dfm.ae / adx.ae. Weekend: Saturday-Sunday. NYSE and NASDAQ are US exchanges with their own index; their shares are shown in AED (USD × 3.6725 peg). US and world companies only trade on the market: they do not build firms in the UAE. 🌍 World = the largest companies on Tadawul, London, Paris, Frankfurt, Zurich, Copenhagen, Madrid, Tokyo, Hong Kong, Taiwan, Korea and India (prices EST, shown in AED).</div>';
   return h;
 };
 UI.act.stockDetail = function (id) { UI.open(function () { return UAE.co(id).name + ' · ' + UAE.co(id).ticker; }, function () { return UI.R.stockDetail(id); }, { push: true }); };

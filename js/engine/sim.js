@@ -76,6 +76,39 @@ UAE.dayIdx = function () {
   }
   return X;
 };
+/** Keep the per-day cache in step when a firm is built or removed mid-day (instead of rebuilding it all).
+ *  Only these keys are updated in place; every other cached grouping is dropped and rebuilt on demand. */
+UAE.IDX_KEEP = ['has', 'prod', 'sup', 'all', 'own', 'gw'];
+UAE.idxFirmChanged = function (f, removed) {
+  var X = UAE._idx; if (!X) return;
+  var keep = {}; UAE.IDX_KEEP.forEach(function (k) { if (X[k]) keep[k] = X[k]; });
+  UAE._idx = keep; X = keep;
+  var T = UAE.FIRM_TYPES[f.type], prodKind = ['factory','farm','mine','oil','warehouse','software'].indexOf(T.kind) >= 0;
+  if (!removed) {
+    if (X.all) X.all.push(f);
+    if (X.own) (X.own[f.owner] = X.own[f.owner] || []).push(f);
+    if (X.has && f.status === 'open') {
+      X.has[f.owner + '|' + f.type + '|' + f.city] = 1; X.has[f.owner + '|' + f.type + '|@' + UAE.CITIES[f.city].emirate] = 1; X.has[f.owner + '|' + f.type] = 1;
+    }
+    if (X.prod && prodKind && f.status === 'open') f.lines.forEach(function (l) {
+      (X.prod[l.pid] = X.prod[l.pid] || []).push(f);
+      var L = X.sup && X.sup[l.pid];
+      if (L) L.push({ g: f, line: l, nm: f.name + ' - ' + UAE.co(f.owner).name, own: f.name + ' (own)' });
+    });
+    return;
+  }
+  var not = function (g) { return g !== f; };
+  if (X.all) X.all = X.all.filter(not);
+  if (X.own && X.own[f.owner]) X.own[f.owner] = X.own[f.owner].filter(not);
+  if (X.prod) for (var p in X.prod) if (X.prod[p].indexOf(f) >= 0) X.prod[p] = X.prod[p].filter(not);
+  if (X.sup) for (var q in X.sup) X.sup[q] = X.sup[q].filter(function (e) { return e.g !== f; });
+  if (X.gw) delete X.gw[f.id];
+  if (X.has) {   // recompute this owner's keys for the firm's type
+    var mine = (X.own ? X.own[f.owner] : UAE.firmsOf(f.owner)).filter(function (g) { return g.type === f.type && g.status === 'open' && g !== f; });
+    delete X.has[f.owner + '|' + f.type + '|' + f.city]; delete X.has[f.owner + '|' + f.type + '|@' + UAE.CITIES[f.city].emirate]; delete X.has[f.owner + '|' + f.type];
+    mine.forEach(function (g) { X.has[g.owner + '|' + g.type + '|' + g.city] = 1; X.has[g.owner + '|' + g.type + '|@' + UAE.CITIES[g.city].emirate] = 1; X.has[g.owner + '|' + g.type] = 1; });
+  }
+};
 UAE.hasFirmIn = function (coId, type, city, emirate) {
   var X = UAE.dayIdx();
   if (X) return !!X.has[coId + '|' + type + (city ? '|' + city : emirate ? '|@' + emirate : '')] &&
@@ -90,7 +123,9 @@ UAE.hasFirmIn = function (coId, type, city, emirate) {
 };
 /** Landed cost of importing one unit to a firm: CIF + 5% customs + importer margin + freight. */
 UAE.landedImport = function (pid, f) {
-  var gw = UAE.geo.nearestGateway(f.c);
+  var X = UAE._idx, gw;
+  if (X) { var GW = X.gw || (X.gw = {}); gw = GW[f.id] || (GW[f.id] = UAE.geo.nearestGateway(f.c)); }
+  else gw = UAE.geo.nearestGateway(f.c);
   var em = UAE.CITIES[f.city].emirate;
   var margin = UAE.hasFirmIn(f.owner, 'importer', null, em) ? 0.0 : 0.06;
   var unit = UAE.importBase(pid) * (1 + UAE.RULES.customs) * (1 + margin);
@@ -98,8 +133,9 @@ UAE.landedImport = function (pid, f) {
   return { unit: unit + fr, freight: fr, gateway: gw.gw.name, quality: UAE.P[pid].qImp };
 };
 
-/** All supply options for product pid delivered to firm f, cheapest first. */
-UAE.supplyOptions = function (f, pid) {
+/** All supply options for product pid delivered to firm f, cheapest first.
+ *  stocked = true (game-day callers that only use IMPORT or suppliers with stock): skips empty suppliers. */
+UAE.supplyOptions = function (f, pid, stocked) {
   var out = [], imp = UAE.landedImport(pid, f);
   out.push({ id: 'IMPORT', name: 'Import via ' + imp.gateway, unit: imp.unit, quality: imp.quality, avail: Infinity, owner: null });
   var X = UAE.dayIdx();
@@ -116,7 +152,8 @@ UAE.supplyOptions = function (f, pid) {
     var P = UAE.P[pid], perKm = P.t * UAE.RULES.freightPerTonKm, logi = f.owner && UAE.hasFirmIn(f.owner, 'logistics', f.city) ? 0.75 : 1;
     for (var i = 0; i < L.length; i++) {
       var e = L[i], g = e.g; if (g.id === f.id || g.status !== 'open') continue;
-      var s = g.stock[pid], same = g.owner === f.owner, km = UAE.geo.km(g.c, f.c);
+      var s = g.stock[pid]; if (stocked && !(s && s.q > 0)) continue;
+      var same = g.owner === f.owner, km = UAE.geo.km(g.c, f.c);
       var unit = (same ? (s ? s.cost : UAE.importBase(pid)) : e.line.price) + perKm * (km * 1.25 + 3) * logi;   // = UAE.freight
       out.push({ id: g.id, name: same ? e.own : e.nm, unit: unit, quality: s ? s.qual : 50, avail: s ? s.q : 0, owner: g.owner, km: km });
     }
@@ -139,6 +176,63 @@ UAE.supplyOptions = function (f, pid) {
   return out;
 };
 
+/** Buy `need` units of pid for firm f from stocked suppliers: own firms first, then other companies, cheapest
+ *  delivered price first (exactly the order of supplyOptions + sort), without building and sorting the whole list:
+ *  usually one or two suppliers fill the order. Game-day only (uses the per-day index). Returns the unfilled need. */
+UAE.procureCheapest = function (f, pid, need, pick) {
+  var X = UAE.dayIdx(); if (!X) return need;
+  if (!(X.sup && X.sup[pid])) UAE.supplyOptions(f, pid, true);          // builds X.sup[pid]
+  var L = X.sup[pid] || [], P = UAE.P[pid], perKm = P.t * UAE.RULES.freightPerTonKm, logi = f.owner && UAE.hasFirmIn(f.owner, 'logistics', f.city) ? 0.75 : 1;
+  var cu = [], cg = [], co = [];
+  for (var i = 0; i < L.length; i++) {
+    var g = L[i].g; if (g.id === f.id || g.status !== 'open') continue;
+    var s = g.stock[pid]; if (!(s && s.q > 0)) continue;
+    var same = g.owner === f.owner;
+    cu.push((same ? s.cost : L[i].line.price) + perKm * (UAE.geo.km(g.c, f.c) * 1.25 + 3) * logi); cg.push(g); co.push(same);
+  }
+  var used = new Uint8Array(cu.length);
+  if (pick) for (var k = 0; k < cg.length; k++) if (cg[k].id === pick) { used[k] = 1; need -= UAE.procure(f, pid, need, pick); break; }   // the chosen supplier first
+  for (var pass = 0; pass < 2 && need > 0; pass++) {
+    var wantOwn = pass === 0;
+    while (need > 0) {
+      var b = -1;
+      for (var j = 0; j < cu.length; j++) if (!used[j] && co[j] === wantOwn && (b < 0 || cu[j] < cu[b])) b = j;
+      if (b < 0) break;
+      used[b] = 1; need -= UAE.procure(f, pid, need, cg[b].id);
+    }
+  }
+  return need;
+};
+/** Store supplier choice (AI / CEO review): same result as supplyOptions(f, pid, true) + firstStocked + the
+ *  'own' and best-value rules, but without building and sorting the whole list. mode: 'own' or anything else
+ *  except 'quality' (that one walks the sorted list, so it keeps the original code). Returns { id, unit }. Game-day only. */
+UAE.retailSupplier = function (f, l, coId, mode) {
+  var X = UAE.dayIdx(), pid = l.pid; if (!X) return null;
+  if (!(X.sup && X.sup[pid])) UAE.supplyOptions(f, pid, true);
+  var L = X.sup[pid] || [], P = UAE.P[pid], perKm = P.t * UAE.RULES.freightPerTonKm, logi = f.owner && UAE.hasFirmIn(f.owner, 'logistics', f.city) ? 0.75 : 1;
+  var imp = UAE.landedImport(pid, f), capx = UAE.lineCap(f, l) * 3;
+  // candidate 0 = IMPORT (first before the sort, so it wins ties), then the stocked suppliers in list order
+  var best = { id: 'IMPORT', unit: imp.unit, quality: imp.quality, ok: true, i: 0 }, own = null, n = 1, cands = [best];
+  for (var i = 0; i < L.length; i++) {
+    var g = L[i].g; if (g.id === f.id || g.status !== 'open') continue;
+    var s = g.stock[pid]; if (!(s && s.q > 0)) continue;
+    var same = g.owner === f.owner;
+    var o = { id: g.id, unit: (same ? s.cost : L[i].line.price) + perKm * (UAE.geo.km(g.c, f.c) * 1.25 + 3) * logi, quality: s.qual, ok: s.q > capx, i: n++ };
+    cands.push(o);
+    if (o.unit < best.unit) best = o;                                                     // = firstStocked (cheapest; earlier wins ties)
+    if (g.owner === coId && (!own || o.unit < own.unit)) own = o;
+  }
+  if (mode === 'own' && own && own.unit < best.unit * 1.25) return own;
+  // best value: unit / quality; walking the sorted list keeps the first strictly better one
+  var r = function (o) { return o.unit / Math.max(30, o.quality); }, rb = r(best), win = null, rw = Infinity;
+  for (var j = 0; j < cands.length; j++) {
+    var c = cands[j]; if (!c.ok) continue;
+    var rc = r(c);
+    if (rc < rw || (rc === rw && (c.unit < win.unit || (c.unit === win.unit && c.i < win.i)))) { win = c; rw = rc; }
+  }
+  if (!win || !(rw < rb)) return best;
+  return win;
+};
 /** Move q units of pid from a supplier into firm f, paying as appropriate. Returns units delivered. */
 UAE.procure = function (f, pid, q, supplierId) {
   if (q <= 0) return 0;
@@ -326,13 +420,16 @@ UAE.produceFactory = function (f) {
       if (have >= want * 0.6) return;
       var need = want - have, pick = l.inSup && l.inSup[inp[0]];
       if (pick === 'IMPORT') { l.inMet = l.inMet || {}; l.inMet[inp[0]] = 1; UAE.procure(f, inp[0], need, 'IMPORT'); return; }
-      var opts = UAE.supplyOptions(f, inp[0]);
-      var own = opts.filter(function (o) { return o.owner === f.owner && o.avail > 0; });
-      var mkt = opts.filter(function (o) { return o.owner && o.owner !== f.owner && o.avail > 0; });
-      var order = own.concat(mkt);
-      if (pick && UAE.S.firms[pick]) order = opts.filter(function (o) { return o.id === pick; }).concat(order.filter(function (o) { return o.id !== pick; }));
       var need0 = need;
-      for (var i = 0; i < order.length && need > 0; i++) need -= UAE.procure(f, inp[0], need, order[i].id);
+      if (UAE._idx) need = UAE.procureCheapest(f, inp[0], need, pick && UAE.S.firms[pick] ? pick : null);   // fast path, same order as below
+      else {
+        var opts = UAE.supplyOptions(f, inp[0], true);
+        var own = opts.filter(function (o) { return o.owner === f.owner && o.avail > 0; });
+        var mkt = opts.filter(function (o) { return o.owner && o.owner !== f.owner && o.avail > 0; });
+        var order = own.concat(mkt);
+        if (pick && UAE.S.firms[pick]) order = opts.filter(function (o) { return o.id === pick; }).concat(order.filter(function (o) { return o.id !== pick; }));
+        for (var i = 0; i < order.length && need > 0; i++) need -= UAE.procure(f, inp[0], need, order[i].id);
+      }
       l.inMet = l.inMet || {}; l.inMet[inp[0]] = need0 > 0 ? 1 - Math.max(0, need) / need0 : 1;   // share filled by firms (rest imported)
       if (need > 0 && !(l.noImport)) UAE.procure(f, inp[0], need, 'IMPORT');
     });
@@ -427,9 +524,11 @@ UAE.servicesDay = function (open) {
   var tour = UAE.season('tourism') * m.tourism;
 
   // --- service firms (restaurants, cafés, gyms, salons, cinemas)
+  var svcN = {}, svcKey = function (g) { return g.district + '|' + g.svc + '|' + (g.mall || ''); };   // competitors in the same district / mall (counted once, not per firm)
+  get('service').forEach(function (g) { var key = svcKey(g); svcN[key] = (svcN[key] || 0) + 1; });
   get('service').forEach(function (f) {
     var svc = UAE.SERVICES[f.svc], c = S.cities[f.city];
-    var n = get('service').filter(function (g) { return g.district === f.district && g.svc === f.svc && (g.mall || null) === (f.mall || null); }).length;
+    var n = svcN[svcKey(f)];
     var cust = svc.base * (0.8 + 0.4 * UAE.corpBrand(f, 'Hospitality')) * (1 + 0.8 * (f.size - 1)) * Math.pow(Math.max(0.2, UAE.trafficIndex(f)), 0.8) * Math.pow(f.quality / 50, 0.5) * UAE.popMult(f) *
                Math.pow(svc.price / f.price, 1.3) * UAE.season('retail') * UAE.CITIES[f.city].income * c.wageIdx /
                (1 + 0.35 * (n - 1)) * f.eff * (0.85 + 0.3 * tour / 1.1);

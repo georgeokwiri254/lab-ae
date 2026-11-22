@@ -131,7 +131,7 @@ UAE.AI.configure = function (co, f, pid) {
       .sort(function (a, b) { return UAE.cityDemand(f.city, b.id) * b.ref - UAE.cityDemand(f.city, a.id) * a.ref; }).slice(0, UAE.FIRM_TYPES.retail.lines);
     tech.forEach(function (p) {
       var line = UAE.addLine(f, p.id); if (!line) return;
-      var own = UAE.supplyOptions(f, p.id).find(function (o) { return o.owner === co.id && o.avail > 0; });
+      var own = UAE.supplyOptions(f, p.id, true).find(function (o) { return o.owner === co.id && o.avail > 0; });
       line.supplier = own ? own.id : 'IMPORT'; line.price = Math.round(p.ref * UAE.priceLevel(co, p.id) * 100) / 100;
     });
     if (f.lines.length) return;

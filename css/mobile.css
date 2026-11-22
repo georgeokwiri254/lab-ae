@@ -135,3 +135,11 @@ body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-are
   table.cap-rec th:nth-child(5), table.cap-rec td:nth-child(5),
   table.cap-rec th:nth-child(6), table.cap-rec td:nth-child(6) { display: none; }   /* took back, you (net), earlier - shown on the PC */
 }
+
+/* stock market list on phones: hide ticker, P/E, float and the 30-day chart (2026-11-22) */
+@media (max-width: 600px) {
+  table.stk th:nth-child(1), table.stk td:nth-child(1),
+  table.stk th:nth-child(6), table.stk td:nth-child(6),
+  table.stk th:nth-child(7), table.stk td:nth-child(7),
+  table.stk th:nth-child(9), table.stk td:nth-child(9) { display: none; }
+}

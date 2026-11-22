@@ -280,12 +280,14 @@ UI.bsInvestSplit = function (co) {
   var b = co.bs; if (!b.invest) return '';
   var bF = (co.bank && co.bank.funded) || 0, iF = (co.ins && co.ins.funded) || 0, pc = 0, pv = 0;
   (UAE.stockPortfolio ? UAE.stockPortfolio(co) : []).forEach(function (x) { pc += x.cost; pv += x.value; });
-  if (!bF && !iF && !pc) return '';
+  var gb = UAE.devBondTotal ? UAE.devBondTotal(co) : 0;
+  if (!bF && !iF && !pc && !gb) return '';
   var h = '';
+  if (gb) h += UI.bsSubRow('of which 🏛 government development bonds', gb);
   if (bF) h += UI.bsSubRow('of which 🏦 capital in the bank (bank equity now ' + UAE.fmt.aed(UAE.bankEquity(co)) + ')', bF);
   if (iF) h += UI.bsSubRow('of which 🛡 capital in the insurer (insurer equity now ' + UAE.fmt.aed(UAE.insEquity(co)) + ')', iF);
   if (pc) h += UI.bsSubRow('of which 📈 shares on stock markets (at cost; market value ' + UAE.fmt.aed(pv) + ')', pc);
-  var other = b.invest - bF - iF - pc; if (Math.abs(other) > 1) h += UI.bsSubRow('of which other (bonds, subsidiaries, stakes)', other);
+  var other = b.invest - bF - iF - pc - gb; if (Math.abs(other) > 1) h += UI.bsSubRow('of which other (bonds, subsidiaries, stakes)', other);
   return h;
 };
 UI.bsLoanSplit = function (co) {

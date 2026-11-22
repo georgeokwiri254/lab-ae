@@ -19,6 +19,8 @@ UI.spotAttr = function (o) { var k = 's' + Object.keys(UI._spots).length; UI._sp
 /** Look up a Wikipedia page photo (Wikimedia Commons thumbnail). Cached in memory and localStorage. */
 UI.wikiPhoto = function (title) {
   if (UI._wikiImg[title] != null) return Promise.resolve(UI._wikiImg[title]);
+  // 'File:Name.jpg' = a specific Wikimedia Commons photo (picked by hand, e.g. modern product shots): direct 500 px thumbnail
+  if (/^File:/.test(title)) { UI._wikiImg[title] = 'https://commons.wikimedia.org/wiki/Special:FilePath/' + encodeURIComponent(title.slice(5)) + '?width=500'; return Promise.resolve(UI._wikiImg[title]); }
   try { var c = localStorage.getItem('wikiimg2:' + title); if (c) { UI._wikiImg[title] = c; return Promise.resolve(c); } } catch (e) { }
   return fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(title))
     .then(function (r) { return r.ok ? r.json() : null; })

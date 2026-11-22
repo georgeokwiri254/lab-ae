@@ -28,3 +28,15 @@ UAE.LOGO_DOMAINS = {
   US_ORCL: 'oracle.com', US_V: 'visa.com', US_LLY: 'lilly.com', US_XOM: 'exxonmobil.com', US_DELL: 'dell.com',
   US_KO: 'coca-cola.com', US_DIS: 'disney.com', US_GS: 'goldmansachs.com'
 };
+/* World companies added 2026-11-22 (official website icons) */
+Object.assign(UAE.LOGO_DOMAINS, {
+  US_AMD: 'amd.com', US_ASML: 'asml.com', US_CSCO: 'cisco.com', US_QCOM: 'qualcomm.com', US_ADBE: 'adobe.com', US_INTC: 'intel.com', US_PEP: 'pepsico.com',
+  US_MA: 'mastercard.com', US_UNH: 'unitedhealthgroup.com', US_JNJ: 'jnj.com', US_PG: 'pg.com', US_HD: 'homedepot.com', US_BAC: 'bankofamerica.com',
+  US_CVX: 'chevron.com', US_CRM: 'salesforce.com', US_IBM: 'ibm.com', US_UBER: 'uber.com', US_BABA: 'alibaba.com',
+  SA_ARAMCO: 'aramco.com', SA_RAJHI: 'alrajhibank.com.sa', SA_ACWA: 'acwapower.com', SA_MAADEN: 'maaden.com.sa',
+  GB_AZN: 'astrazeneca.com', GB_SHEL: 'shell.com', GB_HSBA: 'hsbc.com', GB_ULVR: 'unilever.com', GB_RR: 'rolls-royce.com',
+  FR_MC: 'lvmh.com', FR_RMS: 'hermes.com', FR_OR: 'loreal.com', FR_TTE: 'totalenergies.com', FR_AIR: 'airbus.com',
+  DE_SAP: 'sap.com', DE_SIE: 'siemens.com', CH_NESN: 'nestle.com', CH_ROG: 'roche.com', CH_NOVN: 'novartis.com', DK_NOVO: 'novonordisk.com', ES_ITX: 'inditex.com',
+  JP_TM: 'toyota-global.com', JP_SONY: 'sony.com', JP_SBG: 'group.softbank', CN_TCEHY: 'tencent.com', CN_BYD: 'byd.com', CN_XIAOMI: 'mi.com', CN_CATL: 'catl.com',
+  TW_TSMC: 'tsmc.com', TW_HONHAI: 'honhai.com', KR_SSNLF: 'samsung.com', KR_HYNIX: 'skhynix.com', IN_RIL: 'ril.com', IN_TCS: 'tcs.com', IN_HDFCB: 'hdfcbank.com'
+});

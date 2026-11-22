@@ -70,7 +70,7 @@ a { color: var(--cyan); }
 
 /* ---------------- left rail ---------------- */
 #rail { position: absolute; top: 10px; left: 10px; bottom: 10px; width: 52px; z-index: 11; border-radius: 10px; display: flex; flex-direction: column; align-items: center; padding: 8px 0; gap: 4px; }
-#rail .logo { width: 36px; height: 36px; margin-bottom: 8px; }
+#rail .applogo { width: 40px; height: 40px; margin-bottom: 8px; flex: 0 0 auto; filter: drop-shadow(0 0 6px rgba(0,240,255,.35)); }
 #rail button { width: 40px; height: 40px; border-radius: 9px; border: 1px solid transparent; background: transparent; cursor: pointer; font-size: 18px; position: relative; transition: .15s; }
 #rail button:hover, #rail button.on { border-color: var(--cyan); box-shadow: var(--glow-c); background: rgba(0,240,255,.06); }
 #rail button.build { border-color: var(--acid); box-shadow: var(--glow-a); }
@@ -405,3 +405,7 @@ table.t th.sort-desc::after { content: ' ▼'; color: var(--cyan); }
 
 /* phone-only extras (shown by the PWA's mobile.css) */
 .m-only { display: none; }
+
+/* app logo (title screen) */
+#title .applogo.big { width: 92px; height: 92px; display: block; margin: 0 0 14px; filter: drop-shadow(0 0 18px rgba(0,240,255,.35)) drop-shadow(0 0 30px rgba(255,43,214,.25)); }
+@media (max-height: 760px) { #title .applogo.big { width: 64px; height: 64px; margin-bottom: 8px; } }

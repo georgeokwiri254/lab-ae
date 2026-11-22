@@ -134,7 +134,7 @@ UAE.createFirm = function (ownerId, type, c, opts) {
   UAE.S.firms[id] = f;
   if (!opts.name) f.autoNamed = true;     // generated name: kept in step with what the firm makes (engine/invest.js UAE.nameSync)
   if (UAE.plotAdd) UAE.plotAdd(f);        // map plot index (engine/plots.js)
-  if (UAE._idx) UAE._idx = {};            // firm list changed: drop the per-day lookup cache
+  if (UAE._idx) UAE.idxFirmChanged(f);    // firm list changed: update the per-day lookup cache (engine/sim.js)
   return f;
 };
 
@@ -146,7 +146,13 @@ UAE.addLine = function (f, pid, o) {
   var line = { pid: pid, supplier: o.supplier || 'IMPORT', sold: 0, made: 0, on: true };
   if (T.kind === 'retail') line.price = o.price || P.ref;
   else line.price = o.price || Math.round((P.world || P.imp * 1.1) * 100) / 100;
-  f.lines.push(line); return line;
+  f.lines.push(line);
+  var X = UAE._idx;                       // a producer that is already in the per-day cache: list the new line as a supplier now
+  if (X && X.prod && UAE.S.firms[f.id] === f && f.status === 'open' && ['factory','farm','mine','oil','warehouse','software'].indexOf(T.kind) >= 0) {
+    (X.prod[pid] = X.prod[pid] || []).push(f);
+    if (X.sup && X.sup[pid]) X.sup[pid].push({ g: f, line: line, nm: f.name + ' - ' + UAE.co(f.owner).name, own: f.name + ' (own)' });
+  }
+  return line;
 };
 
 /** Market rent per unit / m2 per year for a leasing firm (EST model). */
@@ -191,7 +197,7 @@ UAE.sellFirm = function (f, opts) {
   if (UAE.plotRemove) UAE.plotRemove(f);
   if (f.manager && UAE.person(f.manager)) { var mp = UAE.person(f.manager); mp.title = 'Candidate'; mp.co = null; }
   delete UAE.S.firms[f.id];
-  if (UAE._idx) UAE._idx = {};
+  if (UAE._idx) UAE.idxFirmChanged(f, true);
 };
 
 /* ============================================================== NEW GAME == */

@@ -358,3 +358,19 @@ Object.assign(UI.HELP_TERMS, {
   'score': 'Combined investment score: upside, growth, profit trend and a cheap P/E.',
   'money you injected': 'Cash you moved from the company into this division. Only this can be withdrawn.'
 });
+/* 2026-11-22: development bonds, economic projects, sum-of-the-parts valuation, world exchanges */
+Object.assign(UI.HELP_TERMS, {
+  'economic projects': 'Government infrastructure (metro, ports, airports, power, digital). It raises the city’s GDP for good, so people and firms buy more and new jobs appear.',
+  'projects under construction': 'Economic projects paid for but not finished yet; they come into service over about 18 months.',
+  'gdp added by projects': 'Extra yearly GDP from finished economic projects (about 22 fils per AED invested, every year).',
+  'development bonds held': 'Money your company lent the government for development. It earns interest every month and you get it back after 10 years.',
+  'interest income': 'Interest paid to you each month.',
+  'all companies invested': 'Total bought in development bonds by every company.',
+  'subsidiaries & shareholdings': 'Your stakes in other companies counted at today’s value (stake × that company’s value), not at the price you paid.',
+  'value today': 'What your stake is worth now: your share of the company × its market value (or estimated value if private).',
+  'paid (book)': 'What you paid for the stake. This is what the balance sheet shows.',
+  'stake': 'Share of that company you own.',
+  'world': 'The biggest companies on other world stock exchanges: Saudi, London, Paris, Frankfurt, Zurich, Tokyo, Hong Kong, Taiwan, Korea, India…',
+  'gdp aed bn/yr': 'Size of the city economy in AED billions per year.', 'in service': 'Economic projects that are finished and adding GDP.', 'gdp added bn/yr': 'Extra yearly GDP from finished projects in this city.'
+});
+Object.assign(UI.HELP_ACT, { govInvest: 'Buy development bonds: the government spends the money next month; you earn interest monthly and get it back in 10 years.', govRedeem: 'Sell this bond back to the government now for 98% of its value.', govInvSet: 'Fill in this amount.' });

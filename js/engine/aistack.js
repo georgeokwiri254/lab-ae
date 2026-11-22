@@ -194,7 +194,7 @@ UAE.ecomStock = function (co, f) {
     .sort(function (a, b) { return b.ref * b.perCap - a.ref * a.perCap; }).map(function (p) { return p.id; });
   own.concat(extra).slice(0, UAE.FIRM_TYPES.internet.lines).forEach(function (pid) {
     var l = UAE.addLine(f, pid, { price: Math.round(UAE.P[pid].ref * 0.97 * 100) / 100 }); if (!l) return;
-    var o = UAE.supplyOptions(f, pid).find(function (x) { return x.owner === co.id && x.avail > 0; });
+    var o = UAE.supplyOptions(f, pid, true).find(function (x) { return x.owner === co.id && x.avail > 0; });
     l.supplier = o ? o.id : 'IMPORT';
   });
 };

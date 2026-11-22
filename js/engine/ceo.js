@@ -232,10 +232,13 @@ UAE.AI.operate = function (co, slice, review) {
     var k = UAE.FIRM_TYPES[f.type].kind;
     if (k === 'retail') f.lines.forEach(function (l) {
       var P = UAE.P[l.pid];
-      var opts = UAE.supplyOptions(f, l.pid), best = UAE.firstStocked(opts), own = opts.find(function (o) { return o.owner === co.id && o.avail > 0; });
-      if (m.purchasing === 'own' && own && own.unit < best.unit * 1.25) best = own;
-      else if (m.purchasing === 'quality') opts.forEach(function (o) { if ((o.avail > UAE.lineCap(f, l) * 3 || o.id === 'IMPORT') && o.quality > best.quality + 3) best = o; });
-      else opts.forEach(function (o) { if ((o.avail > UAE.lineCap(f, l) * 3 || o.id === 'IMPORT') && o.unit / Math.max(30, o.quality) < best.unit / Math.max(30, best.quality)) best = o; });
+      var best = m.purchasing !== 'quality' && UAE._idx ? UAE.retailSupplier(f, l, co.id, m.purchasing) : null;   // engine/sim.js: same pick, no full sort
+      if (!best) {
+        var opts = UAE.supplyOptions(f, l.pid, true), best = UAE.firstStocked(opts), own = opts.find(function (o) { return o.owner === co.id && o.avail > 0; });
+        if (m.purchasing === 'own' && own && own.unit < best.unit * 1.25) best = own;
+        else if (m.purchasing === 'quality') opts.forEach(function (o) { if ((o.avail > UAE.lineCap(f, l) * 3 || o.id === 'IMPORT') && o.quality > best.quality + 3) best = o; });
+        else opts.forEach(function (o) { if ((o.avail > UAE.lineCap(f, l) * 3 || o.id === 'IMPORT') && o.unit / Math.max(30, o.quality) < best.unit / Math.max(30, best.quality)) best = o; });
+      }
       l.supplier = best.id;
       if (l.fixedPrice) return;                              // player fixed this price by hand
       var floor = best.unit * (1 + UAE.RULES.vat) * 1.06, cap = l.cap || UAE.lineCap(f, l);

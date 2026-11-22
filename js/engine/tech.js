@@ -152,7 +152,7 @@ UAE.softwareDay = function (list) {
 UAE.recipeQuote = function (f, pid) {
   var P = UAE.P[pid], rec = P.rec; if (!rec) return null;
   var ins = rec.in.map(function (x) {
-    var o = UAE.supplyOptions(f, x[0]), best = o.find(function (s) { return s.avail > 0 && s.id !== 'IMPORT'; }) || o.find(function (s) { return s.id === 'IMPORT'; });
+    var o = UAE.supplyOptions(f, x[0], true), best = o.find(function (s) { return s.avail > 0 && s.id !== 'IMPORT'; }) || o.find(function (s) { return s.id === 'IMPORT'; });
     var imp = o.find(function (s) { return s.id === 'IMPORT'; });
     return { pid: x[0], qty: x[1], unit: best.unit, src: best.name, cost: best.unit * x[1], importUnit: imp.unit };
   });

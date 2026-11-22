@@ -33,10 +33,32 @@ UAE.fmt = {
 UAE.isTradable = function (co) { return co.status === 'LISTED' && co.exch && co.price > 0; };
 UAE.mcap = function (co) { return UAE.isTradable(co) ? co.price * co.shares : 0; };
 UAE.bookValue = function (co) { return UAE.totals(co).equity; };
-/** Equity value for private companies (book + earnings multiple, EST). */
-UAE.privateValue = function (co) {
+/** Sum of the parts: shares this company holds in other companies (subsidiaries, associates, stock
+ *  portfolio). The balance sheet carries them at cost; valuation counts them at market value instead
+ *  (listed: share price; private: their own estimated value) x the stake held.
+ *  Returns { val, cost, list: [{ c, sh, val, cost }] }. Cached per game day. */
+UAE.stakeValue = function (co, depth) {
+  var X = UAE._idx, C = X && (X.stake || (X.stake = {}));
+  if (C && C[co.id]) return C[co.id];
+  depth = depth || 0;
+  var out = { val: 0, cost: 0, list: [] }, key = 'C:' + co.id;
+  if (depth > 3) return out;                                   // cross-holdings: stop the chain
+  UAE.allCos().forEach(function (c) {
+    if (c === co || !c.holders || !c.shares) return;
+    var n = c.holders[key]; if (!(n > 0)) return;
+    var sh = n / c.shares, whole = UAE.isTradable(c) ? UAE.mcap(c) : UAE.privateValue(c, depth + 1);
+    var v = sh * Math.max(0, whole), cost = (co.portfolio && co.portfolio[c.id]) || 0;
+    out.val += v; out.cost += cost; out.list.push({ c: c, sh: sh, val: v, cost: cost });
+  });
+  out.list.sort(function (a, b) { return b.val - a.val; });
+  if (C && !depth) C[co.id] = out;
+  return out;
+};
+/** Equity value for private companies (book + earnings multiple, EST) + stakes in other companies at market value. */
+UAE.privateValue = function (co, depth) {
   var ni = UAE.netIncome(UAE.ttm(co)), sec = UAE.SECTORS[co.sector] || UAE.SECTORS.holding;
-  return Math.max(UAE.bookValue(co), UAE.bookValue(co) * 0.5 + Math.max(0, ni) * sec.pe * 0.8);
+  var st = UAE.stakeValue(co, depth), bv = UAE.bookValue(co) - st.cost;   // own business: book without the stakes at cost
+  return Math.max(bv, bv * 0.5 + Math.max(0, ni) * sec.pe * 0.8) + st.val;
 };
 UAE.companyValue = function (co) { return UAE.isTradable(co) ? UAE.mcap(co) : UAE.privateValue(co); };
 
@@ -55,14 +77,18 @@ UAE.fundamental = function (co) {
   var h = co.history; if (h.length >= 13 && h[h.length - 13].rev > 0) growth = Math.max(0.7, Math.min(1.6, Math.pow(h[h.length - 1].rev / h[h.length - 13].rev, 0.5)));
   var earn = Math.max(0, ni) * sec.pe * growth;
   var irBoost = 1 + Math.min(0.1, (co.hqBudget.ir || 0) / 5e6 * 0.02);
-  return Math.max(bv * 0.6, earn * 0.7 + bv * 0.45) / co.shares * irBoost;
+  var st = UAE.stakeValue(co); bv -= st.cost;                   // sum of the parts: stakes at market value, not at cost
+  return (Math.max(bv * 0.6, earn * 0.7 + bv * 0.45) * irBoost + st.val) / co.shares;
 };
 
 UAE.marketDay = function () {
   var S = UAE.S, m = S.macro;
   var mkt = { DFM: UAE.rng.normal() * 0.006, ADX: UAE.rng.normal() * 0.005 };
-  var us = UAE.rng.normal();                                  // one US market factor drives NYSE and NASDAQ together
-  Object.keys(UAE.GLOBAL_EXCH || {}).forEach(function (x) { var E = UAE.GLOBAL_EXCH[x]; mkt[x] = (us * E.beta + UAE.rng.normal() * 0.4) * E.vol + 0.0003; });
+  var us = UAE.rng.normal(), reg = { US: us };               // one market factor per region: NYSE + NASDAQ move together, so do Europe's and Asia's exchanges
+  Object.keys(UAE.GLOBAL_EXCH || {}).forEach(function (x) {
+    var E = UAE.GLOBAL_EXCH[x], r = E.region || 'US', f = reg[r] != null ? reg[r] : (reg[r] = 0.5 * us + 0.87 * UAE.rng.normal());   // regions share part of the US move
+    mkt[x] = (f * E.beta + UAE.rng.normal() * 0.4) * E.vol + 0.0003;
+  });
   var before = {}, after = {}; Object.keys(S.index).forEach(function (x) { before[x] = 0; after[x] = 0; if (mkt[x] == null) mkt[x] = 0; });
   UAE.allCos().forEach(function (co) {
     if (!UAE.isTradable(co)) return;
@@ -414,16 +440,17 @@ UAE.valuationBreakdown = function (co) {
   var growth = rawGrowth ? Math.max(0.7, Math.min(1.6, Math.pow(rawGrowth, 0.5))) : 1;
   var earnValue = Math.max(0, ni) * sec.pe * growth;
   var ir = 1 + Math.min(0.1, (co.hqBudget && co.hqBudget.ir || 0) / 5e6 * 0.02);
-  var floor = bv * 0.6, blend = earnValue * 0.7 + bv * 0.45, fundEquity = Math.max(floor, blend) * ir;
+  var st = UAE.stakeValue(co), bvOwn = bv - st.cost;            // stakes in other companies are valued separately (sum of the parts)
+  var floor = bvOwn * 0.6, blend = earnValue * 0.7 + bvOwn * 0.45, fundEquity = Math.max(floor, blend) * ir + st.val;
   var listed = UAE.isTradable(co), mood = UAE.S.macro.equity;
   var r = { co: co, sector: sec.name, pe: sec.pe, assets: t.assets, liabs: t.liabs, book: bv, shareCap: co.bs.shareCap, retained: co.bs.retained,
     revTTM: ttm.revenue, ni: ni, revNow: revNow, revAgo: revAgo, rawGrowth: rawGrowth, growth: growth, earnValue: earnValue, ir: ir, floor: floor, blend: blend,
-    fundEquity: fundEquity, mood: mood, listed: listed, shares: co.shares, seed: !!(co.seed && co.seedPrice) };
+    fundEquity: fundEquity, mood: mood, listed: listed, shares: co.shares, seed: !!(co.seed && co.seedPrice), stakes: st.val, stakeCost: st.cost, stakeList: st.list, bookOwn: bvOwn };
   if (listed) {
     r.fundPrice = UAE.fundamental(co) * mood; r.price = co.price; r.mcap = UAE.mcap(co);
     r.gap = r.fundPrice / co.price - 1; r.value = r.mcap;
   } else {
-    r.privFloor = bv; r.privBlend = bv * 0.5 + Math.max(0, ni) * sec.pe * 0.8; r.value = UAE.privateValue(co);
+    r.privFloor = bvOwn; r.privBlend = bvOwn * 0.5 + Math.max(0, ni) * sec.pe * 0.8; r.value = UAE.privateValue(co);
   }
   r.implied = r.value - bv;                         // value the balance sheet does not show (brand, technology, customers, growth)
   r.peRatio = ni > 0 ? r.value / ni : null; r.pb = bv > 0 ? r.value / bv : null;

@@ -33,7 +33,7 @@ UAE.AI.operate = function (co) {
     if (k === 'retail') f.lines.forEach(function (l) {
       var P = UAE.P[l.pid];
       // pick the best-value supplier (own production preferred)
-      var opts = UAE.supplyOptions(f, l.pid), best = UAE.firstStocked(opts), own = opts.find(function (o) { return o.owner === co.id && o.avail > 0; });
+      var opts = UAE.supplyOptions(f, l.pid, true), best = UAE.firstStocked(opts), own = opts.find(function (o) { return o.owner === co.id && o.avail > 0; });
       if (own && own.unit < best.unit * 1.25) best = own;
       else opts.forEach(function (o) { if ((o.avail > UAE.lineCap(f, l) * 3 || o.id === 'IMPORT') && o.unit / Math.max(30, o.quality) < best.unit / Math.max(30, best.quality)) best = o; });
       l.supplier = best.id;
