@@ -71,6 +71,14 @@ UAE.activeResearchCount = function (co, pid) {
 /** Max automatic parallel projects on one product (4 labs already captures strong speed without burning
  *  duplicate budgets into n^-0.7 diminishing returns). */
 UAE.MAX_AUTO_RND = 4;
+/** How many R&D teams the CEO may run in parallel on one product. 4 normally; when far behind the world leader the
+ *  CEO adds teams (+1 per 3 points of gap, up to 16) if the company can afford it (cash > AED 500bn), else +1 per 8 points
+ *  (up to 8). Parallel teams cost less each but add up with diminishing returns (n^0.3 overall), so they close gaps faster. */
+UAE.rndTeamCap = function (co, pid) {
+  var base = UAE.MAX_AUTO_RND; if (!UAE.WM || !UAE.WM[pid] || !UAE.gtech) return base;
+  var gap = UAE.wmFrontier(pid) - UAE.gtech(co, pid); if (gap <= 5) return base;
+  return co.bs.cash > 5e11 ? Math.min(16, base + Math.ceil(gap / 3)) : Math.min(8, base + Math.ceil(gap / 8));
+};
 /** Can company co still run research projects on pid? Local UAE tech stops at 100,
  *  but world-market products have an uncapped World Tech Index racing advancing leaders. */
 UAE.canResearch = function (co, pid) {
@@ -120,7 +128,7 @@ UAE.researchDay = function (f) {
     var co0 = UAE.co(f.owner), pid0 = f.type === 'software' ? UAE.swPid(f) : f.target, q0 = UAE.researchQuote(f, pid0);
     var allowAuto = f.type === 'software'
       ? UAE.canAutoSoftwareResearch(co0, f, pid0)
-      : (UAE.needsAutoResearch(co0, pid0) && UAE.activeResearchCount(co0, pid0) < UAE.MAX_AUTO_RND);
+      : (UAE.needsAutoResearch(co0, pid0) && UAE.activeResearchCount(co0, pid0) < UAE.rndTeamCap(co0, pid0));
     if (allowAuto && co0.bs.cash >= q0.cost * 0.5 && UAE.startResearch(f, pid0).ok)       // keeps a cash buffer before starting
       UAE.news(f.name + ' auto-started research on ' + UAE.modelName(co0, pid0).replace(/(Gen |v)\d+/, function (m) { return m.replace(/\d+/, q0.next); }) + ' (' + UAE.fmt.aed(q0.cost) + ', ' + q0.days + ' days).', 'firm');
   }
@@ -143,7 +151,7 @@ UAE.researchDay = function (f) {
   if (UAE._idx && UAE._idx.actR) delete UAE._idx.actR[co.id + '|' + p.pid];
   var wNote = UAE.WM && UAE.WM[p.pid] && co.gtech && co.gtech[p.pid] != null ? ' · world tech index ' + co.gtech[p.pid].toFixed(1) : '';
   UAE.news(f.name + ' completed ' + UAE.modelName(co, p.pid) + ' - technology now ' + co.tech[p.pid].toFixed(1) + wNote + '.', UAE.isHuman(co) ? 'firm' : 'ai');
-  if (!UAE.isHuman(co) && UAE.needsAutoResearch(co, p.pid) && UAE.activeResearchCount(co, p.pid) < UAE.MAX_AUTO_RND && co.bs.cash > p.cost * 3) UAE.startResearch(f, p.pid);   // AI keeps its pipeline going
+  if (!UAE.isHuman(co) && UAE.needsAutoResearch(co, p.pid) && UAE.activeResearchCount(co, p.pid) < UAE.rndTeamCap(co, p.pid) && co.bs.cash > p.cost * 3) UAE.startResearch(f, p.pid);   // AI keeps its pipeline going
 };
 
 /** Daily operation of every software company: development drift, licence stock, online direct sales. */

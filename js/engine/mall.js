@@ -109,7 +109,7 @@ UAE.mallDay = function (m) {
       f.lease.paid = (f.lease.paid || 0) + r;
     } else if (f.owner === m.owner && f.status === 'open') {
       // Internal rent credit for own stores inside own mall (nets to 0 for the company; avoids paper losses on anchor malls)
-      var ir = UAE.unitMarketRent(m) * f.size * 0.85 / 30;
+      var ir = UAE.unitMarketRent(m) * f.size * 1.0 / 30;
       m.m.rev += ir; f.m.cost += ir;
     }
     if (S.day >= f.lease.until) {

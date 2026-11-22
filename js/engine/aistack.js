@@ -116,10 +116,36 @@ UAE.dcDay = function (list) {
     var estFixed = T.staff * (1 + 0.8 * (f.size - 1)) * C.wage * (c.wageIdx || 1) * T.wageMult + (f.ppe || 0) * (0.012 / 12 + 1 / (UAE.RULES.depreciationYears * 12));
     var estPerSrv = srv > 0 ? 1400 * (UAE.RULES.utilityMult[em] || 1) + estFixed / srv : 3500;
     var perSrv = f.last && f.last.cost > 0 && srv ? Math.max(f.last.cost / srv, estPerSrv * 0.9) : Math.max(3500, estPerSrv);
-    var internal = ownUse * Math.max(1600, perSrv * 1.1) / 30; f.m.rev += internal; f.ownUse = ownUse;   // cost + 10% (usual internal transfer price)
+    var dIn = UAE.cal.date(UAE.S.day).getUTCDate(), curPerSrv = srv && f.m && f.m.cost > 0 ? f.m.cost / dIn * 30 / srv : 0;   // this month's running cost too (new centres: first month)
+    perSrv = Math.max(perSrv, curPerSrv);
+    // own AI labs pay the FULL market cloud price (what renting would cost) - the data centre earns like one selling to outsiders
+    var internal = ownUse * Math.max(f.cloudPrice || UAE.CLOUD.pricePerServer, perSrv * 1.1) / 30; f.m.rev += internal; f.ownUse = ownUse;
     labsOf[f.owner].forEach(function (g) { g.m.cost += internal * (g.subs / subsOf[f.owner]); });
     UAE.fExpense(f, 'utilities', srv * 1400 / 30 * (UAE.RULES.utilityMult[em] || 1));   // ~10 kW per rack (EST)
   });
+};
+/** CEO: own AI labs short of own servers -> fill every data centre to its maximum, upgrade data centres and build new
+ *  ones (up to 6 moves a month). A server you own costs ~AED 4,400 a month to run vs AED 6,000 rented (~27% less). */
+UAE.ceoComputePlan = function (co) {
+  var need = UAE.ownComputeNeed(co.id), cap = UAE.cloudCapacity(co.id); if (need <= cap * 1.1 || co.bs.cash < 5e10) return;
+  var dcs = UAE.firmsOf(co.id).filter(function (f) { return f.type === 'datacenter' && f.status === 'open'; }), moves = 0;
+  // budget: up to 15% of cash a month (servers are bought from any supplier - own factories or import - by the data centres)
+  var srvCost = UAE.P.server ? UAE.P.server.imp : 78000, budget = co.bs.cash * 0.15, perLevel = UAE.CLOUD.maxPerLevel;
+  var stepCost = function (type) { return UAE.BUILD[type][0] + perLevel * srvCost; };
+  var planned = 0, short = need - cap;
+  dcs.forEach(function (f) { f.autoGrow = true; var t = Math.max(f.serverTarget || 0, perLevel * f.size); planned += t - (f.servers || 0); f.serverTarget = t; });
+  short -= planned; budget -= planned * srvCost;
+  // upgrade full data centres (cheaper than a new site), smallest first, up to size 20
+  dcs.filter(function (f) { return f.size < 20 && (f.servers || 0) >= perLevel * f.size * 0.9; }).sort(function (a, b) { return a.size - b.size; }).forEach(function (f) {
+    if (short <= 0 || budget < stepCost('datacenter') || moves >= 40) return;
+    if (UAE.expandFirm(f)) { f.serverTarget = perLevel * f.size; short -= perLevel; budget -= stepCost('datacenter'); moves++; }
+  });
+  // then new sites
+  while (short > 0 && budget > stepCost('datacenter') * 1.2 && moves < 40) {
+    var f = UAE.buildFor(co, 'datacenter', null); if (!f) break;
+    f.serverTarget = perLevel * f.size; short -= f.serverTarget; budget -= stepCost('datacenter'); moves++;
+  }
+  if (moves && UAE.isHuman(co)) UAE.news('🖥 ' + co.name + ' (CEO) adds data-centre capacity (' + moves + ' upgrades / new sites): own AI services need ' + UAE.fmt.num(Math.round(need)) + ' servers, own cloud has ' + UAE.fmt.num(cap) + '.', 'firm');
 };
 /** Server-months of compute a company's own AI subscriptions need. */
 UAE.ownSubs = function (coId) { return UAE.firmsOf(coId).reduce(function (s, f) { return s + (f.type === 'software' ? (f.subs || 0) : 0); }, 0); };

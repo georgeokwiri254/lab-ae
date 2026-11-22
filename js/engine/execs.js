@@ -191,8 +191,8 @@ UAE.ctoMonth = function (co) {
   var assigned = [];
   rndIdle.forEach(function (f) {
     var pick = null;
-    for (var round = 0; round < cap && !pick; round++) {
-      pick = nonSw.find(function (x) { return (used[x] || 0) <= round; });
+    for (var round = 0; round < 16 && !pick; round++) {
+      pick = nonSw.find(function (x) { return (used[x] || 0) <= round && (used[x] || 0) < (UAE.WM[x] ? UAE.rndTeamCap(co, x) : cap); });
     }
     if (!pick) return;
     used[pick] = (used[pick] || 0) + 1; f.target = pick; f.autoResearch = true; assigned.push(f);

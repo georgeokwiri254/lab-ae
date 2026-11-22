@@ -257,11 +257,12 @@ UAE.ceoTechRace = function (co) {
   if (idle.length) {
     // Spread labs across all lagging world products, capped at MAX_AUTO_RND active teams per product so
     // hundreds of labs don't pile duplicate multi-billion projects onto the same product.
-    var cap = UAE.MAX_AUTO_RND || 4, assigned = [];
+    var assigned = [], capOf = {};
+    cand.forEach(function (x) { capOf[x.pid] = UAE.rndTeamCap(co, x.pid); });   // more teams where the gap is big and cash allows
     idle.forEach(function (f) {
       var pick = null;
-      for (var round = 0; round < cap && !pick; round++) {
-        var c = cand.find(function (x) { return (used[x.pid] || 0) <= round; });
+      for (var round = 0; round < 16 && !pick; round++) {
+        var c = cand.find(function (x) { return (used[x.pid] || 0) <= round && (used[x.pid] || 0) < capOf[x.pid]; });
         if (c) pick = c.pid;
       }
       if (!pick) return;
@@ -275,6 +276,19 @@ UAE.ceoTechRace = function (co) {
       });
     }
   }
+  // not enough labs for the teams the gaps call for: the CEO opens more R&D centres (up to 8 a month)
+  if ((!human || delegated) && co.bs.cash > 1e11 && UAE.buildFor) {
+    var short = [], nNew = 0;
+    cand.slice(0, 10).forEach(function (x) { var want = UAE.rndTeamCap(co, x.pid) - (used[x.pid] || 0); for (var q = 0; q < want; q++) short.push(x.pid); });
+    for (var s2 = 0; s2 < short.length && nNew < 8; s2++) {
+      var lab = UAE.buildFor(co, 'rnd', short[s2]); if (!lab) break;
+      nNew++; lab.target = short[s2]; lab.autoResearch = true; used[short[s2]] = (used[short[s2]] || 0) + 1;
+      if (co.bs.cash > UAE.researchQuote(lab, short[s2]).cost * 0.5) UAE.startResearch(lab, short[s2]);
+    }
+    if (nNew && human) UAE.news('🧪 ' + co.name + ' (CEO) opens ' + nNew + ' new R&D centre' + (nNew > 1 ? 's' : '') + ' to close the gap to the world leaders.', 'firm');
+  }
+  // own cloud for own AI labs: owning a server is ~27% cheaper than renting compute
+  if ((!human || delegated) && UAE.ceoComputePlan) UAE.ceoComputePlan(co);
   // export capacity: the world wants more than the factories can make (and it pays) -> build more factories
   if (!human || delegated) UAE.ceoExportCapacity(co);
   // no R&D centre yet but selling to the world: the CEO opens one (AI companies / CEO-run)
@@ -291,12 +305,16 @@ UAE.ceoExportCapacity = function (co) {
     var shipped = me.units * UAE.wmBase(pid), gap = me.want - shipped;
     if (gap < me.want * 0.4 || (me.unitCost && me.price < me.unitCost * 1.15)) return;     // enough capacity, or not profitable
     var perFactory = P.rec.cap * 1.5 * UAE.wmBase(pid);                                     // one new factory line, AED / day
-    gaps.push({ pid: pid, gap: gap, n: Math.min(3, Math.ceil(gap / perFactory)) });
+    gaps.push({ pid: pid, gap: gap, n: Math.ceil(gap / perFactory) });
   });
   gaps.sort(function (a, b) { return b.gap - a.gap; });
-  var built = 0;
-  for (var i = 0; i < gaps.length && built < 3; i++) {
-    for (var k = 0; k < gaps[i].n && built < 3; k++) {
+  var pol = UAE.policy(co), lim = Math.max(3, Math.ceil((pol.maxNewPerMonth || 0) / 2)), built = 0;   // follows the "new firms per month" slider
+  for (var i = 0; i < gaps.length && built < lim; i++) {
+    // upgrade this product's existing plants first (cheaper than a new site), then build new ones
+    var plants = UAE.firmsOf(co.id).filter(function (g) { return g.type === 'factory' && g.status === 'open' && g.size < 20 && g.lines.some(function (l) { return l.pid === gaps[i].pid; }); })
+      .sort(function (a, b) { return a.size - b.size; });
+    for (var u = 0; u < plants.length && gaps[i].n > 0 && built < lim; u++) if (UAE.expandFirm(plants[u])) { gaps[i].n--; built++; }
+    for (var k = 0; k < gaps[i].n && built < lim; k++) {
       var f = UAE.buildFor(co, 'factory', gaps[i].pid); if (!f) return;
       built++; UAE.news('🌍 ' + co.name + ' opens ' + f.name + ' to export ' + UAE.P[gaps[i].pid].name + ' - world demand ' + UAE.fmt.aed(gaps[i].gap * 30) + '/month more than it can ship.', UAE.isHuman(co) ? 'firm' : 'ai');
     }

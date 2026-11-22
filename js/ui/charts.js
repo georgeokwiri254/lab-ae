@@ -17,7 +17,15 @@ UI.chart = function (cv, series, opt) {
   var min = Math.min.apply(null, all), max = Math.max.apply(null, all);
   if (opt.zero) min = Math.min(0, min);
   if (min === max) { max += Math.abs(max) * 0.05 + 1; min -= Math.abs(min) * 0.05 + 1; }
-  var padL = 64, padR = 10, padT = 18, padB = 20, W = w - padL - padR, H = h - padT - padB;
+  // legend layout first: entries flow left to right and wrap to a new row instead of overlapping (narrow windows)
+  g.font = '10.5px Inter';
+  var legX = [], legY = [], lx = 70, row = 0;
+  series.forEach(function (s, si) {
+    var tw = g.measureText('■ ' + (s.label || '')).width;
+    if (lx + tw > w - 6 && lx > 70) { row++; lx = 70; }
+    legX[si] = lx; legY[si] = 11 + row * 13; lx += tw + 16;
+  });
+  var padL = 64, padR = 10, padT = 18 + row * 13, padB = 20, W = w - padL - padR, H = h - padT - padB;
   var fmt = opt.fmt || function (v) { return UAE.fmt.num(v, 1); };
   // grid
   g.strokeStyle = 'rgba(0,240,255,0.10)'; g.lineWidth = 1; g.fillStyle = '#7d93a6'; g.font = '10px JetBrains Mono';
@@ -57,12 +65,18 @@ UI.chart = function (cv, series, opt) {
     }
     // legend
     g.fillStyle = col; g.font = '10.5px Inter';
-    g.fillText('■ ' + (s.label || ''), padL + 6 + si * 150, 11);
+    g.fillText('■ ' + (s.label || ''), legX[si], legY[si]);
   });
   if (opt.labels && opt.labels.length) {
     g.fillStyle = '#7d93a6'; g.font = '9.5px JetBrains Mono';
-    var L = opt.labels, step = Math.max(1, Math.ceil(L.length / 6));
-    for (var j = 0; j < L.length; j += step) g.fillText(L[j], padL + W * j / Math.max(1, L.length - 1) - 14, h - 5);
+    // as many date labels as fit without touching (measured), kept inside the chart
+    var L = opt.labels, lw = 8 + L.reduce(function (m, t) { return Math.max(m, g.measureText(String(t)).width); }, 0);
+    var fit = Math.max(2, Math.floor(W / lw)), step = Math.max(1, Math.ceil(L.length / fit));
+    for (var j = 0, prevEnd = -1e9; j < L.length; j += step) {
+      var tx = Math.max(padL - 6, Math.min(w - lw + 6, padL + W * j / Math.max(1, L.length - 1) - lw / 2 + 4));
+      if (tx < prevEnd) continue;                       // would touch the previous date: skip it
+      g.fillText(L[j], tx, h - 5); prevEnd = tx + lw;
+    }
   }
 };
 

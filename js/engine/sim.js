@@ -273,7 +273,7 @@ UAE.procure = function (f, pid, q, supplierId) {
       var refPx = gl && gl.price > 0 ? gl.price : unitCost * 1.15;
       var impCap = UAE.landedImport(pid, f).unit * (g.type === 'warehouse' ? 1.0 : 0.95);
       var maxMarkup = Math.max(0, Math.min(refPx, impCap) - unitCost);
-      var markup = Math.min(maxMarkup, fixedM / Math.max(1, capM) * 1.25);
+      var markup = maxMarkup;   // internal sales at FULL market price (supplier's price, capped at the landed import price) - user's choice 2026-11-22
       if (markup > 0) {
         g.m.rev += (unitCost + markup) * q; g.m.cost += basis;
         f.m.cost += markup * q;
