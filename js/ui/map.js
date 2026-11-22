@@ -67,7 +67,8 @@ UI.initMap = function () {
   };
   var map = UI.map = new maplibregl.Map({
     container: 'map', style: style, center: [55.2744, 25.1972], zoom: 15.4, pitch: 64, bearing: -28,
-    maxPitch: 80, antialias: true, attributionControl: { compact: true }
+    maxPitch: 80, antialias: true, attributionControl: { compact: true },
+    boxZoom: false                                      // Shift is reserved for Shift+click "build & keep placing"
   });
   map.on('error', function (e) { if (window.console) console.warn('map:', e && e.error && e.error.message); });
   map.on('load', function () {
@@ -146,7 +147,7 @@ UI.initMap = function () {
   });
   map.on('mouseleave', 'firm-core', function () { map.getCanvas().style.cursor = UI.buildType ? 'crosshair' : ''; popup.remove(); });
   map.on('click', function (e) {
-    if (UI.buildType) { UI.tryBuild([e.lngLat.lat, e.lngLat.lng]); return; }
+    if (UI.buildType) { UI.tryBuild([e.lngLat.lat, e.lngLat.lng], UI._shift || (e.originalEvent && e.originalEvent.shiftKey)); return; }
     var hits = map.queryRenderedFeatures(e.point, { layers: ['firm-core', 'firm-glow'] });
     if (hits.length) { UI.openFirm(hits[0].properties.id); return; }
     if (UI.depOn) { var dh = map.queryRenderedFeatures(e.point, { layers: ['dep-dot'] }); if (dh.length) UI.depositInfo(dh[0].properties.id); }
@@ -163,7 +164,8 @@ UI.districtGeo = function () {
 UI.addLabels = function () {
   UI.lmMarkers = [];
   UAE.LANDMARKS.forEach(function (l) {
-    var el = document.createElement('div'); el.className = 'map-label'; el.textContent = l.name;
+    var el = document.createElement('div'); el.className = 'map-label'; el.textContent = l.name; el.title = 'Click for photo & info';
+    el.addEventListener('click', function (ev) { ev.stopPropagation(); if (!UI.buildType && UI.openLandmark) UI.openLandmark(l.name); });
     UI.lmMarkers.push(new maplibregl.Marker({ element: el, anchor: 'left', offset: [6, 0] }).setLngLat(UI.ll(l.c)).addTo(UI.map));
   });
   Object.keys(UAE.CITIES).forEach(function (k) {

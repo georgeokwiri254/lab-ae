@@ -14,13 +14,13 @@ UI.R.persons = function () {
     if (flt === 'ceo') return p.co && UAE.co(p.co) && UAE.co(p.co).ceo === p.id;
     if (flt === 'cand') return p.title === 'Candidate';
     return true;
-  }).sort(function (a, b) { return UAE.personWealth(b) - UAE.personWealth(a); });
-  var sel = UI.tabState.person && S.persons[UI.tabState.person] ? S.persons[UI.tabState.person] : (list[0] || UAE.playerPerson());
-  var h = '<div class="note">All executives are fictional personas - real executives of real UAE companies are not modelled.</div>' +
+  }).sort(function (a, b) { return (b.elite ? 1 : 0) - (a.elite ? 1 : 0) || UAE.personWealth(b) - UAE.personWealth(a); });   // elite candidates first
+  var sel = UI.tabState.person && S.persons[UI.tabState.person] ? S.persons[UI.tabState.person] : (flt === 'cand' && list[0] ? list[0] : UAE.playerPerson());   // opens on you
+  var h = '<div class="note">Executives are game characters. Real executives of real companies are not modelled; any real names you give your own staff are for fun, and their decisions are simulated by the game.</div>' +
     UI.tabs('pflt', [['ceo', 'CEOs'], ['mine', 'My staff only'], ['cand', 'Candidates'], ['all', 'Everyone']], flt);
   h += '<div class="split"><div class="plist"><table class="t">' + list.slice(0, 120).map(function (p) {
     var co = p.co && UAE.co(p.co);
-    return '<tr class="click' + (p === sel ? ' me' : '') + '" data-act="personSel" data-arg="' + p.id + '"><td>' + UI.esc(p.name) + (p.isPlayer ? ' <span class="t-a">YOU</span>' : '') + '<br><span class="muted">' + UI.esc(p.title) + (co ? ' · ' + UI.esc(co.name) : '') + '</span></td></tr>';
+    return '<tr class="click' + (p === sel ? ' me' : '') + '" data-act="personSel" data-arg="' + p.id + '"><td style="width:40px">' + UI.portrait(p, 34) + '</td><td>' + UI.esc(p.name) + (p.isPlayer ? ' <span class="t-a">YOU</span>' : '') + (p.elite ? ' <span class="pill real">ELITE ' + p.elite.toUpperCase() + '</span>' : '') + '<br><span class="muted">' + UI.esc(p.title) + (co ? ' · ' + UI.esc(co.name) : '') + '</span></td></tr>';
   }).join('') + '</table></div><div class="pdet">' + UI.personDetail(sel) + '</div></div>';
   return h;
 };
@@ -39,14 +39,15 @@ UI.personDetail = function (p) {
   var tabs = [['sum', 'Summary'], ['wealth', 'Wealth'], ['career', 'Career'], ['exp', 'Expertise'], ['pers', 'Personality']];
   if (isCeo) tabs = tabs.concat([['cexp', 'Expansion Strategies'], ['cscope', 'Scope of Production'], ['cmgmt', 'Management Policies'], ['cfin', 'Financial']]);
   if (!isCeo && tab.indexOf('c') === 0) tab = 'sum';
-  var h = '<div class="pcard"><div class="avatar">' + UI.esc(p.name.split(' ').map(function (x) { return x[0]; }).join('').slice(0, 2)) + '</div><div><b>' + UI.esc(p.name) + '</b>' + (p.isPlayer ? ' <span class="t-a">YOU</span>' : '') +
-    '<br><span class="muted">' + UI.esc(p.title) + (co ? ' · ' + UI.coLink(co) : '') + '</span><br><span class="muted">age ' + p.age + ' · salary ' + UAE.fmt.aed(p.salary || 0) + '/mo · attitude towards you ' + Math.round(p.attitude || 0) + '</span></div></div>';
+  var h = '<div class="pcard">' + UI.portrait(p, 84) + '<div><b>' + UI.esc(p.name) + '</b>' + (p.isPlayer ? ' <span class="t-a">YOU</span>' : '') +
+    '<br><span class="muted">' + UI.esc(p.title) + (co ? ' · ' + UI.coLink(co) : '') + '</span>' + (p.isPlayer ? ' <button class="btn sm a" data-act="maxPerson" data-arg="' + p.id + '">' + (p.maxed ? '✔ Expertise maxed' : 'Max my expertise') + '</button> <button class="btn sm" data-act="myLook" data-arg="photo">' + (p.look && p.look.noPhoto ? 'Use my photo' : 'Use drawn portrait') + '</button><button class="btn sm" data-act="myLook" data-arg="style">Change look</button><button class="btn sm" data-act="myLook" data-arg="fem">Man / woman</button><button class="btn sm" data-act="myLook" data-arg="trad">National dress</button>' : '') + ((!p.isPlayer && (!co || UAE.isHuman(co))) ? ' <button class="btn sm" data-act="personEdit" data-arg="' + p.id + '">Edit name &amp; photo</button>' : '') + '<br><span class="muted">age ' + p.age + ' · salary ' + UAE.fmt.aed(p.salary || 0) + '/mo · attitude towards you ' + Math.round(p.attitude || 0) + '</span></div></div>';
+  if (p.isPlayer && !(p.look && p.look.noPhoto) && UI.playerHero) h += UI.playerHero(p, 340);
   h += UI.tabs('ptab', tabs, tab);
   if (tab === 'sum') {
     h += '<div class="cards">' + UI.card('Net worth', UAE.fmt.aed(UAE.personWealth(p))) + UI.card('Management', p.skill.mgmt) + UI.card('Technology', p.skill.tech) + UI.card('Marketing', p.skill.marketing) + UI.card('Finance', p.skill.finance) + '</div>';
     var managed = UAE.allFirms().filter(function (f) { return f.manager === p.id; });
     if (managed.length) h += '<div class="box"><h3>Manages</h3>' + managed.map(function (f) { return '<a href="#" data-act="openFirm" data-arg="' + f.id + '">' + UI.esc(f.name) + '</a>'; }).join(' · ') + '</div>';
-    if (p.title === 'Candidate') h += UI.hireBox(p);
+    if (p.title === 'Candidate' || (!p.isPlayer && p.co && UAE.isHuman(UAE.co(p.co)))) h += UI.hireBox(p);   // candidates, or your own staff (move them)
   } else if (tab === 'wealth') {
     var rows = UAE.allCos().filter(function (c) { return c.holders['P:' + p.id]; }).map(function (c) {
       var n = c.holders['P:' + p.id], px = UAE.isTradable(c) ? c.price : UAE.privateValue(c) / c.shares; return { c: c, n: n, v: n * px };
@@ -67,18 +68,25 @@ UI.personDetail = function (p) {
     var P = p.pers;
     h += '<table class="t">' + [['aggression', 'Expansion aggressiveness'], ['risk', 'Risk appetite (borrowing)'], ['pricing', 'Pricing (0 discount … 1 premium)'], ['diversify', 'Diversification']].map(function (x) {
       return '<tr><td>' + x[1] + '</td><td>' + UI.bar(P[x[0]] * 100, '#ff2bd6', (P[x[0]] * 100).toFixed(0)) + '</td></tr>';
-    }).join('') + '</table><div class="note">For AI companies the CEO\'s personality sets the default policies (prices, budgets, expansion speed).</div>';
+    }).join('') + '</table>' + (p.co && UAE.co(p.co) && UAE.co(p.co).controller === 'PLAYER' && !p.isPlayer ? '<div class="row"><button class="btn a" data-act="maxPers" data-arg="' + p.id + '">⚡ Max personality &amp; risk appetite</button><button class="btn" data-act="maxPersAll">Max all my CEOs</button></div>' : '') +
+      '<div class="note">The CEO\'s personality drives how a company is run (expansion speed, borrowing, pricing, branching into new businesses) – for your companies too when a hired CEO runs them. Max = aggressiveness, risk appetite and diversification at 100; pricing is left as it is.</div>';
   } else h += UI.ceoTab(co, tab);
   return h;
 };
 
 UI.hireBox = function (p) {
-  var cos = UAE.allCos().filter(function (c) { return c.controller === 'PLAYER'; });
-  return '<div class="box"><h3>Hire</h3><div class="row"><label>Company</label><select class="in" id="hireCo">' + cos.map(function (c) { return '<option value="' + c.id + '"' + (c.id === UAE.S.activeCo ? ' selected' : '') + '>' + UI.esc(c.name) + '</option>'; }).join('') + '</select>' +
-    '<button class="btn a" data-act="hireCeo" data-arg="' + p.id + '">Appoint as CEO</button><button class="btn" data-act="hireCmo" data-arg="' + p.id + '">Appoint as CMO</button>' +
-    '<button class="btn" data-act="info" data-arg="managers">Make firm manager…</button></div></div>';
+  var cos = UAE.allCos().filter(function (c) { return c.controller === 'PLAYER'; }), target = UI.tabState.hireFor && UAE.co(UI.tabState.hireFor) ? UI.tabState.hireFor : UAE.S.activeCo;
+  var title = p.title === 'Candidate' ? 'Hire' : 'Move to another of your companies';
+  return '<div class="box"><h3>' + title + '</h3><div class="row"><label>For company</label><select class="in" id="hireCo" data-ch="hireFor">' + cos.map(function (c) { return '<option value="' + c.id + '"' + (c.id === target ? ' selected' : '') + '>' + UI.esc(c.name) + (c.parent ? ' (subsidiary)' : '') + '</option>'; }).join('') + '</select></div><div class="row">' +
+    '<button class="btn a" data-act="hireCeo" data-arg="' + p.id + '">Appoint as CEO</button><button class="btn" data-act="hireCmo" data-arg="' + p.id + '">Appoint as CMO</button><button class="btn" data-act="hireCto" data-arg="' + p.id + '">Appoint as CTO</button>' +
+    '<button class="btn" data-act="info" data-arg="managers">Make firm manager…</button>' +
+    (p.maxed ? ' <span class="t-a">✔ maxed</span>' : ' <button class="btn sm" data-act="maxPerson" data-arg="' + p.id + '">Max expertise</button>') + '</div></div>';
 };
 UI.act.hireCeo = function (pid) { var co = UAE.co(UI.$('hireCo').value), p = UAE.person(pid); p.salary = Math.max(p.salary || 0, 60000 + p.skill.mgmt * 1500); UI.result(UAE.appointCeo(co, pid), 'CEO appointed.'); };
+UI.act.maxPerson = function (pid) { UAE.maxExpertise(UAE.person(pid)); UI.toast('Expertise maxed.', 'good'); UI.render(); };
+UI.act.hireFor = function (a, el) { UI.tabState.hireFor = el.value; };
+/** From a company page: open the candidate list with this company preselected. */
+UI.act.hireForCo = function (coId) { UI.tabState.hireFor = coId; UI.tabState.pflt = 'cand'; UI.tabState.person = null; UI.tabState.ptab = 'sum'; UI.open('Persons · hire for ' + UAE.co(coId).name, UI.R.persons, { push: true }); };
 UI.act.hireCmo = function (pid) { var co = UAE.co(UI.$('hireCo').value); UI.result(UAE.appointCmo(co, pid), 'CMO appointed.'); };
 
 /* ---------------------------------------------------------- CEO tabs */
@@ -159,3 +167,13 @@ UI.act.polMgmt = function (id) {
 UI.act.polOverride = function (id) { var m = UAE.policy(UAE.co(id)).mgmt; m.priceOverride = m.priceOverride || {}; m.priceOverride[UI.$('poPid').value] = UI.$('poLvl').value; UI.render(); };
 UI.act.polOverrideDel = function (arg) { var p = arg.split('|'); delete UAE.policy(UAE.co(p[0])).mgmt.priceOverride[p[1]]; UI.render(); };
 UI.act.cfPay = function (id) { var v = UI.num('cfPay'); if (v >= 0 && v <= 100) { UAE.co(id).payout = v / 100; UI.toast('Payout set.', 'good'); UI.render(); } };
+
+/** Player portrait: cycle hair style / skin / glasses, switch man / woman, national dress on / off. */
+UI.act.myLook = function (what) {
+  var p = UAE.playerPerson(), L = UI.portraitLook(p); p.look = p.look || {};
+  if (what === 'photo') p.look.noPhoto = !p.look.noPhoto;
+  else if (what === 'fem') p.look.fem = !L.fem;
+  else if (what === 'trad') p.look.trad = !L.trad;
+  else { var n = ((p.look.n || 0) + 1) % 24; p.look.n = n; p.look.style = n % 4; p.look.skin = ['#f1c9a5', '#e0ac7e', '#c68b5e', '#a86d43', '#8a5533', '#5e3a22'][Math.floor(n / 4) % 6]; p.look.glasses = n % 3 === 0; p.look.beard = n % 2 === 1; }
+  UI.render();
+};

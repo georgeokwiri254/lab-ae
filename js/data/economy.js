@@ -96,7 +96,10 @@ UAE.PRODUCTS = [
   { id:'cotton',   name:'Cotton Fabric',    cls:'Textiles',    kind:'raw',  unit:'100m',  world:1100, imp:1200, t:0.03,  src:'import', qImp:60 },
   { id:'leather',  name:'Leather',          cls:'Textiles',    kind:'raw',  unit:'m2',    world:85,   imp:95,   t:0.002, src:'import', qImp:60 },
   { id:'gold',     name:'Gold Bullion',     cls:'Precious Metals', kind:'raw', unit:'g',  world:400,  imp:405,  t:0.000001, src:'import', qImp:90 },
-  { id:'chips',    name:'Semiconductors',   cls:'Electronics', kind:'raw',  unit:'pc',    world:340,  imp:350,  t:0.0001,src:'import', qImp:70 },
+  { id:'silicon',  name:'Polysilicon (9N)',  cls:'Semiconductor Materials', kind:'raw', unit:'kg', world:75, imp:80, t:0.001, src:'import', qImp:65 },
+  { id:'copper',   name:'Copper Cathode',    cls:'Semiconductor Materials', kind:'raw', unit:'kg', world:36, imp:38, t:0.001, src:'import', qImp:65 },
+  { id:'chips',    name:'Semiconductors',   cls:'Semiconductors', kind:'inter', unit:'pc', world:340, imp:350, t:0.0001, src:'factory', qImp:70,
+    rec:{ in:[['wafer',0.004],['copper',0.002],['gold',0.01],['chipip',0.004]], cap:8000, lab:200 } },
   { id:'coffeebn', name:'Green Coffee Beans',cls:'Agriculture',kind:'raw',  unit:'kg',    world:38,   imp:42,   t:0.001, src:'import', qImp:65 },
   { id:'oud',      name:'Oud & Fragrance Oils', cls:'Cosmetics', kind:'raw', unit:'kg',   world:850,  imp:900,  t:0.001, src:'import', qImp:65 },
   // ---- intermediates (B2B) ----
@@ -134,8 +137,56 @@ UAE.PRODUCTS = [
   { id:'furniture',name:'Sofa Set',           cls:'Furniture', kind:'consumer', unit:'set',  ref:3600, imp:2200, t:0.09, src:'import', perCap:0.035, tour:1.0, el:-1.1, cap:5, qImp:60 },
   { id:'medicine', name:'OTC Medicine',       cls:'Drugs',     kind:'consumer', unit:'pack', ref:36,   imp:21,   t:0.0002, src:'import', perCap:9,  tour:1.3, el:-0.3, cap:250, qImp:75 },
   { id:'toys',     name:'Toys',               cls:'Toy',       kind:'consumer', unit:'pc',   ref:95,   imp:48,   t:0.001, src:'factory', perCap:1.6, tour:1.6, el:-1.2, cap:60, qImp:55, rec:{ in:[['polymer',0.0008]], cap:2000, lab:14 } },
-  { id:'car',      name:'Sedan Car',          cls:'Automobile',kind:'consumer', unit:'car',  ref:115000, imp:88000, t:1.4, src:'import', perCap:0.022, tour:0, el:-1.3, cap:1.2, qImp:75 }
+  { id:'car',      name:'Sedan Car',          cls:'Automobile',kind:'consumer', unit:'car',  ref:115000, imp:88000, t:1.4, src:'import', perCap:0.022, tour:0, el:-1.3, cap:1.2, qImp:75 },
+
+  // ---- SOFTWARE (Digital Age DLC). Made by Software Companies (B18), no raw materials: each licence costs
+  //      ~3% of the import price to deliver. Sold three ways: online direct by the software company,
+  //      through retail stores, and B2B (enterprise licences + OS / AI licences built into devices).
+  //      grow = yearly demand growth (SYN tech boom). b2b = enterprise licences per AED bn GDP per year.
+  { id:'os',       name:'Operating System',      cls:'Software', kind:'software', unit:'licence', ref:550,  imp:430,  t:0.000001, src:'software', perCap:0.30, tour:0.2, el:-0.35, cap:400, qImp:70, grow:0.08, b2b:180, sw:'Operating System' },
+  { id:'ai',       name:'AI Assistant (annual)', cls:'Software', kind:'software', unit:'licence', ref:899,  imp:640,  t:0.000001, src:'software', perCap:0.45, tour:0.3, el:-0.45, cap:400, qImp:72, grow:0.30, b2b:320, sw:'AI Assistant' },
+  { id:'office',   name:'Office Suite',          cls:'Software', kind:'software', unit:'licence', ref:420,  imp:300,  t:0.000001, src:'software', perCap:0.12, tour:0,   el:-0.7,  cap:250, qImp:70, grow:0.03, b2b:140, sw:'Office Software' },
+  { id:'security', name:'Cyber Security Suite',  cls:'Software', kind:'software', unit:'licence', ref:260,  imp:170,  t:0.000001, src:'software', perCap:0.15, tour:0,   el:-0.6,  cap:250, qImp:70, grow:0.12, b2b:100, sw:'Computer Security' },
+  { id:'design',   name:'Graphic Design Software',cls:'Software',kind:'software', unit:'licence', ref:1900, imp:1300, t:0.000001, src:'software', perCap:0.012,tour:0,   el:-0.9,  cap:40,  qImp:70, grow:0.04, sw:'Graphic Design Software' },
+  { id:'video',    name:'Video Editing Software',cls:'Software', kind:'software', unit:'licence', ref:1500, imp:1000, t:0.000001, src:'software', perCap:0.010,tour:0,   el:-0.9,  cap:40,  qImp:70, grow:0.05, sw:'Video Software' },
+  { id:'audio',    name:'Audio Software',        cls:'Software', kind:'software', unit:'licence', ref:700,  imp:460,  t:0.000001, src:'software', perCap:0.008,tour:0,   el:-0.9,  cap:40,  qImp:70, grow:0.03, sw:'Audio Software' },
+  { id:'utility',  name:'Utility Software',      cls:'Software', kind:'software', unit:'licence', ref:120,  imp:75,   t:0.000001, src:'software', perCap:0.12, tour:0,   el:-0.8,  cap:250, qImp:65, grow:0.02, sw:'Utility Software' },
+  { id:'chipip',   name:'Chip Design IP (licence)', cls:'Chip Design', kind:'software', unit:'licence', ref:9000, imp:7000, t:0.000001, src:'software', perCap:0, tour:0, el:-0.5, cap:50, qImp:72, grow:0.2, b2b:3, sw:'Chip Design (EDA / IP)' },
+  { id:'llm',      name:'Frontier AI Model API (1M tokens)', cls:'AI Models', kind:'software', unit:'1M tokens', ref:40, imp:30, t:0.000001, src:'software', perCap:0, tour:0, el:-0.6, cap:2000, qImp:78, grow:0.6, b2b:2600, sw:'Frontier AI Model (LLM)' },
+  { id:'game',     name:'Video Game',            cls:'Software', kind:'software', unit:'licence', ref:250,  imp:170,  t:0.000001, src:'software', perCap:0.60, tour:0.4, el:-1.1,  cap:300, qImp:70, grow:0.10, sw:'Video Games' },
+
+  // ---- FUTURISTIC products (FutureWorld-style). Raw materials -> components -> devices.
+  { id:'lithium',  name:'Lithium Carbonate',     cls:'Battery Materials', kind:'raw', unit:'kg', world:55,  imp:60,  t:0.001, src:'import', qImp:65 },
+  { id:'rareearth',name:'Rare Earth Alloy',      cls:'Battery Materials', kind:'raw', unit:'kg', world:320, imp:340, t:0.001, src:'import', qImp:65 },
+  { id:'battery',  name:'Li-ion Battery Module (1 kWh)', cls:'Batteries', kind:'inter', unit:'kWh', world:420, imp:460, t:0.006, src:'factory', qImp:65, rec:{ in:[['lithium',0.7],['aluminium',0.0005]], cap:2000, lab:60 } },
+  { id:'aichip',   name:'AI Accelerator Chip',   cls:'AI Hardware', kind:'inter', unit:'pc', world:4500, imp:4700, t:0.0002, src:'factory', qImp:70, rec:{ in:[['chips',6],['rareearth',0.05],['copper',0.05],['chipip',0.02]], cap:400, lab:900 }, b2b:6 },
+  { id:'cpu',      name:'CPU Processor',         cls:'Semiconductors', kind:'inter', unit:'pc', world:900, imp:950, t:0.0001, src:'factory', qImp:72, rec:{ in:[['wafer',0.01],['copper',0.01],['gold',0.02],['chipip',0.01]], cap:3000, lab:140 }, b2b:4 },
+  { id:'ram',      name:'RAM Memory Module 32GB',cls:'Semiconductors', kind:'inter', unit:'pc', world:260, imp:280, t:0.0001, src:'factory', qImp:70, rec:{ in:[['wafer',0.006],['copper',0.005],['chipip',0.004]], cap:6000, lab:45 }, b2b:6 },
+  { id:'server',   name:'AI Server (8-GPU rack unit)', cls:'AI Hardware', kind:'inter', unit:'pc', world:72000, imp:78000, t:0.12, src:'factory', qImp:75,
+    rec:{ in:[['aichip',8],['cpu',2],['ram',16],['copper',3],['aluminium',0.02],['os',1]], cap:40, lab:6000 }, b2b:0.15 },
+  { id:'wafer',    name:'Silicon Wafer 300mm',   cls:'Semiconductor Materials', kind:'inter', unit:'pc', world:620, imp:660, t:0.0002, src:'factory', qImp:65, rec:{ in:[['silicon',1.2]], cap:3000, lab:380 } },
+  { id:'gpu',      name:'Graphics Card / GPU',   cls:'AI Hardware', kind:'consumer', unit:'pc', ref:7500, imp:5800, t:0.002, src:'factory', perCap:0.02, tour:0.6, el:-1.1, cap:12, qImp:75, grow:0.25,
+    rec:{ in:[['aichip',0.5],['chips',2],['copper',0.4],['polymer',0.0004]], cap:400, lab:350 }, b2b:12 },
+  { id:'motor',    name:'Electric Motor',        cls:'Robotics Components', kind:'inter', unit:'pc', world:1800, imp:1950, t:0.02, src:'factory', qImp:65, rec:{ in:[['rareearth',1.5],['aluminium',0.01]], cap:600, lab:300 } },
+  { id:'sensor',   name:'Lidar Sensor Module',   cls:'Robotics Components', kind:'inter', unit:'pc', world:1200, imp:1300, t:0.0005, src:'factory', qImp:65, rec:{ in:[['chips',2],['glass',0.0005]], cap:800, lab:200 } },
+  { id:'ev',       name:'Electric Car (self-driving)', cls:'Electric Vehicles', kind:'consumer', unit:'car', ref:165000, imp:128000, t:1.8, src:'factory', perCap:0.012, tour:0, el:-1.2, cap:1, qImp:80, grow:0.15,
+    rec:{ in:[['battery',75],['motor',2],['aichip',2],['sensor',6],['aluminium',0.25],['glass',0.04],['os',1],['ai',1]], cap:40, lab:18000 } },
+  { id:'robot',    name:'Humanoid Home Robot',   cls:'Robotics', kind:'consumer', unit:'pc', ref:52000, imp:40000, t:0.07, src:'factory', perCap:0.004, tour:0.2, el:-1.3, cap:3, qImp:75, grow:0.35,
+    rec:{ in:[['aichip',2],['motor',6],['sensor',4],['battery',3],['polymer',0.02],['os',1],['ai',1]], cap:60, lab:3000 } },
+  { id:'arglasses',name:'AR Smart Glasses',      cls:'Wearables', kind:'consumer', unit:'pc', ref:4200, imp:3100, t:0.0003, src:'factory', perCap:0.05, tour:1.5, el:-1.2, cap:25, qImp:75, grow:0.25,
+    rec:{ in:[['chips',3],['glass',0.0001],['battery',0.05],['sensor',1],['os',1]], cap:500, lab:250 } },
+  { id:'vr',       name:'VR Headset',            cls:'Wearables', kind:'consumer', unit:'pc', ref:2900, imp:2100, t:0.0006, src:'factory', perCap:0.04, tour:1.2, el:-1.2, cap:25, qImp:70, grow:0.12,
+    rec:{ in:[['chips',3],['glass',0.0001],['polymer',0.0004],['os',1]], cap:500, lab:150 } },
+  { id:'drone',    name:'Consumer Drone',        cls:'Drones', kind:'consumer', unit:'pc', ref:3600, imp:2600, t:0.002, src:'factory', perCap:0.02, tour:1.3, el:-1.2, cap:20, qImp:70, grow:0.18,
+    rec:{ in:[['chips',2],['battery',0.3],['polymer',0.0008],['sensor',1]], cap:400, lab:200 } }
 ];
+// devices need an operating system licence (from a software company or imported)
+[['phone', 1], ['laptop', 1]].forEach(function (x) { UAE.PRODUCTS.forEach(function (p) { if (p.id === x[0]) p.rec.in.push(['os', x[1]]); }); });
+// computers: a CPU and RAM instead of most generic chips; phones get RAM
+UAE.PRODUCTS.forEach(function (p) {
+  if (p.id === 'laptop') p.rec.in = [['chips', 2], ['cpu', 1], ['ram', 2], ['aluminium', 0.0012], ['polymer', 0.0006], ['os', 1]];
+  if (p.id === 'phone') p.rec.in.push(['ram', 1]);
+});
 UAE.P = {}; UAE.PRODUCTS.forEach(function (p) { UAE.P[p.id] = p; });
 
 /* ---- Building / firm types -----------------------------------------------
@@ -169,7 +220,7 @@ UAE.FIRM_TYPES = {
   civic:      { code:'B16', name:'Civic Building',     icon:'🏛', color:'#9de0d0', zones:['cbd','commercial','residential'], m2:6000, cpm:5200, floors:2, staff:110, wageMult:1.2, lines:0, kwh:120000, kind:'civic', gov:true },
   sports:     { code:'B17', name:'Sports Facility',    icon:'🏟', color:'#7df0b0', zones:['residential','tourism','commercial'], m2:25000, cpm:2200, floors:0.6, staff:50, wageMult:0.7, lines:0, kwh:150000, kind:'sports' },
   software:   { code:'B18', name:'Software Company',   icon:'💾', color:'#a98bff', zones:['tech','cbd'], dlc:'Digital Age', m2:1200, cpm:4500, floors:4, staff:70, wageMult:2.4, lines:0, kwh:45000, kind:'software' },
-  internet:   { code:'B19', name:'Internet / E-commerce Co.', icon:'🌐', color:'#5fe0ff', zones:['tech','cbd','freezone'], dlc:'Digital Age', m2:1500, cpm:4500, floors:4, staff:90, wageMult:2.0, lines:0, kwh:70000, kind:'internet' },
+  internet:   { code:'B19', name:'Internet / E-commerce Co.', icon:'🌐', color:'#5fe0ff', zones:['tech','cbd','freezone'], dlc:'Digital Age', m2:1500, cpm:4500, floors:4, staff:90, wageMult:2.0, lines:8, kwh:70000, kind:'internet' },
   telecom:    { code:'B20', name:'Telecom Company',    icon:'📡', color:'#40c8ff', zones:['tech','cbd'], dlc:'Digital Age', m2:3000, cpm:6000, floors:5, staff:200, wageMult:1.8, lines:0, kwh:600000, kind:'telecom' },
   bankhq:     { code:'B21', name:'Bank Headquarters',  icon:'🏦', color:'#4dd2a8', zones:['cbd'], dlc:'Banking & Finance', m2:2500, cpm:7000, floors:20, staff:150, wageMult:2.4, lines:0, kwh:150000, kind:'bankhq' },
   bankbranch: { code:'B22', name:'Bank Branch',        icon:'💳', color:'#68e0b9', zones:['cbd','commercial','residential','tourism'], dlc:'Banking & Finance', m2:400, cpm:4200, floors:1, staff:12, wageMult:1.3, lines:0, kwh:15000, kind:'bankbranch' },
@@ -183,7 +234,7 @@ UAE.FIRM_TYPES = {
   // ---- UAE extensions (not in Capitalism Lab's 29) ----
   hotel:      { code:'UAE1', name:'Hotel / Resort',    icon:'🏨', color:'#ffcf8a', zones:['tourism','cbd'], ext:true, m2:5000, cpm:7500, floors:25, staff:220, wageMult:0.7, lines:0, kwh:900000, kind:'hotel', roomsPerLevel:180 },
   solar:      { code:'UAE2', name:'Solar Farm',        icon:'☀', color:'#ffe066', zones:['desert'], ext:true, m2:500000, cpm:55, floors:0.05, staff:25, wageMult:1.2, lines:0, kwh:0, kind:'solar', mw:50 },
-  datacenter: { code:'UAE3', name:'Data Centre',       icon:'🖥', color:'#8ef', zones:['tech','industrial','freezone'], ext:true, m2:6000, cpm:9000, floors:2, staff:45, wageMult:2.0, lines:0, kwh:4500000, kind:'datacenter', mw:8 }
+  datacenter: { code:'UAE3', name:'Data Centre',       icon:'🖥', color:'#8ef', zones:['tech','industrial','freezone'], ext:true, m2:6000, cpm:9000, floors:2, staff:45, wageMult:2.0, lines:1, kwh:4500000, kind:'datacenter', mw:8 }
 };
 
 /* Construction cost per size level, AED (EST - typical UAE build costs), and
@@ -211,8 +262,10 @@ UAE.SERVICES = {
 };
 
 /* Software classes (Digital Age DLC - REAL class names from capitalismlab.com) */
-UAE.SOFTWARE = ['Operating System','Office Software','Computer Security','Graphic Design Software',
-                'Video Software','Utility Software','Audio Software'];
+UAE.SOFTWARE = ['Operating System','AI Assistant','Frontier AI Model (LLM)','Chip Design (EDA / IP)','Office Software','Computer Security','Graphic Design Software',
+                'Video Software','Utility Software','Audio Software','Video Games'];
+/** Software class name -> product id (filled from the catalogue's `sw` field). */
+UAE.SW_PID = {}; UAE.PRODUCTS.forEach(function (p) { if (p.sw) UAE.SW_PID[p.sw] = p.id; });
 
 /* Internet business models (Digital Age DLC + UAE extension) */
 UAE.INTERNET_MODELS = {

@@ -62,6 +62,11 @@ UAE.person = function (id) { return UAE.S.persons[id]; };
 UAE.player = function () { return UAE.S.companies[UAE.S.activeCo]; };
 UAE.playerPerson = function () { return UAE.S.persons[UAE.S.playerPerson]; };
 UAE.firmsOf = function (coId) {
+  var X = UAE._idx;                       // during a game day: one pass builds every company's list (read-only, don't mutate)
+  if (X) {
+    if (!X.own) { var by = {}, G = UAE.S.firms; for (var j in G) (by[G[j].owner] = by[G[j].owner] || []).push(G[j]); X.own = by; }
+    return X.own[coId] || [];
+  }
   var out = [], F = UAE.S.firms; for (var k in F) if (F[k].owner === coId) out.push(F[k]); return out;
 };
 UAE.allFirms = function () { var F = UAE.S.firms, out = []; for (var k in F) out.push(F[k]); return out; };

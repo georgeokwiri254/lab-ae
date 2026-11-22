@@ -61,6 +61,7 @@
   <button data-act="bonds" data-tip="Bond Market">🧾</button>
   <div class="sep"></div>
   <button data-act="cities" data-tip="Cities & Macroeconomy">🌆</button>
+  <button data-act="economy" data-tip="Economy: business cycle, central banks, taxes, SCA, world ranking">🌐</button>
   <button data-act="rank" data-tip="Rankings & CEOs">🏆</button>
   <button data-act="hq" data-tip="Headquarters (H)">👔</button>
   <button data-act="ceo" data-tip="CEO: expansion, scope, policies (C)">🧠</button>
@@ -68,6 +69,7 @@
   <button data-act="info" data-arg="marketing" data-tip="Marketing">📣</button>
   <button data-act="news" data-tip="Event Tracker (F5)">📰</button>
   <div class="sep"></div>
+  <button data-act="help" data-tip="Help guide (F1)">❔</button>
   <button data-act="save" data-tip="Save / Load / Settings (F9)">⚙</button>
 </nav>
 
@@ -122,6 +124,9 @@
 <script src="js/data/resources.js"></script>
 <script src="js/data/economy.js"></script>
 <script src="js/data/companies.js"></script>
+<script src="js/data/global.js"></script>
+<script src="js/data/nations.js"></script>
+<script src="js/data/logos.js"></script>
 <!-- Simulation engine (no DOM access - runs headless too: node tools/headless_test.js) -->
 <script src="js/engine/core.js"></script>
 <script src="js/engine/plots.js"></script>
@@ -129,20 +134,49 @@
 <script src="js/engine/sim.js"></script>
 <script src="js/engine/micro.js"></script>
 <script src="js/engine/mall.js"></script>
+<script src="js/engine/tech.js"></script>
 <script src="js/engine/macro.js"></script>
 <script src="js/engine/market.js"></script>
+<script src="js/engine/global.js"></script>
 <script src="js/engine/ai.js"></script>
 <script src="js/engine/ceo.js"></script>
+<script src="js/engine/execs.js"></script>
+<script src="js/engine/aistack.js"></script>
+<script src="js/engine/finance.js"></script>
+<script src="js/engine/finance2.js"></script>
+<script src="js/engine/ceoinvest.js"></script>
+<script src="js/engine/macro2.js"></script>
+<script src="js/engine/govdev.js"></script>
+<script src="js/engine/valuedrivers.js"></script>
 <script src="js/engine/save.js"></script>
 <!-- User interface -->
 <script src="js/ui/base.js"></script>
 <script src="js/ui/charts.js"></script>
 <script src="js/ui/map.js"></script>
 <script src="js/ui/firm.js"></script>
+<script src="js/ui/industry.js"></script>
+<script src="js/ui/portrait.js"></script>
+<script src="js/ui/spotlight.js"></script>
+<script src="js/ui/logos.js"></script>
+<script src="js/ui/execui.js"></script>
+<script src="js/ui/places.js"></script>
+<script src="js/ui/brand.js"></script>
+<script src="js/ui/help.js"></script>
+<script src="js/ui/help2.js"></script>
+<script src="js/ui/aistackui.js"></script>
+<script src="js/ui/valuation.js"></script>
+<script src="js/ui/financeui.js"></script>
+<script src="js/ui/financeui2.js"></script>
+<script src="js/ui/ceoinvestui.js"></script>
+<script src="js/ui/economy.js"></script>
+<script src="js/ui/govui.js"></script>
 <script src="js/ui/panels.js"></script>
 <script src="js/ui/product.js"></script>
 <script src="js/ui/persons.js"></script>
 <script src="js/ui/city.js"></script>
+<script src="js/ui/tablesort.js"></script>
 <script src="js/ui/app.js"></script>
+<script src="js/ui/feed.js"></script>
+<script src="js/ui/firmcats.js"></script>
 </body>
 </html>

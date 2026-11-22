@@ -107,7 +107,7 @@ UAE.defaultPolicy = function (co) {
     expand: exp, acquireTech: true, sellTech: true, backward: Math.round(30 + t.aggression * 50), expandRetail: true,
     scope: scope,
     mgmt: { price: t.pricing < 0.3 ? 'below' : t.pricing > 0.7 ? 'above' : 'avg', priceOverride: {}, purchasing: 'own',
-      issueShares: true, issueBonds: false, takeLoans: true, closeLosers: true, loserMonths: 6,
+      issueShares: true, issueBonds: false, takeLoans: true, closeLosers: true, loserMonths: 12,
       adPct: 1.5, trainPct: 0.5, farmForRetail: false, expandCashPct: Math.round((0.25 + 0.45 * t.aggression) * 100),
       minCash: 0, minProfit: null }        // "adequate cash / annual profit for expansion" - none by default
   };
@@ -153,8 +153,14 @@ UAE.priceLevel = function (co, pid) {
 };
 
 /* ---------------------------------------------- hire CEO / CMO (player) --- */
+UAE.leavePost = function (p) {
+  var old = p.co && UAE.co(p.co); if (!old) return;
+  if (old.ceo === p.id) { old.ceo = null; old.ceoAuto = false; var me = UAE.playerPerson(); if (UAE.isHuman(old) && me) { old.ceo = me.id; } }
+  if (old.cmo === p.id) old.cmo = null; if (old.cto === p.id) old.cto = null;
+};
 UAE.appointCeo = function (co, personId) {
   var p = UAE.person(personId); if (!p) return { ok: false, why: 'Unknown person.' };
+  if (p.co && p.co !== co.id) UAE.leavePost(p);
   UAE.ensurePerson(p);
   var old = UAE.person(co.ceo);
   if (old && !old.isPlayer) { old.title = 'Former CEO'; old.co = null; old.career.push({ day: UAE.S.day, text: 'Left ' + co.name }); }
@@ -173,6 +179,7 @@ UAE.resumeAsCeo = function (co) {
 };
 UAE.appointCmo = function (co, personId) {
   var p = UAE.person(personId); if (!p) return { ok: false, why: 'Unknown person.' };
+  if (p.co && p.co !== co.id) UAE.leavePost(p);
   var old = UAE.person(co.cmo); if (old) { old.title = 'Candidate'; old.co = null; }
   p.title = 'Chief Marketing Officer'; p.co = co.id; co.cmo = p.id;
   return { ok: true };
@@ -205,7 +212,7 @@ UAE.expertiseMonth = function () {
 UAE.AI.day = function () {
   var S = UAE.S;
   UAE.allCos().forEach(function (co) {
-    if (co.status === 'BANKRUPT') return;
+    if (co.status === 'BANKRUPT' || co.foreign) return;          // NYSE / NASDAQ companies only trade
     if ((S.day + UAE.AI.hash(co.id)) % 30 !== 0) return;
     if (co.controller === 'PLAYER') {
       var delegated = co.ceoAuto && UAE.person(co.ceo) && !UAE.person(co.ceo).isPlayer;
@@ -225,8 +232,8 @@ UAE.AI.operate = function (co) {
     var k = UAE.FIRM_TYPES[f.type].kind;
     if (k === 'retail') f.lines.forEach(function (l) {
       var P = UAE.P[l.pid];
-      var opts = UAE.supplyOptions(f, l.pid), best = opts[0], own = opts.find(function (o) { return o.owner === co.id && o.avail > 0; });
-      if (m.purchasing === 'own' && own && own.unit < opts[0].unit * 1.25) best = own;
+      var opts = UAE.supplyOptions(f, l.pid), best = UAE.firstStocked(opts), own = opts.find(function (o) { return o.owner === co.id && o.avail > 0; });
+      if (m.purchasing === 'own' && own && own.unit < best.unit * 1.25) best = own;
       else if (m.purchasing === 'quality') opts.forEach(function (o) { if ((o.avail > UAE.lineCap(f, l) * 3 || o.id === 'IMPORT') && o.quality > best.quality + 3) best = o; });
       else opts.forEach(function (o) { if ((o.avail > UAE.lineCap(f, l) * 3 || o.id === 'IMPORT') && o.unit / Math.max(30, o.quality) < best.unit / Math.max(30, best.quality)) best = o; });
       l.supplier = best.id;
@@ -247,7 +254,7 @@ UAE.AI.operate = function (co) {
     }
     if (k === 'sports') { if (f.visitors > 1500 * f.size) f.price *= 1.03; else f.price *= 0.99; }
     if (k === 'mall' && f.mallPol) { f.mallPol.rentNew = f.occ > 0.92 ? Math.min(1.3, f.mallPol.rentNew + 0.02) : f.occ < 0.7 ? Math.max(0.8, f.mallPol.rentNew - 0.02) : f.mallPol.rentNew; }
-    if (['retail', 'service', 'hotel', 'internet', 'mall'].indexOf(k) >= 0) f.adBudget = Math.max(0, f.last.rev * m.adPct / 100);
+    if (['retail', 'service', 'hotel', 'internet', 'mall'].indexOf(k) >= 0 && !(f.adByCmo && co.cmo && pol.cmoAuto !== false)) f.adBudget = Math.max(0, f.last.rev * m.adPct / 100);
     f.trainBudget = f.eff < 0.95 ? Math.max(0, f.last.rev * m.trainPct / 100) : 0;
   });
   // product campaigns for the best-selling consumer products (AI only, modest)
@@ -274,7 +281,8 @@ UAE.AI.strategy = function (co) {
   var mine = co.controller === 'PLAYER';
   // 1 close chronically loss-making firms
   if (m.closeLosers) UAE.firmsOf(co.id).forEach(function (f) {
-    if (f.seed || f.type === 'hq' || S.day - f.openDay < 300 || f.hist.length < m.loserMonths) return;
+    if (m.loserMonths === 6 && !m._lm12) { m.loserMonths = 12; m._lm12 = true; }      // older saves: 6 -> 12 months
+    if (f.seed || UAE.neverCloseAsLoser(f) || S.day - f.openDay < 730 || f.hist.length < m.loserMonths) return;
     if (f.hist.slice(-m.loserMonths).every(function (p) { return p < 0; }) && R.chance(0.5)) {
       UAE.news(co.name + ' (CEO) closes loss-making ' + f.name + '.', mine ? 'warning' : 'ai'); UAE.sellFirm(f);
     }
@@ -283,7 +291,10 @@ UAE.AI.strategy = function (co) {
   var monthlyCost = Math.max(1e6, co.is.months.length ? co.is.months[co.is.months.length - 1].salaries * 3 : 1e6);
   if (m.takeLoans && co.bs.cash < monthlyCost * 2 && UAE.creditLimit(co) > monthlyCost * 3 && R.chance(0.3 + t.risk * 0.6))
     UAE.takeLoan(co, Math.min(UAE.creditLimit(co) * 0.5, monthlyCost * 6));
-  if (co.bs.loans > 0 && co.bs.cash > monthlyCost * 10) UAE.repayLoan(co, Math.min(co.bs.loans, co.bs.cash - monthlyCost * 8));
+  if (co.bs.loans > 0 && co.bs.cash > monthlyCost * 10) {                     // early repayment: only loans the CEO took itself, never yours
+    var spare = co.bs.cash - monthlyCost * 8;
+    co.loanList.slice().forEach(function (l) { if (spare > 0 && l.by !== 'player' && (!mine || l.by === 'ceo' || l.by === 'emergency')) spare -= UAE.repayOne(co, l, spare); });
+  }
   if (m.issueBonds && co.bs.cash < monthlyCost * 2 && UAE.issueBond && UAE.netIncome(UAE.ttm(co)) > 0 && R.chance(0.2))
     UAE.issueBond(co, Math.min(500e6, monthlyCost * 12), 5);
   // 3 expansion, only with adequate cash and profit (CE06 / CE07)
@@ -460,7 +471,7 @@ UAE.AI._configureBase = UAE.AI._configureBase || UAE.AI.configure;
 UAE.AI.configure = function (co, f, pid) {
   var k = UAE.FIRM_TYPES[f.type].kind;
   if (k === 'retail') {
-    var R = UAE.rng, consumer = UAE.PRODUCTS.filter(function (p) { return (p.kind === 'consumer' || p.kind === 'fuel') && UAE.inScope(co, p.id); });
+    var R = UAE.rng, consumer = UAE.PRODUCTS.filter(function (p) { return (p.kind === 'consumer' || p.kind === 'fuel' || p.kind === 'software') && UAE.inScope(co, p.id); });
     if (!consumer.length) return;
     var scored = consumer.filter(function (p) { return p.id !== 'petrol' || co.sector === 'retail'; }).map(function (p) {
       var land = UAE.landedImport(p.id, f).unit, margin = (p.ref / 1.05 - land) / p.ref;
@@ -488,4 +499,26 @@ UAE.AI.configure = function (co, f, pid) {
   }
   if (k === 'farm' || k === 'mine' || k === 'oil') { if (pid && !f.lines.length) UAE.addLine(f, pid); else if (!f.lines.length) UAE.AI._configureBase(co, f, pid); return; }
   UAE.AI._configureBase(co, f, pid);
+};
+
+/* ------------------------------------------------- cheats: elite people --- */
+/** Set every skill, industry expertise and product-class expertise of person p to 100. */
+UAE.maxExpertise = function (p) {
+  if (!p) return false;
+  UAE.ensurePerson(p);
+  p.skill = { mgmt: 100, tech: 100, marketing: 100, finance: 100 };
+  UAE.EXPERTISE.forEach(function (x) { p.exp[x[0]] = 100; });
+  p.pexp = p.pexp || {}; UAE.productClasses().forEach(function (c) { p.pexp[c] = 100; });
+  p.attitude = Math.max(p.attitude || 0, 80);
+  p.maxed = true;
+  return true;
+};
+/** A maxed-out candidate ready to hire: role 'ceo' or 'cmo'. Stays in the candidate list until hired. */
+UAE.eliteCandidate = function (role) {
+  var p = UAE.makePerson({ title: 'Candidate', age: role === 'ceo' ? 48 : 41 });
+  UAE.maxExpertise(p);
+  p.pers = role === 'ceo' ? { aggression: 0.85, risk: 0.45, pricing: 0.5, diversify: 0.6 } : { aggression: 0.6, risk: 0.35, pricing: 0.55, diversify: 0.3 };
+  p.elite = role; p.salary = role === 'ceo' ? 250000 : 180000;
+  var S = UAE.S; S.candidates = S.candidates || []; S.candidates.unshift(p.id);
+  return p;
 };

@@ -10,7 +10,7 @@
  * + Rankings (companies, CEOs, cities), HQ, Event Tracker, Data Sources, Settings
  * ==========================================================================*/
 var UI = window.UI || (window.UI = {});
-UI.R = {};
+UI.R = UI.R || {};
 var F = function () { return UAE.fmt; };
 
 UI.REPORTS = [
@@ -84,13 +84,15 @@ UI.act.corp = function (id) {
 };
 UI.R.corp = function (id) {
   var co = UAE.co(id), tab = UI.tabState.corp || 'overview';
-  var h = UI.tabs('corp', [['overview','Overview'],['firms','Firms'],['products','Products'],['is','Income Statement'],['bs','Balance Sheet'],['cf','Cash Flow'],
-    ['holders','Shareholders'],['debt','Bonds & Loans'],['tech','Technology'],['brand','Brand'],['graphs','Graphs'],['history','History'],['rank','Rankings'],['mgmt','Management']], tab);
+  var h = UI.tabs('corp', [['overview','Overview'],['firms','Firms'],['products','Products'],['is','Income Statement'],['bs','Balance Sheet'],['cf','Cash Flow'],['seg','🏦 Bank & 🛡 Insurance'],
+    ['valuation','💎 Valuation'],['holders','Shareholders'],['debt','Bonds & Loans'],['tech','Technology'],['brand','Brand'],['graphs','Graphs'],['history','History'],['rank','Rankings'],['mgmt','Management']], tab);
+  h = '<div class="row" style="gap:14px;margin-bottom:8px">' + UI.logo(co, 64) + '<div><b style="font-size:1.25em">' + UI.esc(co.name) + '</b><br>' + UI.exch(co) + (co.foreign ? ' <span class="pill">United States</span>' : '') + '</div>' + (UAE.isHuman(co) ? '<span style="margin-left:auto"></span><button class="btn a" data-act="hireForCo" data-arg="' + co.id + '">👔 Hire CEO / CMO / CTO</button><button class="btn a" data-act="logoPick" data-arg="' + co.id + '">🎨 Change logo</button>' : '') + '</div>' + h;
   if (tab === 'overview') h += UI.corpOverview(co);
-  else if (tab === 'firms') h += UI.firmTable(UAE.firmsOf(co.id));
+  else if (tab === 'firms') h += UI.firmsByCategory ? UI.firmsByCategory(UAE.firmsOf(co.id).slice().sort(function (a, b) { return b.last.profit - a.last.profit; }), 'corpFcat') : UI.firmTable(UAE.firmsOf(co.id));
   else if (tab === 'products') h += UI.corpProducts(co);
-  else if (tab === 'is' || tab === 'bs' || tab === 'cf') h += UI.statements(co, tab);
+  else if (tab === 'is' || tab === 'bs' || tab === 'cf' || tab === 'seg') h += UI.statements(co, tab);
   else if (tab === 'holders') h += UI.holdersTable(co);
+  else if (tab === 'valuation') h += UI.valuationBox(co);
   else if (tab === 'debt') h += UI.debtTable(co);
   else if (tab === 'tech') h += UI.techTable(co);
   else if (tab === 'brand') h += UI.brandTable(co);
@@ -149,6 +151,7 @@ UI.periodData = function (co, per) {
   return { is: ttm, cf: cf, label: 'Trailing 12 months' };
 };
 UI.statements = function (co, tab) {
+  if (tab === 'seg' && UI.statementsSeg) return UI.statementsSeg(co);              // bank & insurance on their own (financeui2.js)
   var per = UI.tabState.period || 'ytd', P = UI.periodData(co, per), is = P.is;
   var h = UI.tabs('period', [['cur','Month to date'],['last','Last month'],['ytd','Year to date'],['ttm','TTM'],['ly','Last year']], per);
   var row = function (label, v, cls) { return '<tr class="' + (cls || '') + '"><td>' + label + '</td><td class="n">' + UI.money(v) + '</td></tr>'; };
@@ -178,6 +181,7 @@ UI.statements = function (co, tab) {
       row('Cash from operating activities', cf.op) + row('Cash from investing activities', cf.inv) + row('Cash from financing activities', cf.fin) +
       row('NET CHANGE IN CASH', cf.op + cf.inv + cf.fin, 'total') + '</table><div class="note">Every cash movement in the engine is tagged operating / investing / financing at the moment it is booked, so this statement always reconciles to the change in cash.</div></div>';
   }
+  if (UI.statementsExtra) h += UI.statementsExtra(co, tab);                         // bank & insurance sections (financeui2.js)
   h += '<div class="box"><h3>Monthly history</h3><canvas class="chart" id="isChart"></canvas></div>';
   UI.after(function () {
     var ms = co.is.months.slice(-24);
@@ -204,8 +208,12 @@ UI.holdersTable = function (co) {
   return h + '</table>';
 };
 UI.debtTable = function (co) {
-  var h = '<div class="box"><h3>Bank loans</h3><table class="t"><tr><th>Since</th><th class="n">Principal</th><th class="n">Rate</th></tr>';
-  co.loanList.forEach(function (l) { h += '<tr><td>' + UAE.cal.label(l.day) + '</td><td class="n">' + F().aed(l.amt) + '</td><td class="n">' + F().pct(l.rate, 2) + '</td></tr>'; });
+  var h = '<div class="box"><h3>Bank loans</h3><table class="t"><tr><th>Since</th><th class="n">Still owed</th><th class="n">Borrowed</th><th class="n">Rate</th><th>Repaid by</th><th class="n">Instalment / month</th><th>Lender</th><th>Taken by</th></tr>';
+  co.loanList.forEach(function (l) {
+    var months = Math.max(1, Math.round(((l.until || UAE.S.day + 365) - UAE.S.day) / 30));
+    h += '<tr><td>' + UAE.cal.label(l.day) + '</td><td class="n">' + F().aed(l.amt) + '</td><td class="n">' + F().aed(l.orig || l.amt) + '</td><td class="n">' + F().pct(l.rate, 2) + '</td><td>' + (l.until ? UAE.cal.label(l.until) : '—') + '</td>' +
+      '<td class="n">' + F().aed(l.amt / months) + '</td><td>' + (l.bank && UAE.co(l.bank) ? UI.esc(UAE.co(l.bank).name) : 'outside bank') + '</td><td>' + ({ player: 'you', ceo: 'CEO', emergency: 'emergency credit' }[l.by] || 'CEO') + '</td></tr>';
+  });
   h += '</table></div><div class="box"><h3>Bonds issued</h3><table class="t"><tr><th>Bond</th><th class="n">Amount</th><th class="n">Coupon</th><th>Maturity</th></tr>';
   co.bondList.forEach(function (b) { h += '<tr><td>' + UI.esc((UAE.S.bonds[b.id] || {}).name || b.id) + '</td><td class="n">' + F().aed(b.amt) + '</td><td class="n">' + F().pct(b.coupon, 2) + '</td><td>' + UAE.cal.label(b.maturity) + '</td></tr>'; });
   h += '</table></div><div class="box"><h3>Deposits held</h3><table class="t"><tr><th class="n">Amount</th><th class="n">Rate</th></tr>';
@@ -314,7 +322,7 @@ UI.R.firms = function () {
 /* ============================================================ IC06 */
 UI.R.fin = function () {
   var co = UAE.player(), tab = UI.tabState.fintab || 'is';
-  return '<div class="row">' + UI.coLink(co) + '</div>' + UI.tabs('fintab', [['is','Income Statement'],['bs','Balance Sheet'],['cf','Cash Flow']], tab) + UI.statements(co, tab);
+  return '<div class="row">' + UI.coLink(co) + '</div>' + UI.tabs('fintab', [['is','Income Statement'],['bs','Balance Sheet'],['cf','Cash Flow'],['seg','🏦 Bank & 🛡 Insurance']], tab) + UI.statements(co, tab);
 };
 
 /* ============================================================ IC07 / IC10 */
@@ -329,9 +337,9 @@ UI.R.persons = function () {
 };
 UI.R.billionaires = function () {
   var list = Object.keys(UAE.S.persons).map(function (k) { return UAE.S.persons[k]; }).map(function (p) { return { p: p, w: UAE.personWealth(p) }; }).sort(function (a, b) { return b.w - a.w; }).slice(0, 100);
-  var h = '<div class="note">Billionaire threshold: US$1bn = AED 3.6725bn at the dirham peg (REAL). State, sovereign and family holdings in real groups are institutions, not ranked persons.</div>';
-  h += '<table class="t"><tr><th>#</th><th>Person</th><th>Company</th><th class="n">Net worth</th><th class="n">US$</th></tr>';
-  list.forEach(function (x, i) { var co = x.p.co && UAE.co(x.p.co); h += '<tr class="' + (x.p.isPlayer ? 'me' : '') + '"><td>' + (i + 1) + '</td><td>' + UI.esc(x.p.name) + (x.w >= 3.6725e9 ? ' 💎' : '') + '</td><td>' + (co ? UI.coLink(co) : '—') + '</td><td class="n">' + F().aed(x.w) + '</td><td class="n">$' + F().num(x.w / 3.6725) + '</td></tr>'; });
+  var h = '<div class="note">Billionaire threshold: AED 3.67bn (US$1bn at the dirham peg, REAL). State, sovereign and family holdings in real groups are institutions, not ranked persons.</div>';
+  h += '<table class="t"><tr><th>#</th><th>Person</th><th>Company</th><th class="n">Net worth</th></tr>';
+  list.forEach(function (x, i) { var co = x.p.co && UAE.co(x.p.co); h += '<tr class="' + (x.p.isPlayer ? 'me' : '') + '"><td>' + (i + 1) + '</td><td>' + UI.esc(x.p.name) + (x.w >= 3.6725e9 ? ' 💎' : '') + '</td><td>' + (co ? UI.coLink(co) : '—') + '</td><td class="n">' + F().aed(x.w) + '</td></tr>'; });
   return h + '</table>';
 };
 
@@ -373,7 +381,8 @@ UI.R.farmer = function () {
 UI.candidates = function () {
   var S = UAE.S;
   if (!S.candidates || S.candDay == null || S.day - S.candDay > 30) {
-    S.candidates = []; S.candDay = S.day;
+    var keep = (S.candidates || []).filter(function (id) { var q = UAE.person(id); return q && q.elite && q.title === 'Candidate'; });   // elite hires stay listed
+    S.candidates = keep; S.candDay = S.day;
     for (var i = 0; i < 10; i++) {
       var p = UAE.makePerson({ title: 'Candidate' }); p.salary = Math.round((15000 + p.skill.mgmt * 600) / 1000) * 1000; S.candidates.push(p.id);
     }
@@ -458,7 +467,7 @@ UI.R.nations = function () {
     var c = S.cities[k], e = UAE.CITIES[k].emirate, r = em[e] || (em[e] = { pop: 0, gdp: 0, cities: [] });
     r.pop += c.pop; r.gdp += c.gdp; r.cities.push(UAE.CITIES[k].name); tot.pop += c.pop; tot.gdp += c.gdp; tot.tour += c.tourists;
   });
-  var h = '<div class="cards">' + UI.card('UAE population (modelled)', F().num(tot.pop)) + UI.card('UAE GDP (sum of emirates)', 'AED ' + tot.gdp.toFixed(0) + 'bn', 'US$ ' + (tot.gdp / UAE.RULES.usdAed).toFixed(0) + 'bn') +
+  var h = '<div class="cards">' + UI.card('UAE population (modelled)', F().num(tot.pop)) + UI.card('UAE GDP (sum of emirates)', 'AED ' + tot.gdp.toFixed(0) + 'bn') +
     UI.card('CBUAE base rate', F().pct(S.macro.rate, 2), 'start 3.90% REAL') + UI.card('VAT / Corporate tax', '5% / 9%', 'REAL federal') + UI.card('AED per USD', UAE.RULES.usdAed, 'REAL peg') +
     UI.card('Oil price index', S.macro.oil.toFixed(2), 'Brent proxy') + UI.card('Gold price index', S.macro.gold.toFixed(2)) + '</div>';
   h += '<table class="t"><tr><th>Emirate</th><th>City markets</th><th class="n">Population</th><th class="n">GDP bn</th><th class="n">Share</th></tr>';
@@ -480,7 +489,9 @@ UI.R.factions = function () {
   var box = function (code, title, body) { return '<div class="box"><h3>' + code + ' · ' + title + '</h3>' + body + '</div>'; };
   h += '<div class="grid2"><div>';
   h += box('FA01', 'Bank loan', '<div class="row">Rate ' + F().pct(UAE.loanRate(co), 2) + ' (base ' + F().pct(UAE.S.macro.rate, 2) + ' + spread) · limit ' + F().aed(UAE.creditLimit(co)) + ' · owed ' + F().aed(co.bs.loans) + '</div>' +
-    '<div class="row"><input class="in num" id="faLoan" value="50m"><button class="btn a sm" data-act="fa" data-arg="loan">Borrow</button><button class="btn sm" data-act="fa" data-arg="repay">Repay</button></div>');
+    '<div class="row"><input class="in num" id="faLoan" value="50m"> over <select class="in" id="faYears">' + [1, 2, 3, 5, 7, 10].map(function (y) { return '<option value="' + y + '"' + (y === 5 ? ' selected' : '') + '>' + y + ' year' + (y > 1 ? 's' : '') + '</option>'; }).join('') + '</select>' +
+    '<button class="btn a sm" data-act="fa" data-arg="loan">Borrow</button><button class="btn sm" data-act="fa" data-arg="repay">Repay early</button></div>' +
+    '<div class="note">Loans are repaid in equal monthly instalments over the term. Your CEO never repays loans you took yourself early – only you can.</div>');
   h += box('FA11', 'Issue bonds (5 years)', '<div class="row">Coupon ≈ ' + F().pct(UAE.S.macro.rate + UAE.RULES.bondSpread + UAE.creditSpread(co) - 0.012, 2) + ' · 1% fee</div><div class="row"><input class="in num" id="faBond" value="100m"><button class="btn a sm" data-act="fa" data-arg="bond">Issue</button></div>');
   h += box('FA12', 'Bank deposits', '<div class="row">Deposit rate ' + F().pct(Math.max(0.005, UAE.S.macro.rate + UAE.RULES.depositSpread), 2) + ' · held ' + F().aed(co.bs.deposits) + '</div><div class="row"><input class="in num" id="faDep" value="20m"><button class="btn a sm" data-act="fa" data-arg="deposit">Deposit</button><button class="btn sm" data-act="fa" data-arg="withdraw">Withdraw</button></div>');
   h += box('FA04', 'Dividend policy', '<div class="row">Payout ratio of quarterly profit: <input class="in num" id="faPay" value="' + Math.round(co.payout * 100) + '">% <button class="btn sm" data-act="fa" data-arg="payout">Set</button></div>');
@@ -504,7 +515,7 @@ UI.R.factions = function () {
 UI.act.fa = function (kind) {
   var co = UAE.player(), r;
   switch (kind) {
-    case 'loan': r = UAE.takeLoan(co, UI.num('faLoan')); break;
+    case 'loan': r = UAE.takeLoan(co, UI.num('faLoan'), false, { years: +UI.$('faYears').value, by: 'player' }); if (r.ok) r.why = ''; if (r.ok) UI.toast('Loan of ' + F().aed(UI.num('faLoan')) + ' over ' + r.years + ' years at ' + F().pct(r.rate, 2) + (r.bank ? ' from ' + UI.esc(r.bank) : '') + ' – instalment ' + F().aed(r.instalment) + '/month.', 'good'); break;
     case 'repay': r = UAE.repayLoan(co, UI.num('faLoan')); break;
     case 'bond': r = UAE.issueBond(co, UI.num('faBond'), 5); break;
     case 'deposit': r = UAE.deposit(co, UI.num('faDep')); break;
@@ -528,9 +539,10 @@ UI.act.stock = function () { UI.open('Stock Market', UI.R.stock); };
 UI.SECTOR_FILTER = { consumer: ['retail','hospitality','aviation','education'], tech: ['tech','internet','telecom','media'], realestate: ['property'], finance: ['bank','finance','holding'], energy: ['oilgas','chemicals','utility','metals','industrial'], transport: ['transport','logistics'] };
 UI.R.stock = function () {
   var ex = UI.tabState.sx || 'DFM', sec = UI.tabState.ssec || 'all', S = UAE.S;
-  var h = '<div class="cards">' + ['DFM','ADX'].map(function (x) { var I = S.index[x], ch = I.hist.length > 1 ? I.level / I.hist[Math.max(0, I.hist.length - 2)] - 1 : 0; return UI.card(x === 'DFM' ? 'DFM General Index' : 'ADX FADGI', I.level.toFixed(2), '<span class="' + UI.cls(ch) + '">' + F().pct(ch, 2) + '</span> · base ' + I.base + ' ' + UI.tag(I.src), x === 'DFM' ? '' : 'm'); }).join('') +
+  var IDXN = { DFM: 'DFM General Index', ADX: 'ADX FADGI', NYSE: 'NYSE Composite', NASDAQ: 'NASDAQ Composite' };
+  var h = '<div class="cards">' + Object.keys(S.index).map(function (x) { var I = S.index[x], ch = I.hist.length > 1 ? I.level / I.hist[Math.max(0, I.hist.length - 2)] - 1 : 0; return UI.card(IDXN[x] || x, I.level.toFixed(2), '<span class="' + UI.cls(ch) + '">' + F().pct(ch, 2) + '</span> · base ' + I.base + ' ' + UI.tag(I.src), x === 'ADX' || x === 'NASDAQ' ? 'm' : ''); }).join('') +
     UI.card('Your personal cash', F().aed(UAE.playerPerson().cash), '', 'a') + '</div>';
-  h += UI.tabs('sx', [['DFM','Dubai Financial Market'],['ADX','Abu Dhabi Securities Exchange'],['ALL','All'],['OWN','My holdings']], ex) +
+  h += UI.tabs('sx', [['DFM','Dubai Financial Market'],['ADX','Abu Dhabi Securities Exchange'],['NYSE','🌐 NYSE'],['NASDAQ','🌐 NASDAQ'],['ALL','All'],['OWN','My holdings']], ex) +
     UI.tabs('ssec', [['all','All sectors'],['consumer','Consumer'],['tech','Tech & Media'],['realestate','Real Estate'],['finance','Banks & Investment'],['energy','Energy & Industry'],['transport','Transport']], sec);
   var me = 'P:' + S.playerPerson, myco = 'C:' + S.activeCo;
   var list = UAE.allCos().filter(function (c) {
@@ -544,27 +556,28 @@ UI.R.stock = function () {
     var ph = c.priceHist, ch = ph.length > 1 ? c.price / ph[ph.length - 2] - 1 : 0, ni = UAE.netIncome(UAE.ttm(c));
     var tot = 0; for (var k in c.holders) tot += c.holders[k];
     var mine = (c.holders[me] || 0) + (c.holders[myco] || 0);
-    h += '<tr class="click' + (mine ? ' me' : '') + '" data-act="stockDetail" data-arg="' + c.id + '"><td>' + UI.exch(c) + '</td><td>' + UI.esc(c.name) + ' ' + (c.priceSrc ? UI.tag(c.priceSrc) : c.fictional || c.controller === 'PLAYER' ? '<span class="pill syn">SIM</span>' : '') + '</td><td class="n">' + F().px(c.price) + '</td><td class="n ' + UI.cls(ch) + '">' + F().pct(ch, 2) + '</td><td class="n">' + F().aed(UAE.mcap(c)) + '</td>' +
+    h += '<tr class="click' + (mine ? ' me' : '') + '" data-act="stockDetail" data-arg="' + c.id + '"><td>' + UI.exch(c) + '</td><td>' + UI.logo(c, 22) + ' ' + UI.esc(c.name) + ' ' + (c.priceSrc ? UI.tag(c.priceSrc) : c.fictional || c.controller === 'PLAYER' ? '<span class="pill syn">SIM</span>' : '') + '</td><td class="n">' + F().px(c.price) + '</td><td class="n ' + UI.cls(ch) + '">' + F().pct(ch, 2) + '</td><td class="n">' + F().aed(UAE.mcap(c)) + '</td>' +
       '<td class="n">' + (ni > 0 ? (UAE.mcap(c) / ni).toFixed(1) : '—') + '</td><td class="n">' + F().pct((c.holders.PUBLIC || 0) / tot) + '</td><td class="n">' + (mine ? F().pct(mine / tot, 2) : '') + '</td><td><canvas class="spark" id="ss' + i + '"></canvas></td></tr>';
     UI.after(function () { var cv = UI.$('ss' + i); if (cv) UI.spark(cv, c.priceHist.slice(-30)); });
   });
-  h += '</table><div class="note">Private, state-owned and delisted groups (noon, Emirates, ADNOC parent, DP World, EGA, Mubadala, G42 …) have no tradable quote. Prices tagged REAL are a dated market snapshot; EST prices need refreshing from dfm.ae / adx.ae. Weekend: Saturday-Sunday.</div>';
+  h += '</table><div class="note">Private, state-owned and delisted groups (noon, Emirates, ADNOC parent, DP World, EGA, Mubadala, G42 …) have no tradable quote. Prices tagged REAL are a dated market snapshot; EST prices need refreshing from dfm.ae / adx.ae. Weekend: Saturday-Sunday. NYSE and NASDAQ are US exchanges with their own index; their shares are shown in AED (USD × 3.6725 peg). US companies only trade on the market: they do not build firms in the UAE.</div>';
   return h;
 };
 UI.act.stockDetail = function (id) { UI.open(function () { return UAE.co(id).name + ' · ' + UAE.co(id).ticker; }, function () { return UI.R.stockDetail(id); }, { push: true }); };
 UI.R.stockDetail = function (id) {
   var c = UAE.co(id), ttm = UAE.ttm(c), ni = UAE.netIncome(ttm), S = UAE.S;
-  var h = '<div class="cards">' + UI.card('Last price', 'AED ' + F().px(c.price), c.priceSrc ? 'seed ' + UI.esc(c.priceSrc) : '') + UI.card('Market cap', F().aed(UAE.mcap(c))) +
+  var h = '<div class="row" style="gap:14px">' + UI.logo(c, 56) + '<div><b style="font-size:1.2em">' + UI.esc(c.name) + '</b><br>' + UI.exch(c) + '</div></div><div class="cards">' + UI.card('Last price', 'AED ' + F().px(c.price), c.priceSrc ? 'seed ' + UI.esc(c.priceSrc) : '') + UI.card('Market cap', F().aed(UAE.mcap(c))) +
     UI.card('EPS TTM', (ni / c.shares).toFixed(3)) + UI.card('P/E', ni > 0 ? (UAE.mcap(c) / ni).toFixed(1) + 'x' : '—') + UI.card('Book / share', (UAE.bookValue(c) / c.shares).toFixed(3)) +
     UI.card('Fundamental est.', 'AED ' + F().px(UAE.fundamental(c))) + '</div>';
   h += '<div class="box"><h3>Price history</h3><canvas class="chart" id="sdC"></canvas></div>';
   UI.after(function () { UI.chart(UI.$('sdC'), [{ label: c.ticker, data: c.priceHist.slice() }], { fmt: function (v) { return v.toFixed(2); } }); });
-  var me = 'P:' + S.playerPerson, myco = 'C:' + S.activeCo;
+  var me = 'P:' + S.playerPerson, coHold = UAE.allCos().filter(function (x) { return x.controller === 'PLAYER' && x.id !== id; }).reduce(function (t, x) { return t + (c.holders['C:' + x.id] || 0); }, 0);
   h += '<div class="box"><h3>Trade ticket</h3><div class="row"><label>Account</label><select class="in" id="stAcc"><option value="' + me + '">Personal (' + F().aed(UAE.playerPerson().cash) + ')</option>' +
-    (S.activeCo !== id ? '<option value="' + myco + '">' + UI.esc(UAE.player().name) + ' (' + F().aed(UAE.player().bs.cash) + ')</option>' : '') + '</select></div>' +
-    '<div class="row"><label>Shares</label><input class="in num" id="stQty" value="1m"> <span class="muted">≈ ' + F().aed(c.price * 1e6) + ' per 1m shares · fee 0.15%</span></div>' +
+    UAE.tradeAccounts(id).slice(1).map(function (a) { return '<option value="' + a.key + '">' + UI.esc(a.label) + '</option>'; }).join('') + '</select></div>' +
+    '<div class="row"><label>Shares</label><input class="in num" id="stQty" value="1m"> <span class="muted">≈ ' + F().aed(c.price * 1e6) + ' per 1m shares · fee 0.15%' + (c.foreign ? ' · US-listed, priced in AED' : '') + '</span></div>' +
     '<div class="row"><button class="btn a" data-act="trade" data-arg="buy|' + id + '">Buy</button><button class="btn m" data-act="trade" data-arg="sell|' + id + '">Sell</button>' +
-    '<span class="muted">You hold: personal ' + F().num(c.holders[me] || 0) + ' · company ' + F().num(c.holders[myco] || 0) + ' · combined stake ' + F().pct(UAE.playerStake(c), 2) + '</span></div></div>';
+    '<span class="muted">You hold: personal ' + F().num(c.holders[me] || 0) + ' · your companies ' + F().num(coHold) + ' · combined stake ' + F().pct(UAE.playerStake(c), 2) + '</span></div></div>';
+  h += '<div class="row"><button class="btn a" data-act="valuationOf" data-arg="' + c.id + '">💎 How is this valued?</button></div>';
   h += '<div class="box"><h3>Shareholder register</h3>' + UI.holdersTable(c) + '</div><div class="row"><button class="btn" data-act="corp" data-arg="' + id + '">Corporate details</button></div>';
   return h;
 };
@@ -603,7 +616,7 @@ UI.R.digital = function () {
 /* ============================================================ IC21 */
 UI.act.bonds = function () { UI.open('Bond Market', UI.R.bonds); };
 UI.bondTable = function (list) {
-  var co = UAE.player();
+  var co = UAE.co(UI.tabState.bdAcc || UAE.player().id);
   var h = '<table class="t"><tr><th>Bond</th><th>Issuer</th><th class="n">Coupon</th><th>Maturity</th><th class="n">Price</th><th class="n">YTM</th><th class="n">You hold (face)</th><th>Trade (face AED)</th></tr>';
   list.forEach(function (b) {
     var pos = co.bondPositions[b.id];
@@ -614,17 +627,17 @@ UI.bondTable = function (list) {
 };
 UI.R.bonds = function () {
   var all = Object.keys(UAE.S.bonds).map(function (k) { return UAE.S.bonds[k]; });
-  return '<div class="note">Bond prices move inversely with the CBUAE base rate (' + F().pct(UAE.S.macro.rate, 2) + '). Sovereign issues here are synthetic illustrations, not real Dubai/Abu Dhabi securities. Real UAE sukuk should be loaded separately.</div>' + UI.bondTable(all);
+  return '<div class="row"><label>Trade bonds with</label>' + UI.accountSelect('bdAcc', null, 'C:' + (UI.tabState.bdAcc || UAE.player().id)) + '</div><div class="note">Bond prices move inversely with the CBUAE base rate (' + F().pct(UAE.S.macro.rate, 2) + '). Sovereign issues here are synthetic illustrations, not real Dubai/Abu Dhabi securities. Real UAE sukuk should be loaded separately.</div>' + UI.bondTable(all);
 };
 UI.act.bondTrade = function (arg) {
-  var p = arg.split('|'), face = UI.num('bd_' + p[1]);
-  UI.result(UAE.tradeBond(UAE.player(), p[1], p[0] === 'buy' ? face : -face), 'Bond trade done.');
+  var p = arg.split('|'), face = UI.num('bd_' + p[1]), el = UI.$('bdAcc'), co = el ? UAE.co(el.value.slice(2)) : UAE.player();
+  UI.result(UAE.tradeBond(co, p[1], p[0] === 'buy' ? face : -face), 'Bond trade done.');
 };
 
 /* ============================================================ Rankings & CEOs */
 UI.act.rank = function () { UI.open('Rankings & CEOs', UI.R.rank); };
 UI.rankTable = function (by, highlight) {
-  var rows = UAE.allCos().filter(function (c) { return c.status !== 'BANKRUPT'; }).map(function (c) {
+  var rows = UAE.allCos().filter(function (c) { return c.status !== 'BANKRUPT' && !c.foreign; }).map(function (c) {
     var t = UAE.ttm(c); return { c: c, rev: t.revenue, ni: UAE.netIncome(t), value: UAE.companyValue(c), assets: UAE.totals(c).assets };
   }).sort(function (a, b) { return b[by] - a[by]; });
   var h = '<table class="t"><tr><th>#</th><th>Company</th><th class="n">Revenue TTM</th><th class="n">Net profit TTM</th><th class="n">Value</th><th class="n">Assets</th></tr>';
@@ -640,13 +653,55 @@ UI.ceoScore = function (c) {
   var tsr = c.priceHist.length > 250 ? c.price / c.priceHist[c.priceHist.length - 250] - 1 : 0;
   return { score: Math.round(Math.max(0, Math.min(100, 50 + roe * 120 + growth * 40 + tsr * 30))), roe: roe, growth: growth, tsr: tsr };
 };
+/** Rich list: real people (reported net worth) ranked together with everyone in the game. */
+UI.richTable = function (rows, where) {
+  var me = UAE.playerPerson(), myRank = rows.findIndex(function (r) { return r.p && me && r.p.id === me.id; }) + 1, total = rows.reduce(function (t, r) { return t + r.nw; }, 0);
+  var badge = function (r) {
+    if (r.p) return UI.portrait(r.p, 40);
+    var ini = r.name.replace(/&.*$/, '').split(' ').filter(Boolean).map(function (x) { return x[0]; }).join('').slice(0, 2);
+    return '<span class="portrait" style="width:40px;height:40px;border-radius:50%;display:inline-grid;place-items:center;background:radial-gradient(circle at 50% 35%,#ffd24d55,#05060a);border:1.5px solid #ffd24d;font-family:var(--display);font-size:13px;color:#ffd24d">' + UI.esc(ini) + '</span>';
+  };
+  var h = '<div class="cards">' + (rows[0] ? UI.card('Richest in ' + where, F().aed(rows[0].nw), UI.esc(rows[0].name), 'a') : '') +
+    (myRank ? UI.card('Your rank', '#' + myRank + ' of ' + rows.length, F().aed(rows[myRank - 1].nw)) : '') +
+    UI.card('People listed', rows.length, 'combined ' + F().aed(total)) + '</div>';
+  h += '<table class="t"><tr><th>#</th><th>Person</th><th class="n">Net worth</th><th>Source of wealth</th><th></th></tr>';
+  rows.slice(0, 150).forEach(function (r, i) {
+    var mine = r.p && me && r.p.id === me.id;
+    h += '<tr class="click' + (mine ? ' me' : '') + '"' + UI.spotAttr({ name: r.name, rank: i + 1, nw: r.nw, what: r.what, p: r.p, wiki: (r.r && r.r.wiki) || (r.p && r.p.wiki), sub: r.p ? r.p.title : (r.ctry ? r.ctry + ' · real person' : ''), tag: r.kind === 'real' ? UI.tag(r.src) : '<span class="pill syn">GAME</span>' }) + '><td>' + (i + 1) + '</td>' +
+      '<td><span style="display:inline-flex;align-items:center;gap:10px">' + badge(r) + '<span><b>' + UI.esc(r.name) + '</b>' + (mine ? ' <span class="t-a">YOU</span>' : '') +
+      '<br><span class="muted">' + (r.p ? UI.esc(r.p.title) : UI.esc(r.ctry || '')) + '</span></span></span></td>' +
+      '<td class="n t-a"><b>' + F().aed(r.nw) + '</b></td><td>' + UI.esc(r.what || '') + '</td>' +
+      '<td>' + (r.kind === 'real' ? UI.tag(r.src) : '<span class="pill syn">GAME</span>') + '</td></tr>';
+  });
+  return h + '</table><div class="note">REAL / EST rows are real people at their publicly reported net worth (in AED, USD × 3.6725). If their main company is listed in the game (Tesla, Amazon, Alphabet, Meta, NVIDIA …), their wealth moves with its in-game share price; the game does not simulate their decisions. GAME rows are you and the fictional characters: cash + shares at market price + mansion. The UAE list covers UAE residents.</div>';
+};
+UI.act.richPerson = function (id) { UI.tabState.person = id; UI.tabState.pflt = 'all'; UI.tabState.ptab = 'sum'; UI.open('Persons', UI.R.persons, { push: true }); };
 UI.R.rank = function () {
-  var tab = UI.tabState.rk || 'value';
-  var h = UI.tabs('rk', [['value','By value'],['rev','By revenue'],['ni','By profit'],['assets','By assets'],['ceo','CEO rankings'],['city','Cities']], tab);
+  var tab = UI.tabState.rk || 'richuae';
+  var h = UI.tabs('rk', [['richuae','💰 UAE Rich List'],['richworld','🌍 Global Rich List'],['ceo','CEO rankings'],['value','By value'],['rev','By revenue'],['ni','By profit'],['assets','By assets'],['city','Cities']], tab);
+  if (tab === 'richuae') return h + UI.richTable(UAE.richUAE(), 'the UAE');
+  if (tab === 'richworld') return h + UI.richTable(UAE.richGlobal(), 'the world');
   if (tab === 'ceo') {
-    var rows = UAE.allCos().filter(function (c) { return c.ceo && c.status !== 'BANKRUPT'; }).map(function (c) { return { c: c, p: UAE.person(c.ceo), s: UI.ceoScore(c) }; }).sort(function (a, b) { return b.s.score - a.s.score; });
-    h += '<div class="note">CEO score = 50 + ROE×120 + revenue growth×40 + 1-year share return×30, capped 0-100. All CEO personas are fictional.</div><table class="t"><tr><th>#</th><th>CEO</th><th>Company</th><th class="n">Score</th><th class="n">ROE</th><th class="n">Rev growth</th><th class="n">TSR 1y</th></tr>';
-    rows.forEach(function (r, i) { h += '<tr class="' + (r.p && r.p.isPlayer ? 'me' : '') + '"><td>' + (i + 1) + '</td><td>' + UI.esc(r.p ? r.p.name : '—') + '</td><td>' + UI.coLink(r.c) + '</td><td class="n t-a">' + r.s.score + '</td><td class="n">' + F().pct(r.s.roe) + '</td><td class="n">' + F().pct(r.s.growth) + '</td><td class="n">' + F().pct(r.s.tsr) + '</td></tr>'; });
+    var by = UI.tabState.ceoSort || 'nw';
+    var rows = UAE.allCos().filter(function (c) { return c.ceo && c.status !== 'BANKRUPT' && UAE.person(c.ceo); }).map(function (c) {
+      var p = UAE.person(c.ceo), stake = c.holders ? (c.holders['P:' + p.id] || 0) / c.shares : 0;
+      return { c: c, p: p, s: UI.ceoScore(c), nw: UAE.personWealth(p), stake: stake };
+    });
+    // the player is always listed, even after hiring someone else as CEO
+    var me = UAE.playerPerson && UAE.playerPerson();
+    if (me && !rows.some(function (r) { return r.p.id === me.id; })) { var pc = UAE.co(UAE.S.playerCo); rows.push({ c: pc, p: me, s: UI.ceoScore(pc), nw: UAE.personWealth(me), stake: pc.holders ? (pc.holders['P:' + me.id] || 0) / pc.shares : 0, owner: true }); }
+    rows.sort(function (a, b) { return by === 'nw' ? b.nw - a.nw : b.s.score - a.s.score; });
+    var total = rows.reduce(function (t, r) { return t + r.nw; }, 0), myRank = me ? rows.findIndex(function (r) { return r.p.id === me.id; }) + 1 : 0;
+    h += UI.tabs('ceoSort', [['nw', 'By net worth'], ['score', 'By performance score']], by);
+    if (myRank) h += '<div class="cards">' + UI.card('Your rank', '#' + myRank + ' of ' + rows.length, by === 'nw' ? 'by net worth' : 'by score', 'a') + UI.card('Your net worth', F().aed(rows[myRank - 1].nw)) +
+      UI.card('Richest CEO', UI.portrait(rows.slice().sort(function (a, b) { return b.nw - a.nw; })[0].p, 40) + ' ' + F().aed(rows.slice().sort(function (a, b) { return b.nw - a.nw; })[0].nw), UI.esc(rows.slice().sort(function (a, b) { return b.nw - a.nw; })[0].p.name)) + '</div>';
+    h += '<div class="note">Net worth = personal cash + shares held at market price (private companies at estimated value) + mansion. CEO score = 50 + ROE×120 + revenue growth×40 + 1-year share return×30, capped 0-100. All CEO personas are fictional.</div>' +
+      '<table class="t"><tr><th>#</th><th>CEO</th><th>Company</th><th class="n">Net worth</th><th>Share of all CEO wealth</th><th class="n">Stake</th><th class="n">Score</th><th class="n">ROE</th><th class="n">Rev growth</th><th class="n">TSR 1y</th></tr>';
+    rows.forEach(function (r, i) {
+      h += '<tr class="click ' + (r.p.isPlayer || (me && r.p.id === me.id) ? 'me' : '') + '"' + UI.spotAttr({ name: r.p.name, rank: i + 1, nw: r.nw, p: r.p, wiki: r.p.wiki, what: r.c.name, sub: r.p.title, tag: '<span class="pill syn">GAME</span> score ' + r.s.score }) + '><td>' + (i + 1) + '</td><td><span style="display:inline-flex;align-items:center;gap:8px">' + UI.portrait(r.p, 34) + UI.esc(r.p.name) + '</span>' + (r.owner ? ' <span class="muted">(owner)</span>' : '') + '</td><td>' + UI.coLink(r.c) + '</td>' +
+        '<td class="n t-a">' + F().aed(r.nw) + '</td><td>' + UI.bar(total ? r.nw / total * 100 * 4 : 0, '#b8ff2c', F().pct(total ? r.nw / total : 0, 1)) + '</td>' +
+        '<td class="n">' + F().pct(r.stake, 1) + '</td><td class="n">' + r.s.score + '</td><td class="n">' + F().pct(r.s.roe) + '</td><td class="n">' + F().pct(r.s.growth) + '</td><td class="n">' + F().pct(r.s.tsr) + '</td></tr>';
+    });
     return h + '</table>';
   }
   if (tab === 'city') return h + UI.cityRankTable();
@@ -665,6 +720,7 @@ UI.R.hq = function () {
     '<div class="row"><label>CEO</label><b>' + UI.esc((UAE.person(co.ceo) || {}).name || '—') + '</b>' + (co.ceoAuto ? ' <span class="t-a">running the company</span>' : '') +
     ' <button class="btn sm a" data-act="ceo" data-arg="' + co.id + '">Expansion strategies · scope · policies</button></div>' +
     '<div class="row"><label>CMO</label><b>' + UI.esc((UAE.person(co.cmo) || {}).name || 'none') + '</b> <span class="muted">marketing expertise strengthens all advertising</span> <button class="btn sm" data-act="persCand">Hire from candidates (Persons)</button></div></div>';
+  h += UI.execBox(co);
   h += '<div class="box"><h3>Departments (monthly budgets, AED)</h3>';
   dep.forEach(function (d) { h += '<div class="row"><label>' + d[1] + '</label><input class="in num" id="hq_' + d[0] + '" value="' + Math.round(co.hqBudget[d[0]] || 0) + '"><button class="btn sm" data-act="hqSet" data-arg="' + d[0] + '">Set</button><span class="muted">' + d[2] + '</span></div>'; });
   return h + '</div>';
@@ -722,8 +778,57 @@ UI.R.settings = function () {
   h += '</table><div class="row"><label><input type="checkbox" data-ch="autosave"' + (UAE.S.settings.autosave !== false ? ' checked' : '') + '> Autosave to slot 0 every month</label></div></div>';
   h += '<div class="box"><h3>File</h3><div class="row"><button class="btn" data-act="exportSave">Export save (.json)</button><button class="btn" data-act="exportCsv">Export my financials (.csv)</button><button class="btn m" data-act="newGame">New game</button></div>' +
     '<div class="note">Saves are plain, readable JSON - open them in any editor.</div></div>';
-  h += '<div class="box"><h3>Options</h3><div class="row"><label><input type="checkbox" data-ch="govMode"' + (UAE.S.settings.govMode ? ' checked' : '') + '> Government Mode (civic buildings)</label></div></div>';
+  h += '<div class="box"><h3>Options</h3><div class="row"><label><input type="checkbox" data-ch="govMode"' + (UAE.S.settings.govMode ? ' checked' : '') + '> Government Mode (civic buildings)</label></div>' +
+    '<div class="row"><label><input type="checkbox" data-ch="constructionTime"' + (UAE.S.settings.constructionTime ? ' checked' : '') + '> Realistic construction time (off = buildings open instantly, like Capitalism Lab)</label></div>' +
+    '<div class="row"><label><input type="checkbox" data-ch="hoverHelp"' + (UAE.S.settings.hoverHelp !== false ? ' checked' : '') + '> Beginner hover help (explanations when the mouse points at buttons and numbers)</label> <a href="#" data-act="help">Open Help guide (F1)</a></div>' +
+    '<div class="row"><button class="btn" data-act="reloadGame">⟳ Load new game version (Ctrl+Shift+R)</button><span class="muted">after an update: save first, reload, then load your save</span></div></div>';
+  if (D && D.listBackups) {
+    var bk = D.listBackups().slice(0, 30);
+    h += '<div class="box"><h3>🛟 Backups</h3><div class="note">Automatic: before any save slot is overwritten (Save, monthly autosave, restore) the old version is kept (last 20 per slot), plus a full copy of all saves once a day (14 days). ' +
+      (D.openBackupsDir ? '<a href="#" data-act="openBackups">Open backups folder</a>' : '') + '</div>';
+    h += bk.length ? '<table class="t"><tr><th>Backed up</th><th>Slot</th><th>Company</th><th>Game date</th><th class="n">Size</th><th></th></tr>' + bk.map(function (b) {
+      return '<tr><td>' + new Date(b.when).toLocaleString() + ' <span class="pill">' + b.kind + '</span></td><td>' + b.slot + '</td><td>' + UI.esc(b.meta ? b.meta.co : '?') + '</td><td>' + UI.esc(b.meta ? b.meta.date : '?') + '</td>' +
+        '<td class="n">' + (b.size / 1048576).toFixed(1) + ' MB</td><td><button class="btn sm" data-act="restoreAsk" data-arg="' + UI.esc(b.file) + '|' + b.slot + '">Restore</button></td></tr>';
+    }).join('') + '</table>' : '<div class="muted">No backups yet - they appear the first time a slot is overwritten.</div>';
+    h += '</div>';
+  }
+  var me0 = UAE.playerPerson();
+  h += '<div class="box"><h3>🧠 Elite people</h3><div class="row"><button class="btn a" data-act="maxMe">Max my expertise</button>' +
+    '<button class="btn" data-act="eliteHire" data-arg="ceo">+ Elite CEO candidate</button><button class="btn" data-act="eliteHire" data-arg="cmo">+ Elite CMO candidate</button>' +
+    '<button class="btn" data-act="eliteHire" data-arg="both">+ Both, then open Candidates</button></div>' +
+    '<div class="note">Maxed = management, technology, marketing and finance 100, every industry expertise 100 and every product-class expertise 100.' + (me0 && me0.maxed ? ' <span class="t-a">✔ Your expertise is maxed.</span>' : '') +
+    ' Elite candidates wait in Persons → Candidates until you appoint them (Appoint as CEO / Appoint as CMO).</div></div>';
+  var co = UAE.co(UAE.S.activeCo);
+  h += '<div class="box"><h3>💰 Add company cash</h3><div class="row"><label>Company</label><b>' + UI.esc(co.name) + '</b> · cash ' + UAE.fmt.aed(co.bs.cash) + '</div>' +
+    '<div class="row"><label>Amount (AED)</label><input class="in num" id="cheatAmt" value="100000000" style="width:160px"><button class="btn a" data-act="addCash">Add cash</button>' +
+    [1e8, 1e9, 1e10, 1e11].map(function (v) { return '<button class="btn sm" data-act="addCashQ" data-arg="' + v + '">+' + UAE.fmt.aed(v) + '</button>'; }).join('') + '</div>' +
+    '<div class="note">Any amount you like. It is booked as an owner capital injection (share capital) so the balance sheet still balances.' + (co.cheatCash ? ' Added so far: ' + UAE.fmt.aed(co.cheatCash) + '.' : '') + '</div></div>';
   return h;
+};
+UI.act.constructionTime = function (a, el) { UAE.S.settings.constructionTime = el.checked; UI.toast(el.checked ? 'Buildings now take real construction time.' : 'Buildings now open instantly.', 'good'); };
+UI.act.maxMe = function () { UAE.maxExpertise(UAE.playerPerson()); UI.toast('Your expertise is now maxed (100 everywhere).', 'good'); UI.render(); };
+UI.act.eliteHire = function (role) {
+  var made = role === 'both' ? [UAE.eliteCandidate('ceo'), UAE.eliteCandidate('cmo')] : [UAE.eliteCandidate(role)];
+  UI.toast('Elite candidate' + (made.length > 1 ? 's' : '') + ' ready: ' + made.map(function (p) { return UI.esc(p.name) + ' (' + p.elite.toUpperCase() + ')'; }).join(', ') + '. Appoint in Persons → Candidates.', 'good');
+  UI.tabState.pflt = 'cand'; UI.tabState.person = made[0].id; UI.tabState.ptab = 'exp'; UI.open('Persons', UI.R.persons, { push: true });
+};
+UI.act.openBackups = function () { var D = UAE.desktop(); if (D && D.openBackupsDir) D.openBackupsDir(); };
+UI.act.restoreAsk = function (arg) {
+  var i = arg.lastIndexOf('|'), file = arg.slice(0, i), slot = arg.slice(i + 1);
+  UI.modal('<h2>Restore backup to slot ' + UI.esc(slot) + '?</h2><p>The save currently in slot ' + UI.esc(slot) + ' is backed up first, so nothing is lost. Then load slot ' + UI.esc(slot) + ' to play the restored game.</p>' +
+    '<div class="row"><button class="btn a" data-act="restoreYes" data-arg="' + UI.esc(arg) + '">Restore</button><button class="btn" data-act="closeModal">Cancel</button></div>');
+};
+UI.act.restoreYes = function (arg) {
+  var i = arg.lastIndexOf('|'), D = UAE.desktop(), ok = D && D.restoreBackup(arg.slice(0, i), arg.slice(i + 1));
+  UI.closeModal(); UI.toast(ok ? 'Restored to slot ' + arg.slice(i + 1) + '. Load it from the Save slots list.' : 'Restore failed.', ok ? 'good' : 'bad'); UI.render();
+};
+UI.act.reloadGame = function () { UI.modal('<h2>Load the new game version?</h2><p>Unsaved progress is lost – save first (Save slots above). After the reload, load your save.</p><div class="row"><button class="btn a" data-act="reloadYes">Reload now</button><button class="btn" data-act="closeModal">Cancel</button></div>'); };
+UI.act.reloadYes = function () { location.reload(); };
+UI.act.addCash = function () { UI.act.addCashQ(UI.num('cheatAmt')); };
+UI.act.addCashQ = function (v) {
+  var co = UAE.co(UAE.S.activeCo); v = +v;
+  if (!UAE.addCash(co, v)) { UI.toast('Enter an amount above 0.', 'bad'); return; }
+  UI.toast('Added ' + UAE.fmt.aed(v) + ' to ' + UI.esc(co.name) + '.', 'good'); UI.refreshHUD && UI.refreshHUD(); UI.render();
 };
 UI.act.saveSlot = function (s) { UI.result({ ok: UAE.saveSlot(s), why: UAE.desktop() ? 'Could not write the save file.' : 'Browser storage unavailable or full - use the desktop app or export to .json.' }, 'Saved to slot ' + s + '.'); };
 UI.act.openSaves = function () { var D = UAE.desktop(); if (D) D.openSavesDir(); };

@@ -63,6 +63,9 @@ UAE.quoteFirm = function (type, c, size) {
            days: UAE.BUILD[type][1], T: T, plot: pl, c: center, deposit: dep };
 };
 
+/** Capitalism Lab rule: buildings open the moment you place them. Settings -> "Realistic construction time" turns build times back on. */
+UAE.instantBuild = function () { return !(UAE.S && UAE.S.settings && UAE.S.settings.constructionTime); };
+
 /** Create a firm. opts: {name,size,instant,seed,lines,...}. Charges the owner unless seed. */
 UAE.createFirm = function (ownerId, type, c, opts) {
   opts = opts || {};
@@ -103,8 +106,8 @@ UAE.createFirm = function (ownerId, type, c, opts) {
   var f = {
     id: id, type: type, name: opts.name || (co.name + ' ' + T.name), owner: ownerId, city: dep ? dep.city : d.city, district: d.id,
     c: c, size: size, built: UAE.S.day, seed: !!opts.seed, plot: plot, mall: mall ? mall.id : null, deposit: dep ? dep.id : null,
-    status: opts.instant || opts.seed ? 'open' : 'construction',
-    openDay: opts.instant || opts.seed ? UAE.S.day : UAE.S.day + days, buildDays: days,
+    status: opts.instant || opts.seed || UAE.instantBuild() ? 'open' : 'construction',
+    openDay: opts.instant || opts.seed || UAE.instantBuild() ? UAE.S.day : UAE.S.day + days, buildDays: days,
     ppe: opts.seed ? 0 : building, land: opts.seed ? 0 : land,
     quality: opts.quality || 50, eff: 1, training: 0, adBudget: 0, trainBudget: 0, manager: null, popu: 30,
     lines: [], stock: {}, m: { rev:0, cost:0 }, last: { rev:0, cost:0, profit:0 }, hist: [],
@@ -129,6 +132,7 @@ UAE.createFirm = function (ownerId, type, c, opts) {
   // product lines
   (opts.lines || []).forEach(function (l) { UAE.addLine(f, l.pid, l); });
   UAE.S.firms[id] = f;
+  if (UAE._idx) UAE._idx = {};            // firm list changed: drop the per-day lookup cache
   return f;
 };
 
@@ -159,13 +163,15 @@ UAE.expandFirm = function (f) {
   if (co.bs.cash < cost) return false;
   if (f.mall && UAE.S.firms[f.mall] && UAE.mallVacancy(UAE.S.firms[f.mall]) < 1) return false;   // needs another vacant unit in the mall
   UAE.L.capex(co, cost, 0); f.ppe += cost; f.size += 1;
-  f.status = 'construction'; f.buildDays = Math.ceil((f.mall ? 15 : UAE.BUILD[f.type][1]) * 0.5); f.openDay = UAE.S.day + f.buildDays;
+  if (!UAE.instantBuild()) { f.status = 'construction'; f.buildDays = Math.ceil((f.mall ? 15 : UAE.BUILD[f.type][1]) * 0.5); f.openDay = UAE.S.day + f.buildDays; }
   if (f.lease) f.lease.rent *= f.size / (f.size - 1);
   return true;
 };
 
 /** Sell / demolish a firm. Buildings recover 70% of book value, land 100% x land index. */
-UAE.sellFirm = function (f) {
+UAE.sellFirm = function (f, opts) {
+  // headquarters (company HQ, Bank HQ, Insurance HQ): only the player (by hand) or a bankruptcy may sell them
+  if ((f.type === 'hq' || f.type === 'bankhq' || f.type === 'inshq') && !(opts && opts.allowHQ)) return false;
   var co = UAE.co(f.owner);
   // liquidate stock at cost (sold to liquidator)
   var stockVal = 0; for (var p in f.stock) stockVal += f.stock[p].q * f.stock[p].cost;
@@ -182,6 +188,7 @@ UAE.sellFirm = function (f) {
   });
   if (f.manager && UAE.person(f.manager)) { var mp = UAE.person(f.manager); mp.title = 'Candidate'; mp.co = null; }
   delete UAE.S.firms[f.id];
+  if (UAE._idx) UAE._idx = {};
 };
 
 /* ============================================================== NEW GAME == */
@@ -196,6 +203,7 @@ UAE.newGame = function (opt) {
     freightPool: {}, adPool: {}, settings: { govMode: false, fictionalPolitics: false }
   };
   var S = UAE.S, R = UAE.rng;
+  if (UAE.govRestoreZones) UAE.govRestoreZones();                  // a new game starts without the previous game's new zones
 
   // ---- cities (dynamic copy)
   Object.keys(UAE.CITIES).forEach(function (k) {
@@ -207,6 +215,7 @@ UAE.newGame = function (opt) {
 
   // ---- real seed companies
   if (opt.realCompanies !== false) UAE.SEED_COMPANIES.forEach(function (s) { UAE.seedCompany(s); });
+  if (UAE.ensureGlobalMarkets) UAE.ensureGlobalMarkets();          // NYSE + NASDAQ (engine/global.js)
 
   // ---- player
   var cap = { easy: 1000e6, normal: 300e6, hard: 100e6 }[S.difficulty] || 300e6;
@@ -347,4 +356,25 @@ UAE.news = function (text, kind) {
   UAE.S.news.unshift({ day: UAE.S.day, text: text, kind: kind || 'info' });
   if (UAE.S.news.length > 400) UAE.S.news.length = 400;
   if (UAE.onNews) UAE.onNews(UAE.S.news[0]);
+};
+
+/** Duplicate firms: copy the setup of `src` onto the new firm `dst` (same type).
+ *  Product lines with prices, suppliers and rates, factory input suppliers, ad & training budgets,
+ *  service type & price, internet model, software title & price, R&D target, rents. */
+UAE.copyFirmSetup = function (src, dst) {
+  if (!src || !dst || src.type !== dst.type) return dst;
+  var k = UAE.FIRM_TYPES[dst.type].kind;
+  if (k !== 'software' && ['mine', 'oil'].indexOf(k) < 0) {          // mines / wells keep the resource of their own site
+    dst.lines = [];
+    src.lines.forEach(function (l) {
+      var n = UAE.addLine(dst, l.pid, { price: l.price, supplier: l.supplier }); if (!n) return;
+      ['priceSet', 'fixedPrice', 'rate', 'forceExport'].forEach(function (x) { if (l[x] != null) n[x] = l[x]; });
+      if (l.inSup) n.inSup = JSON.parse(JSON.stringify(l.inSup));
+      if (n.supplier === dst.id) n.supplier = 'IMPORT';
+    });
+  }
+  ['adBudget', 'trainBudget', 'svc', 'price', 'model', 'target', 'autoResearch', 'retailPrice', 'rent', 'adr'].forEach(function (x) { if (src[x] != null) dst[x] = src[x]; });
+  if (k === 'software' && src.lines[0]) { UAE.setSoftware(dst, src.lines[0].pid); dst.lines[0].price = src.lines[0].price; dst.lines[0].priceSet = src.lines[0].priceSet; }
+  if (src.mallPol) dst.mallPol = JSON.parse(JSON.stringify(src.mallPol));
+  return dst;
 };

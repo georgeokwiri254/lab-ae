@@ -23,8 +23,8 @@ UI.act.adFor = function (arg) { var p = arg.split('|'); UI.tabState.pdTab = 'mkt
 
 UI.R.pdetail = function () {
   var pid = UI.tabState.pdPid || 'phone', P = UAE.P[pid], city = UI.tabState.pdCity || UAE.player().hq, tab = UI.tabState.pdTab || 'ov';
-  var h = '<div class="row"><label>Product</label><select class="in" data-ch="pdPid">' + UAE.PRODUCTS.map(function (p) { return '<option value="' + p.id + '"' + (p.id === pid ? ' selected' : '') + '>' + p.name + ' · ' + p.cls + '</option>'; }).join('') + '</select>' +
-    '<span class="pill">' + P.kind + '</span><span class="pill">' + P.cls + '</span></div>';
+  var h = UI.productBrowser(pid);
+  h += UI.productHero(pid, '<div style="margin-top:6px">' + (P.ref ? 'Shelf price AED ' + P.ref : 'World price AED ' + (P.world || P.imp)) + (P.grow ? ' · demand +' + Math.round(P.grow * 100) + '%/yr 🔥' : '') + (P.rec ? '<br><span class="muted">Made from: ' + UI.recipeText(pid) + '</span>' : '') + '</div>');
   h += UI.tabs('pdCity', Object.keys(UAE.CITIES).map(function (k) { return [k, UAE.CITIES[k].name]; }), city);
   h += UI.tabs('pdTab', [['ov', 'Overview'], ['sd', 'Supply & Demand'], ['brand', 'Brand'], ['tech', 'Technology'], ['chain', 'Supply Chain'], ['mkt', 'Marketing']], tab);
   if (tab === 'ov') h += UI.pdOverview(pid, city);

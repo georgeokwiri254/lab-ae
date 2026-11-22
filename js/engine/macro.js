@@ -33,8 +33,12 @@ UAE.monthEnd = function () {
       f.ppe -= dep; UAE.L.writeDown(co, 'depreciation', dep, 'ppe'); f.m.cost += dep;
     });
     // loans & bonds interest, deposits interest
-    co.loanList.forEach(function (l) { UAE.L.expense(co, 'interestExp', l.amt * l.rate / 12); });
+    co.loanList.forEach(function (l) {
+      UAE.L.expense(co, 'interestExp', l.amt * l.rate / 12);
+      var lender = l.bank && UAE.co(l.bank); if (lender && lender.status !== 'BANKRUPT' && UAE.gameLoanInterest) UAE.gameLoanInterest(lender, l.amt * l.rate / 12);   // paid to the game bank
+    });
     co.bondList.forEach(function (b) { UAE.L.expense(co, 'interestExp', b.amt * b.coupon / 12); });
+    if (UAE.loanInstalments && co.loanList.length) UAE.loanInstalments(co);        // scheduled principal repayments
     co.depositList.forEach(function (d) { UAE.L.income(co, 'interestInc', d.amt * d.rate / 12); });
     // bond coupons received
     for (var bid in co.bondPositions) {
@@ -75,9 +79,12 @@ UAE.monthEnd = function () {
     f.last = { rev: f.m.rev, cost: f.m.cost, profit: f.m.rev - f.m.cost };
     f.hist.push(f.last.profit); if (f.hist.length > 24) f.hist.shift();
     f.m = { rev: 0, cost: 0 };
-    f.lines.forEach(function (l) { l.made = 0; l.exported = 0; });
+    f.lines.forEach(function (l) { l.made = 0; l.exported = 0; if (UAE.FIRM_TYPES[f.type].kind !== 'retail') l.sold = 0; });   // producers: monthly counters
   });
+  if (UAE.financeMonth) UAE.financeMonth();      // bank & insurer division books (engine/finance2.js)
   UAE.macroMonth();
+  if (UAE.econMonth) UAE.econMonth();
+  if (UAE.govDevMonth) UAE.govDevMonth();     // government reinvests revenue: housing, offices, civic, roads, new zones (engine/govdev.js)      // national & world macroeconomy, central banks (engine/macro2.js)
   UAE.microMonth();          // product market history (engine/micro.js)
   UAE.expertiseMonth();      // managers and CEOs gain expertise (engine/ceo.js)
   UAE.checkGoals();
@@ -145,12 +152,14 @@ UAE.macroMonth = function () {
     c.gdp *= 1 + g;
     // population follows jobs, quality of life and housing affordability
     var affordability = 1 / c.rentIdx;
-    c.qol = Math.max(20, Math.min(95, 55 + civic * 1.5 + (c.civic / 1e6) * 0.2 + (affordability - 1) * 25 + (m.tourism - 1) * 10));
-    var popG = C.growth * 0.6 / 12 * (c.qol / 60) + (jobs / Math.max(1, c.pop)) * 0.02;
+    c.qol = Math.max(20, Math.min(95, 55 + civic * 1.5 + (c.civic / 1e6) * 0.2 + (affordability - 1) * 25 + (m.tourism - 1) * 10 + (UAE.govQolBonus ? UAE.govQolBonus(c) : 0)));
+    // jobs, immigration and housing (engine/govdev.js): people come for open jobs when there are homes for them
+    var GD = UAE.govCityMonth ? UAE.govCityMonth(k, c, C, jobs, housing) : null;
+    var popG = GD ? GD.popG : C.growth * 0.6 / 12 * (c.qol / 60) + (jobs / Math.max(1, c.pop)) * 0.02;
     c.pop *= 1 + popG;
     // prices: CPI drifts with the city trend; housing rents follow demand vs new supply
     var housingStock = c.pop / 2.9;
-    var rentPressure = popG * 12 - (housing / housingStock) * 0.02;
+    var rentPressure = GD ? GD.rentPressure : popG * 12 - (housing / housingStock) * 0.02;   // rents follow the housing supply / demand index
     c.rentIdx *= 1 + rentPressure / 12 + (m.property - 1) * 0.004;
     c.rentIdx = Math.max(0.6, Math.min(2.2, c.rentIdx));
     c.landIdx *= 1 + (c.rentIdx - 1) * 0.004 + (m.property - 1) * 0.003;
@@ -227,10 +236,16 @@ UAE.eventsDay = function () {
 /* ===================================================== MASTER TICK ==== */
 UAE.tick = function () {
   var S = UAE.S;
+  if (UAE.fixAccidentalTakeovers && !(S.fixes && S.fixes.takeover2046)) UAE.fixAccidentalTakeovers();
+  UAE._idx = {};                                     // per-day lookup cache (engine/sim.js UAE.dayIdx)
+  try { UAE.tickBody(S); } finally { UAE._idx = null; }
+};
+UAE.tickBody = function (S) {
   UAE.eventsDay();
   UAE.simDay();
   if (UAE.cal.tradingDay(S.day)) UAE.marketDay();
   UAE.AI.day();
+  if (UAE.execsDay) UAE.execsDay();                 // CMO advertising + CTO research (engine/execs.js)
   if (UAE.cal.isMonthEnd(S.day)) UAE.monthEnd();
   if (UAE.cal.isYearEnd(S.day)) UAE.yearEnd();
   UAE.bankruptcyCheck();
@@ -254,8 +269,9 @@ UAE.bankruptcyCheck = function () {
       return;
     }
     co.status = 'BANKRUPT';
+    if (UAE.gameLoanDefault) UAE.gameLoanDefault(co);                                            // lending banks write their loans off
     UAE.news(co.name + ' has been declared bankrupt. Its firms are being liquidated.', 'event');
-    UAE.firmsOf(co.id).forEach(function (f) { UAE.sellFirm(f); });
+    UAE.firmsOf(co.id).slice().forEach(function (f) { UAE.sellFirm(f, { allowHQ: true }); });
     co.price = 0.01;
   });
 };

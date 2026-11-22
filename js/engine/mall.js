@@ -107,7 +107,7 @@ UAE.mallDay = function (m) {
     }
     if (S.day >= f.lease.until) {
       var market = UAE.unitMarketRent(m) * f.size, newRent = f.owner === m.owner ? 0 : market * m.mallPol.rentRenew;
-      if (f.owner !== m.owner && newRent > market * f.lease.renewMax) {
+      if (f.owner !== m.owner && newRent > market * f.lease.renewMax && !UAE.isHeadOffice(f)) {   // a Bank / Insurance HQ always renews
         UAE.news(f.name + ' left ' + m.name + ': renewal rent ' + UAE.fmt.aed(newRent) + '/month exceeded its condition (' + Math.round(f.lease.renewMax * 100) + '% of market).', UAE.isHuman(tenant) ? 'warning' : 'ai');
         UAE.sellFirm(f); return;
       }

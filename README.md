@@ -4,7 +4,7 @@ A business-empire simulation on the real UAE map. You build firms and supply cha
 
 ## Play on Android
 
-1. In **Chrome** on the phone, open **https://georgeokwiri254.github.io/lab-ae/**
+1. In **Chrome** on the phone, open this repository's GitHub Pages address (Settings → Pages).
 2. Tap **Install** on the banner, or open the ⋮ menu and choose **Add to Home screen** / **Install app**.
 3. Start it from the home-screen icon. It runs full screen, like a normal app.
 

@@ -61,18 +61,20 @@ UAE.fundamental = function (co) {
 UAE.marketDay = function () {
   var S = UAE.S, m = S.macro;
   var mkt = { DFM: UAE.rng.normal() * 0.006, ADX: UAE.rng.normal() * 0.005 };
-  var before = { DFM: 0, ADX: 0 }, after = { DFM: 0, ADX: 0 };
+  var us = UAE.rng.normal();                                  // one US market factor drives NYSE and NASDAQ together
+  Object.keys(UAE.GLOBAL_EXCH || {}).forEach(function (x) { var E = UAE.GLOBAL_EXCH[x]; mkt[x] = (us * E.beta + UAE.rng.normal() * 0.4) * E.vol + 0.0003; });
+  var before = {}, after = {}; Object.keys(S.index).forEach(function (x) { before[x] = 0; after[x] = 0; if (mkt[x] == null) mkt[x] = 0; });
   UAE.allCos().forEach(function (co) {
     if (!UAE.isTradable(co)) return;
     var fund = UAE.fundamental(co) * m.equity;
     before[co.exch] += co.price * co.shares;
-    var vol = co.seed ? 0.011 : 0.018;
+    var vol = co.foreign ? 0.014 : co.seed ? 0.011 : 0.018;
     var drift = 0.03 * (fund / co.price - 1);
     co.price = Math.max(0.01, co.price * (1 + drift + mkt[co.exch] + UAE.rng.normal() * vol));
     co.priceHist.push(co.price); if (co.priceHist.length > 400) co.priceHist.shift();
     after[co.exch] += co.price * co.shares;
   });
-  ['DFM','ADX'].forEach(function (x) {
+  Object.keys(S.index).forEach(function (x) {
     var I = S.index[x];
     if (before[x] > 0) I.level *= after[x] / before[x];
     I.hist.push(I.level); if (I.hist.length > 400) I.hist.shift();
@@ -105,6 +107,7 @@ UAE.buyShares = function (key, co, qty) {
   if (qty <= 0) return { ok: false, why: 'No shares available in the public float.' };
   var impact = 1 + 0.5 * qty / Math.max(1, co.holders.PUBLIC);
   var px = co.price * impact, cost = px * qty * (1 + UAE.RULES.tradingFee);
+  UAE.S.brokeragePool = (UAE.S.brokeragePool || 0) + px * qty * UAE.RULES.tradingFee;          // brokers (banks) earn the fee
   if (UAE.holderCash(key) < cost) return { ok: false, why: 'Not enough cash (' + UAE.fmt.aed(cost) + ' needed).' };
   if (key.indexOf('P:') === 0) UAE.person(key.slice(2)).cash -= cost;
   else { var buyer = UAE.co(key.slice(2)); if (buyer.id === co.id) return { ok: false, why: 'Use Buyback for own shares.' }; UAE.L.invest(buyer, cost); buyer.portfolio[co.id] = (buyer.portfolio[co.id] || 0) + cost; }
@@ -120,10 +123,11 @@ UAE.sellShares = function (key, co, qty) {
   var held = co.holders[key];
   var impact = 1 - 0.5 * qty / Math.max(1, (co.holders.PUBLIC || 0) + qty);
   var px = co.price * impact, proceeds = px * qty * (1 - UAE.RULES.tradingFee);
+  UAE.S.brokeragePool = (UAE.S.brokeragePool || 0) + px * qty * UAE.RULES.tradingFee;
   if (key.indexOf('P:') === 0) UAE.person(key.slice(2)).cash += proceeds;
   else {
     var seller = UAE.co(key.slice(2)), basis = (seller.portfolio[co.id] || 0) * qty / held;
-    seller.portfolio[co.id] -= basis; UAE.L.divest(seller, proceeds, basis);
+    seller.portfolio[co.id] -= basis; UAE.L.divest(seller, proceeds, basis); UAE.trackTradeGain(seller, proceeds - basis);
   }
   co.holders[key] -= qty; if (co.holders[key] <= 0) delete co.holders[key];
   co.holders.PUBLIC = (co.holders.PUBLIC || 0) + qty;
@@ -143,12 +147,13 @@ UAE.playerStake = function (co) {
 };
 /** >50% combined stake = takeover: the company becomes a player subsidiary. */
 UAE.controlCheck = function (co) {
+  if (co.foreign) { if (co.controller === 'PLAYER') { co.controller = 'AI'; co.parent = null; if (UAE.S.activeCo === co.id) UAE.S.activeCo = UAE.S.playerCo; UAE.news('You no longer control ' + co.name + ' (US companies are trade-only).', 'finance'); } return; }
   var st = UAE.playerStake(co);
   if (st > 0.5 && co.controller !== 'PLAYER') {
     co.controller = 'PLAYER'; co.parent = UAE.S.playerCo;
     UAE.news('TAKEOVER: you now control ' + co.name + ' (' + UAE.fmt.pct(st) + '). It is now your subsidiary.', 'finance');
   } else if (st <= 0.5 && co.controller === 'PLAYER' && co.id !== UAE.S.playerCo && !co.createdByPlayer) {
-    co.controller = 'AI'; co.parent = null;
+    co.controller = 'AI'; co.parent = null; if (UAE.S.activeCo === co.id) UAE.S.activeCo = UAE.S.playerCo;
     UAE.news('You lost control of ' + co.name + '.', 'finance');
   }
 };
@@ -157,18 +162,42 @@ UAE.controlCheck = function (co) {
 UAE.loanRate = function (co) { return UAE.S.macro.rate + UAE.RULES.loanSpread + UAE.creditSpread(co) - 0.01; };
 UAE.creditLimit = function (co) { return Math.max(0, UAE.totals(co).equity * 1.0 + UAE.netIncome(UAE.ttm(co)) * 2) - co.bs.loans; };
 /** FA01 Borrow */
-UAE.takeLoan = function (co, amt, force) {
+UAE.takeLoan = function (co, amt, force, opts) {
+  opts = opts || {};
   if (!force && amt > UAE.creditLimit(co)) return { ok: false, why: 'Exceeds credit limit of ' + UAE.fmt.aed(UAE.creditLimit(co)) };
-  var rate = UAE.loanRate(co);
-  co.loanList.push({ amt: amt, rate: rate, day: UAE.S.day }); UAE.L.borrow(co, amt, 'loans');
-  return { ok: true, rate: rate };
+  var rate = UAE.loanRate(co), lender = UAE.pickLender ? UAE.pickLender(co, amt) : null;   // a game bank may offer a better rate
+  var years = Math.max(1, Math.min(10, opts.years || (force ? 1 : 3)));
+  var loan = { amt: amt, orig: amt, rate: lender ? lender.rate : rate, day: UAE.S.day, years: years, until: UAE.S.day + Math.round(years * 365), by: opts.by || (force ? 'emergency' : 'ceo') };
+  if (lender) { loan.bank = lender.co.id; UAE.fundGameLoan(lender.co, amt); }
+  co.loanList.push(loan); UAE.L.borrow(co, amt, 'loans');
+  return { ok: true, rate: loan.rate, bank: lender ? lender.co.name : null, years: years, instalment: amt / (years * 12) };
+};
+/** Repay part of ONE loan (scheduled instalments). */
+UAE.repayOne = function (co, l, amt) {
+  amt = Math.min(amt, l.amt, Math.max(0, co.bs.cash), co.bs.loans); if (amt <= 0) return 0;
+  l.amt -= amt;
+  if (l.bank && UAE.co(l.bank) && UAE.co(l.bank).status !== 'BANKRUPT') UAE.gameLoanRepaid(UAE.co(l.bank), amt);
+  UAE.L.repay(co, amt, 'loans');
+  if (l.amt <= 1) co.loanList.splice(co.loanList.indexOf(l), 1);
+  return amt;
+};
+/** Monthly: each loan pays its instalment (principal / months of the term); the last month clears it. */
+UAE.loanInstalments = function (co) {
+  co.loanList.slice().forEach(function (l) {
+    var months = Math.max(1, Math.round(((l.until || UAE.S.day + 365) - UAE.S.day) / 30));
+    var due = l.amt / months;
+    var paid = UAE.repayOne(co, l, due);
+    if (paid < due - 1 && UAE.isHuman(co)) UAE.news('Loan instalment of ' + UAE.fmt.aed(due) + ' could not be paid in full – short of cash.', 'warning');
+  });
 };
 /** FA01 Repay (oldest first) */
 UAE.repayLoan = function (co, amt) {
   amt = Math.min(amt, co.bs.loans, co.bs.cash); if (amt <= 0) return { ok: false, why: 'Nothing to repay or no cash.' };
   var left = amt;
   while (left > 0 && co.loanList.length) {
-    var l = co.loanList[0], x = Math.min(left, l.amt); l.amt -= x; left -= x; if (l.amt <= 1) co.loanList.shift();
+    var l = co.loanList[0], x = Math.min(left, l.amt); l.amt -= x; left -= x;
+    if (l.bank && UAE.co(l.bank) && UAE.co(l.bank).status !== 'BANKRUPT') UAE.gameLoanRepaid(UAE.co(l.bank), x);   // cash goes back to the lending bank
+    if (l.amt <= 1) co.loanList.shift();
   }
   UAE.L.repay(co, amt, 'loans'); return { ok: true, amt: amt };
 };
@@ -178,6 +207,7 @@ UAE.issueShares = function (co, qty) {
   var px = co.price * 0.95, cash = px * qty * 0.98;       // 5% discount, 2% underwriting fee
   co.shares += qty; co.holders.PUBLIC = (co.holders.PUBLIC || 0) + qty;
   UAE.L.issueEquity(co, cash);
+  if (UAE.underwrite) UAE.underwrite(co, px * qty * 0.02);                                     // lead bank's underwriting fee
   co.price *= 1 - 0.3 * qty / co.shares;
   UAE.controlCheck(co);
   return { ok: true, cash: cash, px: px };
@@ -206,6 +236,7 @@ UAE.ipo = function (co, exch, pctFloat, ticker) {
   co.listingSrc = 'SIMULATED IPO (fictional listing)';
   co.shares += newShares; co.holders.PUBLIC = (co.holders.PUBLIC || 0) + newShares;
   co.price = px; co.seedPrice = 0; UAE.L.issueEquity(co, proceeds);
+  if (UAE.underwrite) UAE.underwrite(co, px * newShares * 0.03);
   UAE.news(co.name + ' IPO on ' + exch + ' at AED ' + px.toFixed(2) + ' raises ' + UAE.fmt.aed(proceeds) + '.', 'finance');
   return { ok: true, px: px, proceeds: proceeds };
 };
@@ -254,7 +285,7 @@ UAE.tradeBond = function (co, bondId, face) {
   }
   face = Math.min(-face, pos.face); if (face <= 0) return { ok: false, why: 'No position.' };
   var basis = pos.cost * face / pos.face, proceeds = face * b.price / 100;
-  pos.face -= face; pos.cost -= basis; UAE.L.divest(co, proceeds, basis);
+  pos.face -= face; pos.cost -= basis; UAE.L.divest(co, proceeds, basis); UAE.trackTradeGain(co, proceeds - basis);
   return { ok: true, proceeds: proceeds };
 };
 /** FA12 Bank deposit (term deposit at a UAE bank, base - 1.2%). */
@@ -364,7 +395,7 @@ UAE.initGoals = function () {
         return UAE.firmsOf(co.id).some(function (f) { return ['apartment','commercial','hotel'].indexOf(f.type) >= 0 && ['DXB_DOWNTOWN','DXB_MARINA','DXB_BBAY'].indexOf(f.district) >= 0; }); } },
     { id:'take',   text:'Take control (>50%) of another listed company', test:function () {
         return UAE.allCos().some(function (c) { return c.id !== UAE.S.playerCo && c.controller === 'PLAYER' && !c.createdByPlayer; }); } },
-    { id:'bill',   text:'Become a billionaire (personal net worth AED 3.67bn = US$1bn)', test:function () { return UAE.personWealth(UAE.playerPerson()) >= 3.6725e9; } }
+    { id:'bill',   text:'Become a billionaire (personal net worth AED 3.67bn)', test:function () { return UAE.personWealth(UAE.playerPerson()) >= 3.6725e9; } }
   ].map(function (g) { g.done = false; g.day = null; return g; });
 };
 UAE.checkGoals = function () {
@@ -372,4 +403,29 @@ UAE.checkGoals = function () {
   UAE.S.goals.forEach(function (g) {
     if (!g.done && g.test(co)) { g.done = true; g.day = UAE.S.day; UAE.news('GOAL ACHIEVED: ' + g.text, 'goal'); }
   });
+};
+
+/* ============================================= VALUATION BREAKDOWN ====== */
+/** Every step of how the game values a company (same formulas as UAE.fundamental / privateValue / marketDay). */
+UAE.valuationBreakdown = function (co) {
+  var sec = UAE.SECTORS[co.sector] || UAE.SECTORS.holding, t = UAE.totals(co), ttm = UAE.ttm(co), ni = UAE.netIncome(ttm), bv = t.equity;
+  var h = co.history, revNow = h.length ? h[h.length - 1].rev : 0, revAgo = h.length >= 13 ? h[h.length - 13].rev : 0;
+  var rawGrowth = revAgo > 0 ? revNow / revAgo : null;
+  var growth = rawGrowth ? Math.max(0.7, Math.min(1.6, Math.pow(rawGrowth, 0.5))) : 1;
+  var earnValue = Math.max(0, ni) * sec.pe * growth;
+  var ir = 1 + Math.min(0.1, (co.hqBudget && co.hqBudget.ir || 0) / 5e6 * 0.02);
+  var floor = bv * 0.6, blend = earnValue * 0.7 + bv * 0.45, fundEquity = Math.max(floor, blend) * ir;
+  var listed = UAE.isTradable(co), mood = UAE.S.macro.equity;
+  var r = { co: co, sector: sec.name, pe: sec.pe, assets: t.assets, liabs: t.liabs, book: bv, shareCap: co.bs.shareCap, retained: co.bs.retained,
+    revTTM: ttm.revenue, ni: ni, revNow: revNow, revAgo: revAgo, rawGrowth: rawGrowth, growth: growth, earnValue: earnValue, ir: ir, floor: floor, blend: blend,
+    fundEquity: fundEquity, mood: mood, listed: listed, shares: co.shares, seed: !!(co.seed && co.seedPrice) };
+  if (listed) {
+    r.fundPrice = UAE.fundamental(co) * mood; r.price = co.price; r.mcap = UAE.mcap(co);
+    r.gap = r.fundPrice / co.price - 1; r.value = r.mcap;
+  } else {
+    r.privFloor = bv; r.privBlend = bv * 0.5 + Math.max(0, ni) * sec.pe * 0.8; r.value = UAE.privateValue(co);
+  }
+  r.implied = r.value - bv;                         // value the balance sheet does not show (brand, technology, customers, growth)
+  r.peRatio = ni > 0 ? r.value / ni : null; r.pb = bv > 0 ? r.value / bv : null;
+  return r;
 };

@@ -54,7 +54,28 @@ UAE.freight = function (pid, a, b, coId, city) {
   if (coId && UAE.hasFirmIn(coId, 'logistics', city)) cost *= 0.75;
   return cost;
 };
+/* Per-day lookup cache (UAE._idx exists only while UAE.tick runs, so screens always see live data).
+ * Built once per game day instead of scanning every firm on every call - big saves have thousands. */
+UAE.dayIdx = function () {
+  var X = UAE._idx; if (!X) return null;
+  if (!X.has) {
+    var has = {}, prod = {}, F = UAE.S.firms, KINDS = ['factory','farm','mine','oil','warehouse','software'];
+    for (var k in F) {
+      var f = F[k]; if (f.status !== 'open') continue;
+      has[f.owner + '|' + f.type + '|' + f.city] = 1;
+      has[f.owner + '|' + f.type + '|@' + UAE.CITIES[f.city].emirate] = 1;
+      has[f.owner + '|' + f.type] = 1;
+      if (KINDS.indexOf(UAE.FIRM_TYPES[f.type].kind) < 0) continue;
+      f.lines.forEach(function (l) { (prod[l.pid] = prod[l.pid] || []).push(f); });
+    }
+    X.has = has; X.prod = prod;
+  }
+  return X;
+};
 UAE.hasFirmIn = function (coId, type, city, emirate) {
+  var X = UAE.dayIdx();
+  if (X) return !!X.has[coId + '|' + type + (city ? '|' + city : emirate ? '|@' + emirate : '')] &&
+    (!city || !emirate || UAE.CITIES[city].emirate === emirate);
   var F = UAE.S.firms;
   for (var k in F) {
     var f = F[k];
@@ -77,10 +98,11 @@ UAE.landedImport = function (pid, f) {
 UAE.supplyOptions = function (f, pid) {
   var out = [], imp = UAE.landedImport(pid, f);
   out.push({ id: 'IMPORT', name: 'Import via ' + imp.gateway, unit: imp.unit, quality: imp.quality, avail: Infinity, owner: null });
-  UAE.allFirms().forEach(function (g) {
+  var X = UAE.dayIdx(), pool = X ? (X.prod[pid] || []) : UAE.allFirms();
+  pool.forEach(function (g) {
     if (g.id === f.id || g.status !== 'open') return;
     var k = UAE.FIRM_TYPES[g.type].kind;
-    if (['factory','farm','mine','oil','warehouse'].indexOf(k) < 0) return;
+    if (['factory','farm','mine','oil','warehouse','software'].indexOf(k) < 0) return;
     var line = g.lines.find(function (l) { return l.pid === pid; });
     if (!line) return;
     var s = g.stock[pid], same = g.owner === f.owner;
@@ -116,6 +138,7 @@ UAE.procure = function (f, pid, q, supplierId) {
   if (g.owner === f.owner) {                 // internal transfer at cost (no profit, consolidates cleanly)
     UAE.L.buyInventory(buyer, fr * q);       // freight paid in cash, capitalised into stock
     UAE.stockAdd(f, pid, q, basis / q + fr, qual);
+    var gl = g.lines.find(function (l) { return l.pid === pid; }); if (gl) gl.sold += q;   // counts as delivered this month
   } else {                                   // arm's-length sale
     var line = g.lines.find(function (l) { return l.pid === pid; });
     var price = line ? line.price : basis / q;
@@ -140,6 +163,8 @@ UAE.cityDemand = function (city, pid) {
   var fx = c.fx || {};
   if (fx.retail) d *= 1 + fx.retail;
   if (fx.elec && ['phone','laptop','tv'].indexOf(pid) >= 0) d *= 1 + fx.elec;
+  if (P.grow) d *= UAE.capGrowth ? UAE.capGrowth(P.grow, 6, UAE.S.day / 365) : Math.pow(1 + P.grow, UAE.S.day / 365);   // booming tech products: fast growth that levels off (6x)
+  if (P.kind === 'software') d *= m.tech;
   return d;
 };
 
@@ -152,7 +177,7 @@ UAE.simDay = function () {
 
   // 1 construction
   firms.forEach(function (f) {
-    if (f.status === 'construction' && S.day >= f.openDay) {
+    if (f.status === 'construction' && (S.day >= f.openDay || UAE.instantBuild())) {
       f.status = 'open';
       if (UAE.isHuman(UAE.co(f.owner))) UAE.news(f.name + ' is now open in ' + UAE.CITIES[f.city].name + '.', 'firm');
     }
@@ -175,7 +200,13 @@ UAE.simDay = function () {
     var k = UAE.FIRM_TYPES[f.type].kind;
     if (k === 'retail') f.lines.forEach(function (l) {
       var cap = UAE.lineCap(f, l), target = cap * 5, need = target - UAE.stockQ(f, l.pid);
-      if (need > cap * 0.5) { var got = UAE.procure(f, l.pid, need, l.supplier); l.supplyMet = (l.supplyMet == null ? 1 : l.supplyMet) * 0.7 + 0.3 * got / need; }
+      if (need > cap * 0.5) {
+        var got = UAE.procure(f, l.pid, need, l.supplier); l.supplyMet = (l.supplyMet == null ? 1 : l.supplyMet) * 0.7 + 0.3 * got / need;
+        // the chosen supplier (often your own factory, shared by hundreds of stores) ran dry: top up from imports so the
+        // shelf is never empty (your own supplier stays first choice; tick 'no imports' on the line to stop this)
+        var short = cap * 2 - UAE.stockQ(f, l.pid);
+        if (short > 0 && l.supplier && l.supplier !== 'IMPORT' && !l.noImport) UAE.procure(f, l.pid, short, 'IMPORT');
+      }
       else l.supplyMet = (l.supplyMet == null ? 1 : l.supplyMet) * 0.7 + 0.3;
     });
     if (k === 'warehouse') f.lines.forEach(function (l) {
@@ -214,7 +245,7 @@ UAE.simDay = function () {
 /* ------------------------------------------------------------ capacity */
 UAE.lineCap = function (f, l) {
   var P = UAE.P[l.pid];
-  return (P.cap || 10) * (1 + 0.8 * (f.size - 1)) * f.eff;
+  return (P.cap || 10) * (1 + 0.8 * (f.size - 1)) * f.eff * (f.mall ? 1.4 : 1);   // mall stores: anchor footfall supports more sales per unit
 };
 
 /* -------------------------------------------------------------- farms */
@@ -268,12 +299,17 @@ UAE.produceFactory = function (f) {
     rec.in.forEach(function (inp) {
       var want = maxOut * inp[1] * 3, have = UAE.stockQ(f, inp[0]);
       if (have >= want * 0.6) return;
-      var need = want - have, opts = UAE.supplyOptions(f, inp[0]);
+      var need = want - have, pick = l.inSup && l.inSup[inp[0]];
+      if (pick === 'IMPORT') { l.inMet = l.inMet || {}; l.inMet[inp[0]] = 1; UAE.procure(f, inp[0], need, 'IMPORT'); return; }
+      var opts = UAE.supplyOptions(f, inp[0]);
       var own = opts.filter(function (o) { return o.owner === f.owner && o.avail > 0; });
       var mkt = opts.filter(function (o) { return o.owner && o.owner !== f.owner && o.avail > 0; });
       var order = own.concat(mkt);
+      if (pick && UAE.S.firms[pick]) order = opts.filter(function (o) { return o.id === pick; }).concat(order.filter(function (o) { return o.id !== pick; }));
+      var need0 = need;
       for (var i = 0; i < order.length && need > 0; i++) need -= UAE.procure(f, inp[0], need, order[i].id);
-      if (need > 0) UAE.procure(f, inp[0], need, 'IMPORT');
+      l.inMet = l.inMet || {}; l.inMet[inp[0]] = need0 > 0 ? 1 - Math.max(0, need) / need0 : 1;   // share filled by firms (rest imported)
+      if (need > 0 && !(l.noImport)) UAE.procure(f, inp[0], need, 'IMPORT');
     });
     var units = maxOut;
     rec.in.forEach(function (inp) { units = Math.min(units, UAE.stockQ(f, inp[0]) / inp[1]); });
@@ -306,22 +342,23 @@ UAE.mallBoost = function (f) {
 /* -------------------------------------------------- B2B and exports */
 UAE.b2bAndExport = function (open) {
   var S = UAE.S;
-  var producers = open.filter(function (f) { return ['factory','farm','mine','oil','warehouse'].indexOf(UAE.FIRM_TYPES[f.type].kind) >= 0; });
+  var producers = open.filter(function (f) { return ['factory','farm','mine','oil','warehouse','software'].indexOf(UAE.FIRM_TYPES[f.type].kind) >= 0; });
   // B2B industrial demand per city (cement, aluminium, glass, jet fuel ...)
   UAE.PRODUCTS.forEach(function (P) {
     if (!P.b2b) return;
     var sellers = producers.filter(function (f) { return f.lines.some(function (l) { return l.pid === P.id; }) && UAE.stockQ(f, P.id) > 0; });
     if (!sellers.length) {                          // nobody local sells it: the whole city demand is imported
-      Object.keys(S.cities).forEach(function (city) { UAE.wmCount(P.id, 'used', S.cities[city].gdp * P.b2b / 365 * S.macro.property); });
+      Object.keys(S.cities).forEach(function (city) { UAE.wmCount(P.id, 'used', S.cities[city].gdp * P.b2b / 365 * (P.kind === 'software' ? S.macro.tech * Math.pow(1 + (P.grow || 0), S.day / 365) : S.macro.property)); });
       return;
     }
     Object.keys(S.cities).forEach(function (city) {
-      var D = S.cities[city].gdp * P.b2b / 365 * S.macro.property;
+      var D = S.cities[city].gdp * P.b2b / 365 * (P.kind === 'software' ? S.macro.tech * Math.pow(1 + (P.grow || 0), S.day / 365) : S.macro.property);
       var ctr = UAE.CITIES[city].center, imp = UAE.importBase(P.id) * (1 + UAE.RULES.customs) * 1.06;
-      var sum = 1.5, w = sellers.map(function (f) {
+      // a seller may have sold out in an earlier city today: skip it (its stock record is gone)
+      var sum = 1.5, w = sellers.filter(function (f) { return f.stock[P.id] && f.stock[P.id].q > 0; }).map(function (f) {
         var l = f.lines.find(function (x) { return x.pid === P.id; });
         var landed = l.price + UAE.freight(P.id, f.c, ctr);
-        var a = Math.pow(imp / landed, 3) * Math.pow((f.stock[P.id].qual) / 55, 0.5); sum += a; return { f: f, l: l, a: a };
+        var a = Math.pow(imp / landed, 3) * Math.pow(f.stock[P.id].qual / 55, 0.5); sum += a; return { f: f, l: l, a: a };
       });
       UAE.wmCount(P.id, 'used', D);                    // city construction / industrial demand counts toward UAE demand
       w.forEach(function (x) {
@@ -334,7 +371,8 @@ UAE.b2bAndExport = function (open) {
   });
   // exports: anything piling up beyond ~8 days of output leaves via the nearest port
   producers.forEach(function (f) {
-    if (UAE.FIRM_TYPES[f.type].kind === 'warehouse') return;
+    var pk = UAE.FIRM_TYPES[f.type].kind;
+    if (pk === 'warehouse' || pk === 'software') return;
     f.lines.forEach(function (l) {
       var s = f.stock[l.pid]; if (!s) return;
       var daily = Math.max(1, l.made / Math.max(1, (S.day % 30) + 1));
@@ -365,7 +403,7 @@ UAE.servicesDay = function (open) {
   get('service').forEach(function (f) {
     var svc = UAE.SERVICES[f.svc], c = S.cities[f.city];
     var n = get('service').filter(function (g) { return g.district === f.district && g.svc === f.svc && (g.mall || null) === (f.mall || null); }).length;
-    var cust = svc.base * (1 + 0.8 * (f.size - 1)) * Math.pow(Math.max(0.2, UAE.trafficIndex(f)), 0.8) * Math.pow(f.quality / 50, 0.5) * UAE.popMult(f) *
+    var cust = svc.base * (0.8 + 0.4 * UAE.corpBrand(f, 'Hospitality')) * (1 + 0.8 * (f.size - 1)) * Math.pow(Math.max(0.2, UAE.trafficIndex(f)), 0.8) * Math.pow(f.quality / 50, 0.5) * UAE.popMult(f) *
                Math.pow(svc.price / f.price, 1.3) * UAE.season('retail') * UAE.CITIES[f.city].income * c.wageIdx /
                (1 + 0.35 * (n - 1)) * f.eff * (0.85 + 0.3 * tour / 1.1);
     var gross = cust * f.price, net = gross / 1.05;
@@ -378,7 +416,7 @@ UAE.servicesDay = function (open) {
     var C = UAE.CITIES[f.city], d = UAE.geo.district(f.district), c = S.cities[f.city];
     var rooms = UAE.FIRM_TYPES.hotel.roomsPerLevel * f.size;
     var refADR = C.hotelADR * Math.sqrt(Math.max(0.4, d.foot) / 1.2) * (f.stars === 7 ? 3 : 1);
-    var target = C.hotelOcc * tour * Math.pow(refADR / f.adr, 1.4) * Math.pow(f.quality / 50, 0.3) * (1 + (c.fx.hotel || 0));
+    var target = C.hotelOcc * tour * Math.pow(refADR / f.adr, 1.4) * Math.pow(f.quality / 50, 0.3) * (1 + (c.fx.hotel || 0)) * (0.85 + 0.3 * UAE.corpBrand(f, 'Hospitality'));
     target = Math.max(0.05, Math.min(0.97, target));
     f.occ = f.occ + (target - f.occ) * 0.1;
     var roomRev = rooms * f.occ * f.adr, total = roomRev * 1.35, net = total / 1.05;
@@ -393,7 +431,7 @@ UAE.servicesDay = function (open) {
     get(k).forEach(function (f) {
       var co = UAE.co(f.owner), mkt = UAE.marketRent(f);
       if (co.autoRent && (S.day % 30 === 0 || !f.rent)) f.rent = Math.round(mkt * 0.98);
-      var target = Math.max(0.08, Math.min(0.98, 0.93 * Math.pow(mkt / f.rent, 2.2) * S.macro.property));
+      var target = Math.max(0.08, Math.min(0.98, 0.93 * Math.pow(mkt / f.rent, 2.2) * S.macro.property * (0.9 + 0.2 * UAE.corpBrand(f, 'Real Estate'))));
       f.occ += (target - f.occ) * 0.03;
       var stock = k === 'apartment' ? UAE.LEASE.apartmentUnits * f.size : (k === 'mall' ? UAE.LEASE.mallM2 : UAE.LEASE.officeM2) * f.size;
       var rev = stock * f.occ * f.rent / 365;
@@ -427,17 +465,16 @@ UAE.servicesDay = function (open) {
     f.gmv = f.users * M.gmvPerUser / 365;
     UAE.fIncome(f, 'revenue', rev); UAE.fExpense(f, 'otherOpex', rev * 0.35); // servers, payments, couriers
   });
+  UAE.ecomDay(net);                                 // engine/aistack.js: e-commerce catalogue sales + membership
 
   // --- software companies
-  get('software').forEach(function (f) {
-    var rivals = get('software').filter(function (g) { return g.swClass === f.swClass; }).length;
-    var rev = 25000 * f.size * Math.pow(f.quality / 50, 1.2) / (1 + 0.2 * (rivals - 1)) * m.tech;
-    UAE.fIncome(f, 'revenue', rev);
-  });
+  UAE.softwareDay(get('software'));                 // engine/tech.js: licences, online direct sales
+  UAE.subsDay(get('software'));                     // engine/aistack.js: AI Assistant / Frontier AI subscriptions
+  get('software').concat(get('rnd')).forEach(UAE.researchDay);   // research projects (next model / version)
 
   // --- telecom: subscribers vs e&/du incumbents
   var tel = get('telecom'), telSum = 60;
-  tel.forEach(function (f) { f._s = f.size * f.quality / 50; telSum += f._s; });
+  tel.forEach(function (f) { f._s = f.size * f.quality / 50 * (0.8 + 0.4 * UAE.corpBrand(f, 'Telecom')); telSum += f._s; });
   tel.forEach(function (f) {
     var target = uaePop * 1.9 * f._s / telSum;
     f.subs += (target - f.subs) * 0.005;
@@ -445,10 +482,7 @@ UAE.servicesDay = function (open) {
   });
 
   // --- data centres & solar
-  get('datacenter').forEach(function (f) {
-    f.util = Math.min(0.92, f.util + 0.002 * m.tech);
-    UAE.fIncome(f, 'revenue', UAE.FIRM_TYPES.datacenter.mw * f.size * 1000 * 551 / 30 * f.util);
-  });
+  UAE.dcDay(get('datacenter'));                     // engine/aistack.js: servers -> cloud compute rental
   get('solar').forEach(function (f) {
     var kwh = UAE.FIRM_TYPES.solar.mw * f.size * 1000 * 24 * (0.21 + 0.06 * (UAE.SEASON.tourism[UAE.cal.month()] < 0.9 ? 1 : 0));
     f.kwhDay = kwh; UAE.fIncome(f, 'revenue', kwh * 0.085);   // PPA AED 0.085/kWh (EST)
@@ -478,32 +512,10 @@ UAE.servicesDay = function (open) {
   get('exporter').forEach(function (f) { UAE.fIncome(f, 'revenue', 4000 * f.size * S.macro.logistics); });
 
   // --- banks: deposits, lending, provisions (Banking & Finance DLC)
-  get('bankhq').forEach(function (f) {
-    var co = UAE.co(f.owner), br = UAE.firmsOf(co.id).filter(function (g) { return g.type === 'bankbranch' && g.status === 'open'; });
-    var mktDep = Math.max(0.005, m.rate + UAE.RULES.depositSpread), mktLend = m.rate + UAE.RULES.loanSpread + 0.01;
-    var r = co.bankRates;
-    var target = (300e6 * f.size + br.reduce(function (s, g) { return s + 120e6 * g.size; }, 0)) * Math.pow(r.deposit / mktDep, 2);
-    var dDep = (target - co.bs.custDeposits) * 0.004;
-    if (dDep < 0) dDep = Math.max(dDep, -co.bs.cash * 0.5);
-    UAE.L.bankDeposit(co, dDep);
-    var lendTarget = co.bs.custDeposits * 0.8 * Math.pow(mktLend / r.lending, 1.5);
-    var dL = (Math.min(lendTarget, co.bs.custDeposits * 0.9) - co.bs.loanBook) * 0.004;
-    if (dL > 0) dL = Math.min(dL, Math.max(0, co.bs.cash - co.bs.custDeposits * 0.1));
-    if (dL > 0) UAE.L.bankLend(co, dL); else if (dL < 0) { UAE.L._cash(co, -dL, 'op'); co.bs.loanBook += dL; }
-    UAE.fIncome(f, 'interestInc', co.bs.loanBook * r.lending / 365);
-    UAE.fExpense(f, 'interestExp', co.bs.custDeposits * r.deposit / 365);
-    var pd = 0.006 + Math.max(0, r.lending - mktLend) * 0.6;
-    var prov = co.bs.loanBook * pd / 365;
-    UAE.L.writeDown(co, 'otherOpex', prov, 'loanBook'); f.m.cost += prov;
-  });
+  // --- banks & insurers (engine/finance.js: segments, capital rules, game-company loans, catastrophes)
+  UAE.bankDay(get('bankhq'));
+  UAE.insDay(get('inshq'));
 
-  // --- insurance: premiums from front offices, claims ratio
-  get('inshq').forEach(function (f) {
-    var co = UAE.co(f.owner), offices = UAE.firmsOf(co.id).filter(function (g) { return g.type === 'insoffice' && g.status === 'open'; });
-    var prem = (15000 * f.size + offices.reduce(function (s, g) { return s + 9000 * g.size; }, 0)) * Math.pow(1 / co.insRate, 1.5);
-    co._claims = co._claims == null ? 0.62 : Math.max(0.4, Math.min(0.95, co._claims + UAE.rng.normal() * 0.01 + (0.62 - co._claims) * 0.02));
-    UAE.fIncome(f, 'revenue', prem * co.insRate); UAE.fExpense(f, 'cogs', prem * co.insRate * co._claims);
-  });
 
   // --- R&D centres raise company technology for a product
   get('rnd').forEach(function (f) {
@@ -565,17 +577,22 @@ UAE.legacyDay = function (co) {
   UAE.L.income(co, 'revenue', rev); UAE.L.expense(co, 'coreOpex', opex);
 };
 
+/** Corporate brand of the firm's owner for a service sector, 0..1 (0.3 = typical). */
+UAE.corpBrand = function (f, key) { var co = UAE.co(f.owner), b = co.brand && co.brand[key]; return Math.max(0, Math.min(1, (b == null ? (co.brandBase || 20) : b) / 100)); };
 /* ---------------------------------------------- brand & technology drift */
 UAE.brandTechDay = function (co) {
   // product brands (awareness + loyalty per product and city) live in engine/micro.js (UAE.brandDay);
   // here only the corporate "Internet" brand of online platforms is maintained.
-  var ads = 0, net = false;
-  UAE.firmsOf(co.id).forEach(function (f) { if (f.type === 'internet') { net = true; ads += (f.adBudget || 0) / 30; } });
-  ads += ((co.hqBudget.cmo || 0) + (co.hqBudget.pr || 0)) / 30 * 0.3;
-  if (net) {
-    var push = ads > 0 ? 6 * ads / (ads + 60000) : 0, b = co.brand.Internet == null ? (co.brandBase || 10) : co.brand.Internet;
-    co.brand.Internet = Math.max(0, Math.min(100, b * 0.998 + push * (1 - b / 100)));
-  }
+  // corporate brands of service businesses (Internet, Banking, Insurance, Hospitality, Real Estate, Telecom):
+  // built by the ad budgets of those firms (set by you or the CMO) plus HQ marketing / PR; fade slowly otherwise
+  var adsBy = {}, corp = ((co.hqBudget.cmo || 0) + (co.hqBudget.pr || 0)) / 30 * 0.3;
+  UAE.firmsOf(co.id).forEach(function (f) { var key = UAE.firmBrandGroup ? UAE.firmBrandGroup(f) : UAE.SERVICE_BRAND && UAE.SERVICE_BRAND[f.type]; if (key) adsBy[key] = (adsBy[key] || 0) + (f.adBudget || 0) / 30; });
+  var keys = Object.keys(adsBy), mult = UAE.mktExpMult ? UAE.mktExpMult(co) : 1;
+  keys.forEach(function (key) {
+    var ads = adsBy[key] + corp / keys.length;
+    var push = ads > 0 ? 6 * mult * ads / (ads + 60000) : 0, b = co.brand[key] == null ? (co.brandBase || 10) : co.brand[key];
+    co.brand[key] = Math.max(0, Math.min(100, b * 0.998 + push * (1 - b / 100)));
+  });
   if (co.hqBudget.cto) {
     var g = co.hqBudget.cto / 30 / 2e6 * 0.01;
     for (var p in co.tech) co.tech[p] = Math.min(100, co.tech[p] + g * (1 - co.tech[p] / 110));

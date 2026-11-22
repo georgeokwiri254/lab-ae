@@ -28,7 +28,7 @@ UI.exch = function (co) {
   return '<span class="pill ' + co.exch.toLowerCase() + '">' + co.exch + ' · ' + UI.esc(co.ticker) + '</span>';
 };
 UI.coLink = function (co) {
-  return '<a href="#" data-act="corp" data-arg="' + co.id + '"><span class="dot" style="background:' + UI.ownerColor(co) + ';box-shadow:0 0 6px ' + UI.ownerColor(co) + '"></span>' + UI.esc(co.name) + '</a>';
+  return '<a href="#" data-act="corp" data-arg="' + co.id + '" class="colink">' + (UI.logo ? UI.logo(co, 18) : '<span class="dot" style="background:' + UI.ownerColor(co) + '"></span>') + UI.esc(co.name) + '</a>';
 };
 UI.card = function (label, value, small, kind) {
   return '<div class="card ' + (kind || '') + '"><label>' + label + '</label><b>' + value + '</b>' + (small ? '<small>' + small + '</small>' : '') + '</div>';
@@ -106,6 +106,7 @@ UI.wireEvents = function () {
   ['dBody', 'mWin', 'rail', 'cities'].forEach(function (id) {
     UI.$(id).addEventListener('click', handler('data-act'));
     UI.$(id).addEventListener('change', handler('data-ch'));
+    UI.$(id).addEventListener('input', function (e) { if (e.target.closest('[data-in]')) handler('data-in')(e); });
   });
   UI.$('dClose').onclick = UI.close; UI.$('dBack').onclick = UI.back;
   UI.$('modal').addEventListener('click', function (e) { if (e.target.id === 'modal') UI.closeModal(); });

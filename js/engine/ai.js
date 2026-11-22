@@ -17,7 +17,7 @@ UAE.AI.hash = function (s) { var h = 0; for (var i = 0; i < s.length; i++) h = (
 UAE.AI.day = function () {
   var S = UAE.S;
   UAE.allCos().forEach(function (co) {
-    if (co.status === 'BANKRUPT') return;
+    if (co.status === 'BANKRUPT' || co.foreign) return;          // NYSE / NASDAQ companies only trade
     if ((S.day + UAE.AI.hash(co.id)) % 30 !== 0) return;
     if (co.controller === 'PLAYER') { if (co.autoPricing) UAE.AI.operate(co); return; }
     UAE.AI.operate(co);
@@ -33,8 +33,8 @@ UAE.AI.operate = function (co) {
     if (k === 'retail') f.lines.forEach(function (l) {
       var P = UAE.P[l.pid];
       // pick the best-value supplier (own production preferred)
-      var opts = UAE.supplyOptions(f, l.pid), best = opts[0], own = opts.find(function (o) { return o.owner === co.id && o.avail > 0; });
-      if (own && own.unit < opts[0].unit * 1.25) best = own;
+      var opts = UAE.supplyOptions(f, l.pid), best = UAE.firstStocked(opts), own = opts.find(function (o) { return o.owner === co.id && o.avail > 0; });
+      if (own && own.unit < best.unit * 1.25) best = own;
       else opts.forEach(function (o) { if ((o.avail > UAE.lineCap(f, l) * 3 || o.id === 'IMPORT') && o.unit / Math.max(30, o.quality) < best.unit / Math.max(30, best.quality)) best = o; });
       l.supplier = best.id;
       var floor = best.unit * (1 + UAE.RULES.vat) * 1.06;
@@ -53,7 +53,7 @@ UAE.AI.operate = function (co) {
     }
     if (k === 'sports') { if (f.visitors > 1500 * f.size) f.price *= 1.03; else f.price *= 0.99; }
     // advertising: spend ~1.5% of monthly revenue on consumer-facing firms
-    if (['retail','service','hotel','internet','mall'].indexOf(k) >= 0) f.adBudget = Math.max(0, f.last.rev * 0.015);
+    if (['retail','service','hotel','internet','mall'].indexOf(k) >= 0 && !(f.adByCmo && co.cmo && UAE.policy(co).cmoAuto !== false)) f.adBudget = Math.max(0, f.last.rev * 0.015);
     // training if efficiency is low
     f.trainBudget = f.eff < 0.95 ? Math.max(0, f.last.rev * 0.005) : 0;
   });
@@ -65,8 +65,8 @@ UAE.AI.strategy = function (co) {
   var tot = UAE.totals(co);
   // 1 close chronically loss-making firms (not the real flagship assets)
   UAE.firmsOf(co.id).forEach(function (f) {
-    if (f.seed || f.type === 'hq' || S.day - f.openDay < 300 || f.hist.length < 6) return;
-    var last6 = f.hist.slice(-6);
+    if (f.seed || UAE.neverCloseAsLoser(f) || S.day - f.openDay < 730 || f.hist.length < 12) return;
+    var last6 = f.hist.slice(-12);                     // 12 losing months in a row (was 6)
     if (last6.every(function (p) { return p < 0; }) && R.chance(0.5)) {
       UAE.news(co.name + ' closes loss-making ' + f.name + '.', 'ai'); UAE.sellFirm(f);
     }
@@ -75,7 +75,7 @@ UAE.AI.strategy = function (co) {
   var monthlyCost = Math.max(1e6, co.is.months.length ? co.is.months[co.is.months.length - 1].salaries * 3 : 1e6);
   if (co.bs.cash < monthlyCost * 2 && UAE.creditLimit(co) > monthlyCost * 3 && R.chance(0.3 + t.risk * 0.6))
     UAE.takeLoan(co, Math.min(UAE.creditLimit(co) * 0.5, monthlyCost * 6));
-  if (co.bs.loans > 0 && co.bs.cash > monthlyCost * 10) UAE.repayLoan(co, Math.min(co.bs.loans, co.bs.cash - monthlyCost * 8));
+  if (co.bs.loans > 0 && co.bs.cash > monthlyCost * 10) { var spare = co.bs.cash - monthlyCost * 8; co.loanList.slice().forEach(function (l) { if (spare > 0 && l.by !== 'player') spare -= UAE.repayOne(co, l, spare); }); }
   // 3 expansion (real groups expand slowly; fictional start-ups by aggression)
   var p = co.seed ? 0.08 : 0.25 + 0.6 * t.aggression;
   if (R.chance(p)) UAE.AI.expand(co, false);
@@ -166,7 +166,7 @@ UAE.AI.integrationTarget = function (co) {
 /** Set up a freshly built AI firm (products, supplier links, prices). */
 UAE.AI.configure = function (co, f, pid) {
   var R = UAE.rng, k = UAE.FIRM_TYPES[f.type].kind;
-  var consumer = UAE.PRODUCTS.filter(function (p) { return p.kind === 'consumer' || p.kind === 'fuel'; });
+  var consumer = UAE.PRODUCTS.filter(function (p) { return p.kind === 'consumer' || p.kind === 'fuel' || p.kind === 'software'; });
   if (k === 'retail') {
     // choose products by expected margin x demand, with some randomness; stores specialise by sector
     var scored = consumer.filter(function (p) { return p.id !== 'petrol' || co.sector === 'retail'; }).map(function (p) {
@@ -202,7 +202,7 @@ UAE.AI.configure = function (co, f, pid) {
     list.slice(0, 4).forEach(function (p) { UAE.addLine(f, p); });
   } else if (k === 'service') { f.svc = R.pick(Object.keys(UAE.SERVICES)); f.price = UAE.SERVICES[f.svc].price; }
   else if (k === 'internet') f.model = R.pick(Object.keys(UAE.INTERNET_MODELS));
-  else if (k === 'software') f.swClass = R.pick(UAE.SOFTWARE);
+  else if (k === 'software') UAE.setSoftware(f, R.pick(['os','os','ai','ai','ai','office','security','game','design','video','audio','utility']));
   else if (k === 'rnd') {
     var made = []; UAE.firmsOf(co.id).forEach(function (g) { g.lines.forEach(function (l) { made.push(l.pid); }); });
     f.target = made.length ? R.pick(made) : 'phone';

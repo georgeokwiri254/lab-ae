@@ -54,6 +54,10 @@ window.addEventListener('DOMContentLoaded', function () {
   UI.$('zUAE').onclick = function () { UI.flyCity('UAE'); };
   UI.$('coSwitch').onchange = function (e) { UI.act.switchCo(e.target.value); };
   document.addEventListener('keydown', UI.keys);
+  // Shift state for Shift+click building (tracked directly: the map's click event can lose modifier keys)
+  var setShift = function (e) { UI._shift = !!e.shiftKey; };
+  document.addEventListener('keydown', setShift, true); document.addEventListener('keyup', setShift, true);
+  window.addEventListener('blur', function () { UI._shift = false; });
 });
 
 UI.start = function () {
@@ -157,8 +161,9 @@ UI.keys = function (e) {
   if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') { if (e.key === 'Escape') document.activeElement.blur(); return; }
   var k = e.key, map = {
     'i': function () { UI.act.info(); }, 'b': UI.act.build, 'h': UI.act.hq, 'w': function () { UI.flyCity('UAE'); },
+    'q': function () { if (UI.$('modal').classList.contains('open')) UI.closeModal(); else if (UI.stack.length > 1) UI.back(); else UI.close(); },   // Q = back to the previous screen
     'c': function () { UI.act.ceo(); }, 'p': function () { UI.act.pdetail(); },
-    'F4': UI.act.stock, 'F5': UI.act.news, 'F6': UI.act.fin, 'F7': function () { UI.act.info('score'); }, 'F9': UI.act.save,
+    'F1': function () { UI.act.help(); }, 'F4': UI.act.stock, 'F5': UI.act.news, 'F6': UI.act.fin, 'F7': function () { UI.act.info('score'); }, 'F9': UI.act.save,
     'F10': function () { UI.act.corp(); }, 'F11': UI.act.factions,
     'Escape': function () { if (UI.buildType) UI.cancelBuild(); else if (UI.$('modal').classList.contains('open')) UI.closeModal(); else UI.close(); },
     ' ': function () { UI.setSpeed(UAE.S.speed ? 0 : (UI.lastSpeed || 2)); }

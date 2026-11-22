@@ -23,6 +23,14 @@ UAE.deserialize = function (json) {
   Object.keys(UAE.S.persons).forEach(function (k) { UAE.ensurePerson(UAE.S.persons[k]); });
   UAE.allCos().forEach(function (co) { UAE.policy(co); });
   UAE.S._plotIdx = null;
+  if (UAE.ensureGlobalMarkets) UAE.ensureGlobalMarkets();
+  if (UAE.govRestoreZones) UAE.govRestoreZones();
+  if (UAE.fixAccidentalTakeovers) UAE.fixAccidentalTakeovers();     // one-time: undo the CEOs' accidental takeovers (runs on load, even while paused)                  // zones the government has opened become districts again          // older saves get NYSE + NASDAQ
+  // older saves: loans had no term. Player companies' loans become the player's own 5-year loans (the CEO won't repay them early)
+  UAE.allCos().forEach(function (co) { (co.loanList || []).forEach(function (l) {
+    if (l.until) return; var y = UAE.isHuman(co) ? 5 : 3;
+    l.years = y; l.until = (l.day || UAE.S.day) + y * 365; l.orig = l.orig || l.amt; l.by = l.by || (UAE.isHuman(co) ? 'player' : 'ceo');
+  }); });
   return UAE.S;
 };
 UAE.desktop = function () { return typeof window !== 'undefined' && window.desktop && window.desktop.isDesktop ? window.desktop : null; };
