@@ -123,10 +123,11 @@ UI.act.execCmoPct = function (id) {
 UAE.PRODUCT_GROUPS = [
   ['food', '🍞 Food & Drink'], ['fashion', '👗 Fashion & Beauty'], ['electronics', '📱 Electronics & Devices'], ['ai', '🧠 AI & Chips'],
   ['software', '💾 Software'], ['vehicles', '🚗 Vehicles & Robots'], ['home', '🏠 Home & Health'], ['energy', '⛽ Fuel & Energy'],
-  ['industrial', '🏗 Industrial Materials'], ['raw', '⛏ Raw Materials']
+  ['industrial', '🏗 Industrial Materials'], ['space', '🚀 Space'], ['raw', '⛏ Raw Materials']
 ];
 UAE.productGroup = function (P) {
   var c = P.cls;
+  if (['Space Launch', 'Spacecraft', 'Space Services', 'Orbital Compute'].indexOf(c) >= 0) return 'space';
   if (['AI Hardware', 'Semiconductors', 'Semiconductor Materials', 'Chip Design'].indexOf(c) >= 0) return 'ai';
   if (P.kind === 'software') return 'software';
   if (['Electric Vehicles', 'Automobile', 'Robotics', 'Robotics Components', 'Drones', 'Batteries', 'Battery Materials'].indexOf(c) >= 0) return 'vehicles';

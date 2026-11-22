@@ -77,7 +77,10 @@ UAE.dcDay = function (list) {
     var need = f.serverTarget - (f.servers || 0);
     if (need > 0) {
       var have = UAE.stockQ(f, 'server');
-      if (have < need) UAE.procure(f, 'server', need - have, f.lines[0].supplier || 'IMPORT');
+      if (have < need) {
+        var sup = f.lines[0].supplier || 'IMPORT', got = UAE.procure(f, 'server', need - have, sup);
+        if (got < need - have && sup !== 'IMPORT') UAE.procure(f, 'server', need - have - got, 'IMPORT');   // own supplier sold out: import the rest (data centres sat empty before)
+      }
       var n = Math.min(need, Math.floor(UAE.stockQ(f, 'server')));
       if (n > 0) {
         var q = f.stock.server ? f.stock.server.qual : 60, basis = UAE.stockTake(f, 'server', n), co = UAE.co(f.owner);
@@ -102,8 +105,11 @@ UAE.dcDay = function (list) {
     f.rented = rented;
     var ownUse = Math.min(own, rented), rev = Math.max(0, rented - ownUse) * f.cloudPrice / 30;
     UAE.fIncome(f, 'revenue', rev);
-    // your own AI labs pay the data centre internally at cost: shows in each firm's profit, nets to zero for the company
-    var internal = ownUse * 1600 / 30; f.m.rev += internal; f.ownUse = ownUse;
+    // your own AI labs pay the data centre internally at FULL cost + 10% (power, staff, upkeep, server wear - last month's
+    // cost per server; was a flat AED 1,600, below cost, so data centres serving their own labs showed paper losses).
+    // It shows in each firm's profit and nets to zero for the company.
+    var perSrv = f.last && f.last.cost > 0 && f.servers ? f.last.cost / f.servers : 3500;
+    var internal = ownUse * Math.max(1600, perSrv * 1.1) / 30; f.m.rev += internal; f.ownUse = ownUse;   // cost + 10% (usual internal transfer price)
     labsOf[f.owner].forEach(function (g) { g.m.cost += internal * (g.subs / subsOf[f.owner]); });
     UAE.fExpense(f, 'utilities', (f.servers || 0) * 1400 / 30 * (UAE.RULES.utilityMult[UAE.CITIES[f.city].emirate] || 1));   // ~10 kW per rack (EST)
   });

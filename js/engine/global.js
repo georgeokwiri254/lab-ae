@@ -23,7 +23,7 @@ UAE.ensureGlobalMarkets = function () {
   });
   UAE.GLOBAL_COMPANIES.forEach(function (g) {
     if (S.companies[g.id]) return;
-    UAE.seedCompany({ id: g.id, name: g.name, t: g.t, x: g.x, st: 'LISTED', hq: 'DXB', sec: g.sec,
+    UAE.seedCompany({ id: g.id, name: g.name, t: g.t, x: g.x, st: g.st || 'LISTED', hq: 'DXB', sec: g.sec,
       rev: g.rev * usd, ni: g.ni * usd, fin: 'EST', px: g.px * usd, pxs: g.pxs, sh: g.sh });
     var co = S.companies[g.id];
     co.foreign = true; co.home = g.home || 'US'; co.payout = g.div; co.brandBase = 80;

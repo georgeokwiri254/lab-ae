@@ -40,3 +40,7 @@ Object.assign(UAE.LOGO_DOMAINS, {
   JP_TM: 'toyota-global.com', JP_SONY: 'sony.com', JP_SBG: 'group.softbank', CN_TCEHY: 'tencent.com', CN_BYD: 'byd.com', CN_XIAOMI: 'mi.com', CN_CATL: 'catl.com',
   TW_TSMC: 'tsmc.com', TW_HONHAI: 'honhai.com', KR_SSNLF: 'samsung.com', KR_HYNIX: 'skhynix.com', IN_RIL: 'ril.com', IN_TCS: 'tcs.com', IN_HDFCB: 'hdfcbank.com'
 });
+
+Object.assign(UAE.LOGO_DOMAINS, { KE_SCOM: 'safaricom.co.ke', KE_EQTY: 'equitygroupholdings.com', KE_KCB: 'kcbgroup.com', KE_EABL: 'eabl.com',
+  KE_COOP: 'co-opbank.co.ke', KE_NCBA: 'ncbagroup.com', KE_SBIC: 'stanbicbank.co.ke', KE_ABSA: 'absabank.co.ke', KE_BAT: 'batkenya.com',
+  KE_KEGN: 'kengen.co.ke', KE_KPLC: 'kplc.co.ke', US_SPACEX: 'spacex.com' });

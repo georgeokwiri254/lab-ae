@@ -188,3 +188,27 @@ UAE.RICH_UAE = [
    { name: 'Zeng Yuqun (Robin Zeng)', wiki: 'Zeng_Yuqun', nw: 60, src: 'EST', ctry: 'CN', what: 'CATL', co: 'CN_CATL', w: 0.85 }
   ].forEach(function (r) { if (!UAE.RICH_GLOBAL.some(function (x) { return x.name === r.name; })) UAE.RICH_GLOBAL.push(r); });
 })();
+
+/* ---- NAIROBI SECURITIES EXCHANGE (Kenya) + SPACEX (added 2026-11-22) --------------------------
+ * Nairobi: the largest NSE-listed companies. Prices converted from KES at ~129 KES/USD; all figures
+ * EST ~Nov-2026 (refresh from nse.co.ke). SpaceX is private: no share price, valued as a private company
+ * (EST revenue ~USD 22bn in 2026); it leads the world launch and satellite-internet markets in the game. */
+(function () {
+  if (!UAE.GLOBAL_EXCH.NSEKE) UAE.GLOBAL_EXCH.NSEKE = { name: 'Nairobi Securities Exchange', index: 'NASI', base: 190, src: 'EST ~Nov-2026', vol: 0.008, beta: 0.5, region: 'AF', world: true, ctry: 'KE' };
+  UAE.SECTORS.space = UAE.SECTORS.space || { name: 'Space', pe: 60, assetsPerRev: 2.0, debtShare: 0.15, grow: 0.25, firms: ['factory'] };
+  var add = [
+    { id:'KE_SCOM', t:'SCOM', x:'NSEKE', name:'Safaricom',                 sec:'telecom',  px:0.22,  pxs:'EST', sh:40.07, rev:2.8,  ni:0.33, div:0.9,  home:'KE' },
+    { id:'KE_EQTY', t:'EQTY', x:'NSEKE', name:'Equity Group Holdings',     sec:'bank',     px:0.46,  pxs:'EST', sh:3.77,  rev:1.45, ni:0.45, div:0.3,  home:'KE' },
+    { id:'KE_KCB',  t:'KCB',  x:'NSEKE', name:'KCB Group',                 sec:'bank',     px:0.43,  pxs:'EST', sh:3.21,  rev:1.6,  ni:0.48, div:0.25, home:'KE' },
+    { id:'KE_EABL', t:'EABL', x:'NSEKE', name:'East African Breweries',    sec:'retail',   px:1.63,  pxs:'EST', sh:0.79,  rev:0.97, ni:0.1,  div:0.7,  home:'KE' },
+    { id:'KE_COOP', t:'COOP', x:'NSEKE', name:'Co-operative Bank of Kenya', sec:'bank',    px:0.14,  pxs:'EST', sh:5.87,  rev:0.6,  ni:0.19, div:0.5,  home:'KE' },
+    { id:'KE_NCBA', t:'NCBA', x:'NSEKE', name:'NCBA Group',                sec:'bank',     px:0.54,  pxs:'EST', sh:1.65,  rev:0.55, ni:0.17, div:0.6,  home:'KE' },
+    { id:'KE_SBIC', t:'SBIC', x:'NSEKE', name:'Stanbic Holdings',          sec:'bank',     px:1.32,  pxs:'EST', sh:0.395, rev:0.35, ni:0.1,  div:0.6,  home:'KE' },
+    { id:'KE_ABSA', t:'ABSA', x:'NSEKE', name:'Absa Bank Kenya',           sec:'bank',     px:0.155, pxs:'EST', sh:5.43,  rev:0.45, ni:0.14, div:0.5,  home:'KE' },
+    { id:'KE_BAT',  t:'BAT',  x:'NSEKE', name:'BAT Kenya',                 sec:'retail',   px:3.1,   pxs:'EST', sh:0.1,   rev:0.2,  ni:0.04, div:0.9,  home:'KE' },
+    { id:'KE_KEGN', t:'KEGN', x:'NSEKE', name:'KenGen',                    sec:'utility',  px:0.047, pxs:'EST', sh:6.59,  rev:0.43, ni:0.05, div:0.3,  home:'KE' },
+    { id:'KE_KPLC', t:'KPLC', x:'NSEKE', name:'Kenya Power & Lighting',    sec:'utility',  px:0.093, pxs:'EST', sh:1.95,  rev:1.5,  ni:0.2,  div:0.1,  home:'KE' },
+    { id:'US_SPACEX', t:'', x:'', st:'UNLISTED', name:'SpaceX (Space Exploration Technologies)', sec:'space', px:0, pxs:'', sh:1.3, rev:22, ni:3, div:0, home:'US' }
+  ];
+  add.forEach(function (g) { if (!UAE.GLOBAL_COMPANIES.some(function (x) { return x.id === g.id; })) UAE.GLOBAL_COMPANIES.push(g); });
+})();

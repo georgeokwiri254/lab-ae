@@ -155,6 +155,10 @@ UI.firmBody = function (f, mine) { return UI._firmBodyBase(f, mine) + UI.worldSt
   };
   for (var k in M) W[k] = M[k];
 })(UAE.PRODUCT_WIKI);
+UI.WM_GROUPS.push(['🚀 Space', ['launch', 'satellite', 'satnet', 'orbitdc']]);
+Object.assign(UAE.PRODUCT_WIKI, { rocket: 'File:Falcon 9 first stage landing on Droneship.jpg', launch: 'File:SpaceX Starship ignition during IFT-5.jpg',
+  satellite: 'File:Starlink Mission (47926144123).jpg', satnet: 'File:Starlink Dish 20250111 101122.jpg',
+  orbitdc: "File:A view peering down a pair of the International Space Station's roll-out solar arrays (iss074e0403068).jpg" });
 UI.WM_GROUPS.push(['💳 Finance & data', ['paynet', 'findata', 'adplat']], ['🏥 Medical devices', ['meddevice', 'surgrobot']], ['✈ Aerospace', ['jetengine']], ['🛠 Chip equipment', ['chiptool']], ['👜 Luxury', ['luxbag', 'watch']]);
 
 /** Where your group stands in a world market: exporting / launch-ready / R&D under way / not started. */

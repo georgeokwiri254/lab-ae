@@ -116,3 +116,36 @@ if (UAE.SW_PID) { UAE.SW_PID['Payment Network'] = 'paynet'; UAE.SW_PID['Financia
   W.jetengine = { size: 370,  grow: 0.05, cap: 2.2, margin: '~20% operating (GE Aerospace) - engines near cost, profit on service', leaders: [['CFM (GE / Safran)', 'US', 100, 1.0, 0.55], ['Rolls-Royce', 'GB', 97, 1.0, 0.20], ['Pratt & Whitney', 'US', 96, 1.0, 0.20]] };
 })(UAE.WORLD_MKT);
 UAE.NATION_FLAG.IT = '🇮🇹';
+
+/* ============================================================================
+ * SPACE INDUSTRY (added 2026-11-22): reusable rockets, satellite launches, broadband satellites,
+ * satellite internet and - the future upside - orbital data centres.
+ * Chain:  Reusable Rocket Booster (factory) -> Satellite Launch to Orbit (launch site: rockets are reused ~12x,
+ *         so each launch uses 0.08 of a booster + propellant + a new upper stage in the running cost)
+ *         -> Broadband Satellite (needs 1/25 of a launch: one rocket carries ~25 satellites)
+ *         -> Satellite Internet (subscriber-year: terminal + a share of the constellation)
+ *         -> Orbital Compute Module (1 MW of AI servers in orbit, solar-powered: needs launches + AI servers)
+ * Revenue comes from selling launches to the world's satellite operators, satellites, internet service and,
+ * later, orbital compute. Orbital data centres are a tiny market in 2026 that grows very fast: R&D labs lose
+ * money for years, the payoff comes when the market takes off. All prices, recipes and leader figures EST.
+ * ==========================================================================*/
+UAE.PRODUCTS.push(
+  { id:'rocket',    name:'Reusable Rocket Booster',          cls:'Space Launch',    kind:'inter', unit:'booster', world:1.3e8, imp:1.45e8, t:25, src:'factory', qImp:75,
+    rec:{ in:[['nickel',9000],['titanium',3000],['aluminium',25],['sensor',300],['chips',4000],['motor',40],['optics',10]], cap:0.02, lab:6.5e7 } },
+  { id:'launch',    name:'Satellite Launch to Orbit',        cls:'Space Launch',    kind:'inter', unit:'launch', world:2.5e8, imp:2.6e8, t:0.000001, src:'factory', qImp:75,
+    rec:{ in:[['rocket',0.08],['jetfuel',450]], cap:0.06, lab:3.2e7 } },
+  { id:'satellite', name:'Broadband Satellite (LEO)',        cls:'Spacecraft',      kind:'inter', unit:'satellite', world:3.6e6, imp:3.9e6, t:0.8, src:'factory', qImp:70,
+    rec:{ in:[['launch',0.04],['chips',600],['sensor',6],['optics',2],['battery',40],['aluminium',0.3]], cap:2, lab:7e5 } },
+  { id:'satnet',    name:'Satellite Internet (subscriber-year)', cls:'Space Services', kind:'inter', unit:'sub-year', world:4400, imp:4800, t:0.000001, src:'factory', qImp:70, b2b:20,
+    rec:{ in:[['satellite',0.0004],['chips',3],['aluminium',0.002]], cap:600, lab:300 } },
+  { id:'orbitdc',   name:'Orbital Data Centre Module (1 MW)', cls:'Orbital Compute', kind:'inter', unit:'MW module', world:6e7, imp:6.5e7, t:0.000001, src:'factory', qImp:75,
+    rec:{ in:[['launch',0.1],['server',125],['battery',2000],['optics',10],['satellite',2]], cap:0.05, lab:8e6 } }
+);
+UAE.PRODUCTS.forEach(function (p) { UAE.P[p.id] = p; });
+(function (W) {
+  W.launch    = { size: 55,  grow: 0.12, cap: 4,   margin: '~50%+ on reused Falcon 9 (price ~$70m vs ~$25m internal cost, EST)', leaders: [['SpaceX (Falcon 9 / Starship)', 'US', 100, 3.0, 0.65], ['China CASC (Long March)', 'CN', 86, 2.5, 0.12], ['Blue Origin (New Glenn)', 'US', 90, 3.0, 0.03], ['Rocket Lab', 'US', 88, 2.5, 0.03], ['Arianespace', 'FR', 82, 1.5, 0.04], ['ULA (Vulcan)', 'US', 84, 1.2, 0.03]] };
+  W.satellite = { size: 75,  grow: 0.10, cap: 3,   margin: '~10-20% operating (satellite makers)', leaders: [['SpaceX Starlink', 'US', 100, 2.5, 0.45], ['China CAST', 'CN', 88, 2.5, 0.10], ['Airbus Defence & Space', 'FR', 92, 1.5, 0.08], ['Thales Alenia Space', 'FR', 90, 1.5, 0.07], ['Lanteris (ex-Maxar)', 'US', 88, 1.5, 0.04]] };
+  W.satnet    = { size: 75,  grow: 0.35, cap: 8,   margin: '~60% gross once the constellation is built (Starlink, EST)', leaders: [['SpaceX Starlink', 'US', 100, 3.0, 0.70], ['Amazon Leo (Kuiper)', 'US', 88, 3.5, 0.02], ['Eutelsat OneWeb', 'FR', 80, 2.0, 0.04], ['Viasat', 'US', 78, 1.0, 0.06], ['SES', 'LU', 80, 1.0, 0.05]] };
+  W.orbitdc   = { size: 0.4, grow: 0.90, cap: 300, margin: 'pre-revenue: R&D and demonstration satellites (EST)', leaders: [['Starcloud', 'US', 72, 6.0, 0.30], ['SpaceX', 'US', 74, 6.5, 0.20], ['Google Project Suncatcher', 'US', 66, 6.0, 0.10], ['ADA Space (Three-Body Computing)', 'CN', 68, 6.0, 0.20], ['Axiom Space', 'US', 60, 5.0, 0.05]] };
+})(UAE.WORLD_MKT);
+UAE.NATION_FLAG.LU = '🇱🇺'; UAE.NATION_FLAG.KE = '🇰🇪';
