@@ -32,18 +32,26 @@ UAE.plotSize = function (type) {
   return Math.max(1, Math.min(18, Math.round(Math.sqrt(T.m2) / UAE.GRID.cell)));
 };
 /** Occupancy index 'x,y' -> firm id (rebuilt when firms change). */
+/* Which firm occupies each map plot. Built once per game (load / new game) and then kept up to date as firms are
+ * built (UAE.plotAdd) or closed (UAE.plotRemove) - rebuilding it for every new firm was slow with thousands of firms.
+ * Kept outside UAE.S so it is never written into save files. */
 UAE.plotIndex = function () {
-  var S = UAE.S, stamp = S.nextId + ':' + Object.keys(S.firms).length;
-  if (S._plotIdx && S._plotStamp === stamp) return S._plotIdx;
-  var idx = {};
-  UAE.allFirms().forEach(function (f) {
-    if (f.mall) return;
-    if (!f.plot) f.plot = UAE.grid.blockAt(f.c, UAE.plotSize(f.type));
-    var p = f.plot;
-    for (var x = p.x; x < p.x + p.n; x++) for (var y = p.y; y < p.y + p.n; y++) idx[x + ',' + y] = f.id;
-  });
-  S._plotIdx = idx; S._plotStamp = stamp;
+  if (UAE._plotIdx && UAE._plotFor === UAE.S) return UAE._plotIdx;
+  if (UAE.S._plotIdx) { delete UAE.S._plotIdx; delete UAE.S._plotStamp; }      // old saves kept it inside the game state
+  var idx = {}; UAE._plotIdx = idx; UAE._plotFor = UAE.S;
+  for (var k in UAE.S.firms) UAE.plotAdd(UAE.S.firms[k]);
   return idx;
+};
+UAE.plotAdd = function (f) {
+  var idx = UAE._plotIdx; if (!idx || UAE._plotFor !== UAE.S || !f || f.mall) return;
+  if (!f.plot) f.plot = UAE.grid.blockAt(f.c, UAE.plotSize(f.type));
+  var p = f.plot;
+  for (var x = p.x; x < p.x + p.n; x++) for (var y = p.y; y < p.y + p.n; y++) idx[x + ',' + y] = f.id;
+};
+UAE.plotRemove = function (f) {
+  var idx = UAE._plotIdx; if (!idx || UAE._plotFor !== UAE.S || !f || !f.plot) return;
+  var p = f.plot;
+  for (var x = p.x; x < p.x + p.n; x++) for (var y = p.y; y < p.y + p.n; y++) if (idx[x + ',' + y] === f.id) delete idx[x + ',' + y];
 };
 UAE.plotOwnerAt = function (x, y) { return UAE.plotIndex()[x + ',' + y] || null; };
 /** Check a block: every plot free and inside a district whose zone allows the type. */
@@ -53,7 +61,10 @@ UAE.checkBlock = function (pl, T, skipZone) {
     var o = idx[x + ',' + y];
     if (o) { clash = clash || o; bad.push([x, y]); continue; }
     if (!skipZone) {
-      var d = UAE.geo.districtAt(UAE.grid.corner(x + 0.5, y + 0.5));
+      // district of a plot cell never changes (until new districts are added): remember it
+      if (!UAE._cellDist || UAE._cellDistN !== UAE.DISTRICTS.length) { UAE._cellDist = {}; UAE._cellDistN = UAE.DISTRICTS.length; }
+      var ck = x + ',' + y, d = UAE._cellDist[ck];
+      if (d === undefined) d = UAE._cellDist[ck] = UAE.geo.districtAt(UAE.grid.corner(x + 0.5, y + 0.5));
       if (!d || T.zones.indexOf(d.zone) < 0) { zoneBad = zoneBad || (d || { name: 'unzoned land', zone: 'none' }); bad.push([x, y]); }
     }
   }

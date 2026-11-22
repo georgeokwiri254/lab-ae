@@ -189,8 +189,20 @@ UAE.insOf = function (co) {
   return co.ins;
 };
 UAE.insPresence = function (co, city) {
-  var p = 0;
-  UAE.firmsOf(co.id).forEach(function (f) {
+  var p = 0, X = UAE._idx;
+  if (X) {   // during a game day: HQ total + offices per city, one pass per company
+    var M = X.insP || (X.insP = {}), r = M[co.id];
+    if (!r) {
+      r = M[co.id] = { hq: 0, hqCity: {}, off: {} };
+      UAE.firmsOf(co.id).forEach(function (f) {
+        if (f.status !== 'open') return;
+        if (f.type === 'inshq') { r.hq += f.size; r.hqCity[f.city] = (r.hqCity[f.city] || 0) + f.size; }
+        if (f.type === 'insoffice') r.off[f.city] = (r.off[f.city] || 0) + f.size;
+      });
+    }
+    var inCity = r.hqCity[city] || 0;
+    p = inCity * 1.2 + (r.hq - inCity) * 0.3 + (r.off[city] || 0) * 0.7;
+  } else UAE.firmsOf(co.id).forEach(function (f) {
     if (f.status !== 'open') return;
     if (f.type === 'inshq') p += f.city === city ? f.size * 1.2 : f.size * 0.3;
     if (f.type === 'insoffice' && f.city === city) p += f.size * 0.7;

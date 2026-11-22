@@ -12,7 +12,11 @@ var UAE = window.UAE || (window.UAE = {});
 
 /* ------------------------------------------------ firm-level bookkeeping */
 UAE.fIncome = function (f, line, amt) { UAE.L.income(UAE.co(f.owner), line, amt); f.m.rev += amt; };
-UAE.fExpense = function (f, line, amt) { UAE.L.expense(UAE.co(f.owner), line, amt); f.m.cost += amt; };
+UAE.fExpense = function (f, line, amt) {
+  UAE.L.expense(UAE.co(f.owner), line, amt); f.m.cost += amt;
+  if (line === 'salaries' || line === 'rnd' || line === 'training') f.m.wage = (f.m.wage || 0) + amt;   // paid to people: part of value added
+  else if (line === 'interestExp') f.m.int = (f.m.int || 0) + amt;                                      // interest: a distribution of profit, not a purchase
+};
 UAE.fCogs = function (f, amt) { UAE.L.cogs(UAE.co(f.owner), amt); f.m.cost += amt; };
 
 /* ------------------------------------------------------- stock helpers */
@@ -98,7 +102,28 @@ UAE.landedImport = function (pid, f) {
 UAE.supplyOptions = function (f, pid) {
   var out = [], imp = UAE.landedImport(pid, f);
   out.push({ id: 'IMPORT', name: 'Import via ' + imp.gateway, unit: imp.unit, quality: imp.quality, avail: Infinity, owner: null });
-  var X = UAE.dayIdx(), pool = X ? (X.prod[pid] || []) : UAE.allFirms();
+  var X = UAE.dayIdx();
+  if (X) {   // fast path during a game day: supplier line + names prepared once per product
+    var info = X.sup || (X.sup = {}), L = info[pid];
+    if (!L) {
+      L = info[pid] = [];
+      (X.prod[pid] || []).forEach(function (g) {
+        if (g.status !== 'open') return;
+        var line = g.lines.find(function (l) { return l.pid === pid; }); if (!line) return;
+        L.push({ g: g, line: line, nm: g.name + ' - ' + UAE.co(g.owner).name, own: g.name + ' (own)' });
+      });
+    }
+    var P = UAE.P[pid], perKm = P.t * UAE.RULES.freightPerTonKm, logi = f.owner && UAE.hasFirmIn(f.owner, 'logistics', f.city) ? 0.75 : 1;
+    for (var i = 0; i < L.length; i++) {
+      var e = L[i], g = e.g; if (g.id === f.id || g.status !== 'open') continue;
+      var s = g.stock[pid], same = g.owner === f.owner, km = UAE.geo.km(g.c, f.c);
+      var unit = (same ? (s ? s.cost : UAE.importBase(pid)) : e.line.price) + perKm * (km * 1.25 + 3) * logi;   // = UAE.freight
+      out.push({ id: g.id, name: same ? e.own : e.nm, unit: unit, quality: s ? s.qual : 50, avail: s ? s.q : 0, owner: g.owner, km: km });
+    }
+    out.sort(function (a, b) { return a.unit - b.unit; });
+    return out;
+  }
+  var pool = UAE.allFirms();
   pool.forEach(function (g) {
     if (g.id === f.id || g.status !== 'open') return;
     var k = UAE.FIRM_TYPES[g.type].kind;
@@ -334,7 +359,8 @@ UAE.produceFactory = function (f) {
 /* ----------------------------------------------------------- retail */
 UAE.mallBoost = function (f) {
   var b = 0;
-  UAE.allFirms().forEach(function (m) { if (m.type === 'mall' && m.status === 'open' && UAE.geo.km(m.c, f.c) < 0.6) b = Math.max(b, 0.25 + 0.03 * m.size); });
+  var malls = UAE.dayGroup('openMalls', function (m) { return m.type === 'mall' && m.status === 'open' ? 'all' : null; }).all || [];
+  malls.forEach(function (m) { if (UAE.geo.km(m.c, f.c) < 0.6) b = Math.max(b, 0.25 + 0.03 * m.size); });
   return b;
 };
 /* UAE.retailSales (city x product competition, demand curve, ratings, market stats) lives in engine/micro.js. */
@@ -375,6 +401,7 @@ UAE.b2bAndExport = function (open) {
     if (pk === 'warehouse' || pk === 'software') return;
     f.lines.forEach(function (l) {
       var s = f.stock[l.pid]; if (!s) return;
+      if (UAE.WM && UAE.WM[l.pid] && !UAE.WM[l.pid].subs) return;      // sold to the world market by tech & brand (engine/worldmkt.js)
       var daily = Math.max(1, l.made / Math.max(1, (S.day % 30) + 1));
       if (s.q <= daily * 8) return;
       var q = s.q - daily * 5, gw = UAE.geo.nearestGateway(f.c);
@@ -471,6 +498,7 @@ UAE.servicesDay = function (open) {
   UAE.softwareDay(get('software'));                 // engine/tech.js: licences, online direct sales
   UAE.subsDay(get('software'));                     // engine/aistack.js: AI Assistant / Frontier AI subscriptions
   get('software').concat(get('rnd')).forEach(UAE.researchDay);   // research projects (next model / version)
+  if (UAE.worldDay) UAE.worldDay(UAE.allFirms().filter(function (f) { return f.status === 'open'; }));   // world markets (engine/worldmkt.js)
 
   // --- telecom: subscribers vs e&/du incumbents
   var tel = get('telecom'), telSum = 60;

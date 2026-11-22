@@ -88,10 +88,14 @@ UAE.dcDay = function (list) {
     f._dcA = (f.servers || 0) * Math.pow((f.serverQual || 60) / 60, 0.6) * Math.pow(UAE.CLOUD.pricePerServer / Math.max(1000, f.cloudPrice), 1.6);
     sum += f._dcA;
   });
-  var subsOf = {};                                            // computed once per company, not once per firm
+  var subsOf = {}, needOf = {}, labsOf = {};                  // computed once per company, not once per firm
   list.forEach(function (f) {
-    var own = UAE.ownComputeNeed(f.owner);
-    if (subsOf[f.owner] == null) subsOf[f.owner] = Math.max(1, UAE.ownSubs(f.owner));                    // own AI labs fill their own cloud first
+    if (needOf[f.owner] == null) {
+      needOf[f.owner] = UAE.ownComputeNeed(f.owner);
+      subsOf[f.owner] = Math.max(1, UAE.ownSubs(f.owner));                                               // own AI labs fill their own cloud first
+      labsOf[f.owner] = UAE.firmsOf(f.owner).filter(function (g) { return g.type === 'software' && g.subs; });
+    }
+    var own = needOf[f.owner];
     var ext = demand * f._dcA / sum;
     var rented = Math.min(f.servers || 0, ext + Math.min(own, (f.servers || 0) * 0.5));
     f.util = f.servers ? Math.min(1, rented / f.servers) : 0;
@@ -100,7 +104,7 @@ UAE.dcDay = function (list) {
     UAE.fIncome(f, 'revenue', rev);
     // your own AI labs pay the data centre internally at cost: shows in each firm's profit, nets to zero for the company
     var internal = ownUse * 1600 / 30; f.m.rev += internal; f.ownUse = ownUse;
-    UAE.firmsOf(f.owner).forEach(function (g) { if (g.type === 'software' && g.subs) g.m.cost += internal * (g.subs / subsOf[f.owner]); });
+    labsOf[f.owner].forEach(function (g) { g.m.cost += internal * (g.subs / subsOf[f.owner]); });
     UAE.fExpense(f, 'utilities', (f.servers || 0) * 1400 / 30 * (UAE.RULES.utilityMult[UAE.CITIES[f.city].emirate] || 1));   // ~10 kW per rack (EST)
   });
 };
@@ -112,7 +116,7 @@ UAE.ownComputeNeed = function (coId) {
 
 /* ------------------------------------------------------- AI subscriptions */
 UAE.subsDay = function (list) {
-  var S = UAE.S, pop = 0; Object.keys(S.cities).forEach(function (k) { pop += S.cities[k].pop; });
+  var S = UAE.S, pop = 0, capOf = {}; Object.keys(S.cities).forEach(function (k) { pop += S.cities[k].pop; });
   var byPid = {};
   list.forEach(function (f) { var pid = UAE.swPid(f); if (UAE.SUBS[pid]) (byPid[pid] || (byPid[pid] = [])).push(f); });
   Object.keys(byPid).forEach(function (pid) {
@@ -129,7 +133,7 @@ UAE.subsDay = function (list) {
       var target = market * f._sA / sum; f.subs = f.subs || 0;
       f.subs += (target - f.subs) * 0.02;
       var rev = f.subs * f.subPrice / 30;                                   // = sum over plans of subscribers x price
-      var cap = UAE.cloudCapacity(f.owner), needServers = f.subs * UAE.CLOUD.computePerSub / UAE.CLOUD.pricePerServer;
+      var cap = capOf[f.owner] != null ? capOf[f.owner] : (capOf[f.owner] = UAE.cloudCapacity(f.owner)), needServers = f.subs * UAE.CLOUD.computePerSub / UAE.CLOUD.pricePerServer;
       var ownShare = needServers > 0 ? Math.min(1, cap / needServers) : 1;
       var compute = f.subs / 30 * (UAE.CLOUD.computePerSubOwn * ownShare + UAE.CLOUD.computePerSub * (1 - ownShare));
       UAE.fIncome(f, 'revenue', rev / (1 + UAE.RULES.vat)); UAE.fExpense(f, 'otherOpex', compute);

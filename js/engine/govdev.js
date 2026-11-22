@@ -83,7 +83,7 @@ UAE.govRestoreZones = function () {
 UAE.govAddDistrict = function (z) {
   if (UAE.DISTRICTS.some(function (d) { return d.id === z.id; })) return;
   UAE.DISTRICTS.push({ id: z.id, city: z.city, name: z.name, c: z.c, r: z.r, zone: z.zone, land: z.land, foot: z.foot, gov: true, src: 'EST' });
-  if (UAE.S) UAE.S._plotIdx = null;
+  UAE._plotIdx = null;                    // new districts: rebuild the plot index (engine/plots.js)
 };
 
 /** City development state, calibrated on first use so a running save starts in balance. */

@@ -69,7 +69,17 @@ UAE.firmsOf = function (coId) {
   }
   var out = [], F = UAE.S.firms; for (var k in F) if (F[k].owner === coId) out.push(F[k]); return out;
 };
-UAE.allFirms = function () { var F = UAE.S.firms, out = []; for (var k in F) out.push(F[k]); return out; };
+UAE.allFirms = function () {
+  var X = UAE._idx; if (X && X.all) return X.all.slice();                    // during a game day: cached list (copy, callers may sort)
+  var F = UAE.S.firms, out = []; for (var k in F) out.push(F[k]);
+  if (X) X.all = out.slice(); return out;
+};
+/** Firms grouped by a key, cached for the game day (read-only lists). */
+UAE.dayGroup = function (name, keyFn) {
+  var X = UAE._idx; if (X && X[name]) return X[name];
+  var by = {}, F = UAE.S.firms; for (var k in F) { var key = keyFn(F[k]); if (key != null) (by[key] = by[key] || []).push(F[k]); }
+  if (X) X[name] = by; return by;
+};
 UAE.allCos = function () { var C = UAE.S.companies, out = []; for (var k in C) out.push(C[k]); return out; };
 /** True if the human controls this company (own, subsidiary or taken-over). */
 UAE.isHuman = function (co) { return co && co.controller === 'PLAYER'; };

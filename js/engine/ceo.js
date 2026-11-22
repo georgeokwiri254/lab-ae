@@ -213,22 +213,22 @@ UAE.AI.day = function () {
   var S = UAE.S;
   UAE.allCos().forEach(function (co) {
     if (co.status === 'BANKRUPT' || co.foreign) return;          // NYSE / NASDAQ companies only trade
-    if ((S.day + UAE.AI.hash(co.id)) % 30 !== 0) return;
-    if (co.controller === 'PLAYER') {
-      var delegated = co.ceoAuto && UAE.person(co.ceo) && !UAE.person(co.ceo).isPlayer;
-      if (co.autoPricing || delegated) UAE.AI.operate(co);
-      if (delegated) UAE.AI.strategy(co);
-      return;
-    }
-    UAE.AI.operate(co);
-    UAE.AI.strategy(co);
+    // running the business (prices, suppliers, budgets): every firm once a month, spread over the month (1/30 of the
+    // firms each day) so a company with thousands of firms does not freeze the game on its review day
+    var human = co.controller === 'PLAYER', delegated = human && co.ceoAuto && UAE.person(co.ceo) && !UAE.person(co.ceo).isPlayer;
+    var review = (S.day + UAE.AI.hash(co.id)) % 30 === 0;
+    if (!human || co.autoPricing || delegated) UAE.AI.operate(co, true, review);
+    if (!review) return;
+    if (!human || delegated) UAE.AI.strategy(co);
   });
 };
 
-UAE.AI.operate = function (co) {
-  var pol = UAE.policy(co), m = pol.mgmt;
+UAE.AI.operate = function (co, slice, review) {
+  var pol = UAE.policy(co), m = pol.mgmt, day = UAE.S.day;
+  if (!slice) review = true;
   UAE.firmsOf(co.id).forEach(function (f) {
     if (f.status !== 'open') return;
+    if (slice && (day + UAE.AI.hash(f.id)) % 30 !== 0) return;           // this firm's review day
     var k = UAE.FIRM_TYPES[f.type].kind;
     if (k === 'retail') f.lines.forEach(function (l) {
       var P = UAE.P[l.pid];
@@ -258,7 +258,7 @@ UAE.AI.operate = function (co) {
     f.trainBudget = f.eff < 0.95 ? Math.max(0, f.last.rev * m.trainPct / 100) : 0;
   });
   // product campaigns for the best-selling consumer products (AI only, modest)
-  if (co.controller !== 'PLAYER' || co.ceoAuto) UAE.AI.marketing(co);
+  if (review && (co.controller !== 'PLAYER' || co.ceoAuto)) UAE.AI.marketing(co);
 };
 
 /** AI advertising: book a campaign on the best local media for its top product per city. */

@@ -70,7 +70,12 @@ UAE.trafficIndex = function (f) {
     t = Math.max(0.3, d.foot) * (0.55 + (m.mallRating || 50) / 100) * 1.35;   // inside a mall: driven by the mall's overall rating
   } else {
     var near = 0, svc = 0;
-    UAE.allFirms().forEach(function (g) {
+    // shops / services / malls on a ~0.6 km grid: only the 3x3 cells around the store can be within 0.5 km
+    var CELL = 0.006, gx = Math.floor(f.c[0] / CELL), gy = Math.floor(f.c[1] / CELL);
+    var grid = UAE.dayGroup('streetGrid', function (g) { var k = UAE.FIRM_TYPES[g.type].kind; return (k === 'retail' || k === 'service' || k === 'mall') ? g.city + '|' + Math.floor(g.c[0] / CELL) + '|' + Math.floor(g.c[1] / CELL) : null; });
+    var local = [];
+    for (var dx = -1; dx <= 1; dx++) for (var dy = -1; dy <= 1; dy++) { var cell = grid[f.city + '|' + (gx + dx) + '|' + (gy + dy)]; if (cell) local = local.concat(cell); }
+    local.forEach(function (g) {
       if (g === f || g.status !== 'open' || g.city !== f.city) return;
       var k = UAE.FIRM_TYPES[g.type].kind;
       if (k !== 'retail' && k !== 'service' && k !== 'mall') return;

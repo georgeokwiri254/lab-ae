@@ -98,12 +98,14 @@ UI.loop = function (t) {
   var S = UAE.S;
   if (S && S.speed > 0) {
     UI.acc += dt;
-    var ms = UI.SPEED_MS[S.speed], n = 0;
+    var ms = UI.SPEED_MS[S.speed], n = 0, t0 = performance.now();
     while (UI.acc >= ms && n < 12) {
       UI.acc -= ms; n++;
       var month = UAE.cal.month();
       try { UAE.tick(); } catch (e) { console.error(e); UI.setSpeed(0); UI.toast('Simulation error: ' + UI.esc(e.message), 'bad'); break; }
       if (UAE.cal.month() !== month && S.settings.autosave !== false) UAE.saveSlot(0);
+      // keep the screen responsive: at most ~60 ms of simulation per frame; a big empire runs slower instead of freezing
+      if (performance.now() - t0 > 60) { UI.acc = Math.min(UI.acc, ms); break; }
     }
     if (n) UI.dirty = true;
   }

@@ -169,7 +169,7 @@ UI.statements = function (co, tab) {
     var t = UAE.totals(co), b = co.bs;
     h = '<div class="box"><h3>Balance sheet · today ' + UAE.cal.label() + '</h3><table class="t fs">' +
       '<tr class="h"><td colspan="2">Assets</td></tr>' + row('Cash', b.cash) + row('Inventory', t.inventory) + row('Bank deposits', b.deposits) +
-      row('Investments (shares, bonds, subsidiaries at cost)', b.invest) + (b.loanBook ? row('Loans to customers (bank)', b.loanBook) : '') +
+      row('Investments (shares, bonds, subsidiaries at cost)', b.invest) + UI.bsInvestSplit(co) + (b.loanBook ? row('🏦 Bank: loans to customers', b.loanBook) + UI.bsLoanSplit(co) : '') +
       row('Land', b.land) + row('Buildings & equipment', b.ppe) + (b.coreAssets ? row('Group core operating assets', b.coreAssets) : '') + row('TOTAL ASSETS', t.assets, 'total') +
       '<tr class="h"><td colspan="2">Liabilities</td></tr>' + row('Bank loans', b.loans) + row('Bonds issued', b.bonds) + (b.custDeposits ? row('Customer deposits (bank)', b.custDeposits) : '') +
       (b.coreLiab ? row('Group core liabilities', b.coreLiab) : '') + row('TOTAL LIABILITIES', t.liabs, 'total') +
@@ -412,10 +412,10 @@ UI.R.cities = function () {
   var src = UI.tag(C.src);
   if (tab === 'overview') {
     h += '<div class="cards">' + UI.card('Population', F().num(c.pop), 'start ' + F().num(C.pop) + ' ' + (id === 'DXB' ? '(REAL end-2025)' : '(EST)')) +
-      UI.card('Nominal GDP', 'AED ' + c.gdp.toFixed(1) + 'bn', 'start ' + C.gdp + 'bn') + UI.card('GDP per capita', F().aed(c.gdp * 1e9 / c.pop)) +
+      UI.card('Nominal GDP', 'AED ' + UAE.cityGdp(c).toFixed(1) + 'bn', 'companies ' + (c.modelVA || 0).toFixed(1) + 'bn + rest of economy ' + c.gdp.toFixed(1) + 'bn') + UI.card('GDP per capita', F().aed(UAE.cityGdp(c) * 1e9 / c.pop)) +
       UI.card('CPI index', c.cpiIdx.toFixed(1), 'start = 100; trend ' + F().pct(C.cpi, 2)) + UI.card('Avg compensation', F().aed(C.wage * c.wageIdx) + '/mo', id === 'DXB' ? 'CALC proxy from DSC' : 'EST') +
       UI.card('Unemployment', F().pct(c.unemp, 2)) + UI.card('Tourists / yr', F().num(c.tourists)) + UI.card('Hotel ADR / occ', 'AED ' + C.hotelADR + ' · ' + F().pct(C.hotelOcc, 1)) +
-      UI.card('Rent index', c.rentIdx.toFixed(3)) + UI.card('Quality of life', c.qol.toFixed(1)) + UI.card('Modelled firms VA', 'AED ' + (c.modelVA || 0).toFixed(2) + 'bn/yr', 'share ' + F().pct((c.modelVA || 0) / c.gdp, 3)) + '</div>' +
+      UI.card('Rent index', c.rentIdx.toFixed(3)) + UI.card('Quality of life', c.qol.toFixed(1)) + UI.card('Companies value added', 'AED ' + (c.modelVA || 0).toFixed(2) + 'bn/yr', F().pct((c.modelVA || 0) / UAE.cityGdp(c), 1) + ' of GDP') + '</div>' +
       '<div class="note">Source quality: ' + src + ' ' + UI.esc(C.src) + '. Dubai and Abu Dhabi are separate city economies inside one UAE: federal VAT (5%), corporate tax (9%) and the CBUAE base rate are shared; demand, wages, rents and budgets are city-specific.</div>';
   } else if (tab === 'g1' || tab === 'g2' || tab === 'econ') {
     var defs = { g1: [['pop','Population'],['rent','Rent index']], g2: [['qol','Quality of life'],['unemp','Unemployment']], econ: [['gdp','Nominal GDP (AED bn)'],['cpi','CPI index']] }[tab];
@@ -454,9 +454,9 @@ UI.R.cities = function () {
 
 UI.cityRankTable = function () {
   return '<table class="t"><tr><th>City</th><th class="n">Population</th><th class="n">GDP bn</th><th class="n">GDP/capita</th><th class="n">QoL</th><th class="n">Unemployment</th><th class="n">Tourists</th></tr>' +
-    Object.keys(UAE.S.cities).sort(function (a, b) { return UAE.S.cities[b].gdp - UAE.S.cities[a].gdp; }).map(function (k) {
+    Object.keys(UAE.S.cities).sort(function (a, b) { return UAE.cityGdp(UAE.S.cities[b]) - UAE.cityGdp(UAE.S.cities[a]); }).map(function (k) {
       var x = UAE.S.cities[k];
-      return '<tr class="click" data-act="cities" data-arg="' + k + '"><td>' + UAE.CITIES[k].name + '</td><td class="n">' + F().num(x.pop) + '</td><td class="n">' + x.gdp.toFixed(1) + '</td><td class="n">' + F().aed(x.gdp * 1e9 / x.pop) + '</td><td class="n">' + x.qol.toFixed(1) + '</td><td class="n">' + F().pct(x.unemp, 2) + '</td><td class="n">' + F().num(x.tourists) + '</td></tr>';
+      return '<tr class="click" data-act="cities" data-arg="' + k + '"><td>' + UAE.CITIES[k].name + '</td><td class="n">' + F().num(x.pop) + '</td><td class="n">' + UAE.cityGdp(x).toFixed(1) + '</td><td class="n">' + F().aed(UAE.cityGdp(x) * 1e9 / x.pop) + '</td><td class="n">' + x.qol.toFixed(1) + '</td><td class="n">' + F().pct(x.unemp, 2) + '</td><td class="n">' + F().num(x.tourists) + '</td></tr>';
     }).join('') + '</table>';
 };
 
@@ -465,7 +465,7 @@ UI.R.nations = function () {
   var S = UAE.S, tot = { pop: 0, gdp: 0, tour: 0 }, em = {};
   Object.keys(S.cities).forEach(function (k) {
     var c = S.cities[k], e = UAE.CITIES[k].emirate, r = em[e] || (em[e] = { pop: 0, gdp: 0, cities: [] });
-    r.pop += c.pop; r.gdp += c.gdp; r.cities.push(UAE.CITIES[k].name); tot.pop += c.pop; tot.gdp += c.gdp; tot.tour += c.tourists;
+    r.pop += c.pop; r.gdp += UAE.cityGdp(c); r.cities.push(UAE.CITIES[k].name); tot.pop += c.pop; tot.gdp += UAE.cityGdp(c); tot.tour += c.tourists;
   });
   var h = '<div class="cards">' + UI.card('UAE population (modelled)', F().num(tot.pop)) + UI.card('UAE GDP (sum of emirates)', 'AED ' + tot.gdp.toFixed(0) + 'bn') +
     UI.card('CBUAE base rate', F().pct(S.macro.rate, 2), 'start 3.90% REAL') + UI.card('VAT / Corporate tax', '5% / 9%', 'REAL federal') + UI.card('AED per USD', UAE.RULES.usdAed, 'REAL peg') +

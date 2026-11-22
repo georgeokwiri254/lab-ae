@@ -57,7 +57,7 @@ UAE.uaeStats = function () {
   var S = UAE.S, gdp = 0, pop = 0, un = 0, inf = 0, ct = 0, vat = 0, govRev = 0, govExp = 0, debt = 0;
   Object.keys(S.cities).forEach(function (k) {
     var c = S.cities[k], C = UAE.CITIES[k], h = c.hist[c.hist.length - 1];
-    gdp += c.gdp; pop += c.pop; un += c.unemp * c.pop; inf += (h ? h.infl : C.cpi) * c.pop;
+    gdp += UAE.cityGdp(c); pop += c.pop; un += c.unemp * c.pop; inf += (h ? h.infl : C.cpi) * c.pop;
     ct += c.ct || 0; vat += c.vat || 0; govRev += c.govRevYtd || 0; govExp += c.govExpYtd || 0; debt += c.govDebt || 0;
   });
   var E = S.econ || {}, H = E.hist || [], yr = H.length >= 12 ? H[H.length - 12] : null;
@@ -113,6 +113,10 @@ UAE.econMonth = function () {
   E.stance = st;
   if (st === 'stimulus') { m.retail += 0.004; Object.keys(S.cities).forEach(function (k) { var c = S.cities[k], C = UAE.CITIES[k]; c.govExpYtd += C.govExp * 1e9 / 12 * 0.08; }); }
   // 5 national statistics
+  if (!E.gdpVA) {   // one-off: GDP now includes companies' value added - restate older history so growth is not distorted
+    var va0 = 0; Object.keys(S.cities).forEach(function (k) { va0 += S.cities[k].modelVA || 0; });
+    (E.hist || []).forEach(function (h) { h.gdp += va0; }); E.gdpVA = 1;
+  }
   var oldPhase = E.phase, u = UAE.uaeStats();
   E.phase = UAE.phaseOf(E.cycle, E.vel, u.growth || 0);
   if (E.phase !== oldPhase) UAE.news('UAE economy enters ' + UAE.PHASES[E.phase].toUpperCase() + ' (growth ' + ((u.growth || 0) * 100).toFixed(1) + '%, unemployment ' + (u.unemp * 100).toFixed(1) + '%).', 'event');

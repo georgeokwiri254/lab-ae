@@ -51,7 +51,13 @@ UAE.researchQuote = function (f, pid) {
   var cost = Math.round(base * (1 + 0.35 * (g - 1)) / 1e4) * 1e4;
   var days = Math.max(20, Math.round(90 / (1 + 0.4 * (f.size - 1)) / (f.eff || 1)));
   var t = co.tech[pid] || 40, gain = 12 * (1 - t / 130);
-  return { cost: cost, days: days, gain: gain, next: g + 1 };
+  var out = { cost: cost, days: days, gain: gain, next: g + 1 };
+  if (UAE.WM && UAE.WM[pid]) {   // world-class R&D programme: ~0.4% of the world market per project, shared by parallel projects
+    var n = UAE.rndTeams(co, pid);
+    out.cost += Math.round(UAE.WORLD.rndPct * UAE.wmSize(pid) * Math.pow(n, -0.7) / 1e4) * 1e4;
+    out.gGain = UAE.gtechGain(co, pid) * Math.pow(n, -0.7); out.gNow = UAE.gtech(co, pid); out.frontier = UAE.wmFrontier(pid);
+  }
+  return out;
 };
 UAE.startResearch = function (f, pid) {
   var co = UAE.co(f.owner), k = UAE.FIRM_TYPES[f.type].kind, P = UAE.P[pid];
@@ -90,6 +96,10 @@ UAE.researchDay = function (f) {
   var exp = mgr && mgr.pexp ? (mgr.pexp[UAE.P[p.pid].cls] || 0) : 0;
   co.tech[p.pid] = Math.min(100, t + 12 * (1 - t / 130) * (1 + exp / 100) * (UAE.ctoMult ? UAE.ctoMult(co) : 1) * ((p.pid === 'llm' || p.pid === 'ai') && UAE.computeBoost ? UAE.computeBoost(co) : 1));   // a CTO's R&D expertise adds up to +50%
   co.gen = co.gen || {}; co.gen[p.pid] = p.gen;
+  if (UAE.WM && UAE.WM[p.pid]) {   // world tech index: the race against the world leaders (engine/worldmkt.js)
+    var gg = UAE.gtechGain(co, p.pid) * Math.pow(UAE.rndTeams(co, p.pid), -0.7) * (1 + exp / 100) * (UAE.ctoMult ? UAE.ctoMult(co) : 1);
+    co.gtech[p.pid] = UAE.gtech(co, p.pid) + gg;
+  }
   f.project = null;
   UAE.news(f.name + ' completed ' + UAE.modelName(co, p.pid) + ' - technology now ' + co.tech[p.pid].toFixed(1) + '.', UAE.isHuman(co) ? 'firm' : 'ai');
   if (!UAE.isHuman(co) && co.bs.cash > p.cost * 3) UAE.startResearch(f, p.pid);   // AI keeps its pipeline going
@@ -171,4 +181,17 @@ UAE.addCash = function (co, amt) {
   UAE.L.issueEquity(co, amt);
   co.cheatCash = (co.cheatCash || 0) + amt;
   return true;
+};
+
+/** Firms of a company working on pid's technology (software firms publishing it + R&D centres targeting it). */
+UAE.rndTeams = function (co, pid) {
+  var X = UAE._idx, M = X && X.rndT && X.rndT[co.id];
+  if (!M) {   // one pass over the company's firms per game day
+    M = {}; UAE.firmsOf(co.id).forEach(function (f) {
+      var p = f.type === 'software' && f.lines.length ? f.lines[0].pid : f.type === 'rnd' ? f.target : null;
+      if (p) M[p] = (M[p] || 0) + 1;
+    });
+    if (X) { X.rndT = X.rndT || {}; X.rndT[co.id] = M; }
+  }
+  return Math.max(1, M[pid] || 0);
 };

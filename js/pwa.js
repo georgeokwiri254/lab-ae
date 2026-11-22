@@ -91,20 +91,30 @@
   });
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('sw.js').then(function (reg) {
+      // updateViaCache 'none': always ask GitHub for a fresh sw.js (never a stale HTTP-cached copy)
+      navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(function (reg) {
+        // a new version waiting -> banner; "Update now" saves, switches the new version in and reloads once it controls the page
+        var offer = function (w) {
+          if (!w || !navigator.serviceWorker.controller) return;
+          var b = bar('<span>A new version of the game is ready.</span><button class="btn a sm" id="pwaUpd">Update now</button>');
+          b.querySelector('#pwaUpd').onclick = function () {
+            try { if (window.UAE && UAE.S && window.UI && UI.started) UAE.saveSlot(0); } catch (e) { /* ignore */ }
+            b.querySelector('#pwaUpd').textContent = 'Updating…';
+            w.postMessage('skipWaiting');
+            setTimeout(function () { location.reload(); }, 4000);          // fallback if controllerchange never fires
+          };
+        };
+        if (reg.waiting) offer(reg.waiting);                                // downloaded earlier, still waiting
         reg.addEventListener('updatefound', function () {
           var nw = reg.installing; if (!nw) return;
-          nw.addEventListener('statechange', function () {
-            if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-              var b = bar('<span>A new version of the game is ready.</span><button class="btn a sm" id="pwaUpd">Reload</button>');
-              b.querySelector('#pwaUpd').onclick = function () {
-                if (window.UAE && UAE.S && window.UI && UI.started) UAE.saveSlot(0);
-                setTimeout(function () { location.reload(); }, 400);
-              };
-            }
-          });
+          nw.addEventListener('statechange', function () { if (nw.state === 'installed') offer(nw); });
         });
+        // check for a new version on start and whenever the app comes back to the front
+        reg.update().catch(function () {});
+        document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') reg.update().catch(function () {}); });
       }).catch(function (e) { console.warn('service worker failed', e); });
+      var reloading = false, hadController = !!navigator.serviceWorker.controller;   // first visit: no reload
+      navigator.serviceWorker.addEventListener('controllerchange', function () { if (reloading || !hadController) return; reloading = true; location.reload(); });
     });
   }
 

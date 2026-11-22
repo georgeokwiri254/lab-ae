@@ -273,3 +273,23 @@ UI.bankIntlBox = function (co, mine) {
   return h;
 };
 UI.act.bkIntlShare = function (id, el) { UAE.bankOf(UAE.co(id)).intlShare = +el.value / 100; var o = document.getElementById('bkIntlOut'); if (o) o.textContent = el.value + '%'; };
+
+/* Main balance sheet: what the Investments and bank loan lines are made of (indented "of which" rows). */
+UI.bsSubRow = function (label, v) { return '<tr class="sub"><td style="padding-left:22px">' + label + '</td><td class="n">' + UI.money(v) + '</td></tr>'; };
+UI.bsInvestSplit = function (co) {
+  var b = co.bs; if (!b.invest) return '';
+  var bF = (co.bank && co.bank.funded) || 0, iF = (co.ins && co.ins.funded) || 0, pc = 0, pv = 0;
+  (UAE.stockPortfolio ? UAE.stockPortfolio(co) : []).forEach(function (x) { pc += x.cost; pv += x.value; });
+  if (!bF && !iF && !pc) return '';
+  var h = '';
+  if (bF) h += UI.bsSubRow('of which 🏦 capital in the bank (bank equity now ' + UAE.fmt.aed(UAE.bankEquity(co)) + ')', bF);
+  if (iF) h += UI.bsSubRow('of which 🛡 capital in the insurer (insurer equity now ' + UAE.fmt.aed(UAE.insEquity(co)) + ')', iF);
+  if (pc) h += UI.bsSubRow('of which 📈 shares on stock markets (at cost; market value ' + UAE.fmt.aed(pv) + ')', pc);
+  var other = b.invest - bF - iF - pc; if (Math.abs(other) > 1) h += UI.bsSubRow('of which other (bonds, subsidiaries, stakes)', other);
+  return h;
+};
+UI.bsLoanSplit = function (co) {
+  if (!co.bank || !UAE.bankOf) return '';
+  var B = UAE.bankOf(co), dom = B.book.corp + B.book.mort + B.book.cons, intl = UAE.intlTotal ? UAE.intlTotal(B) : 0;
+  return UI.bsSubRow('of which UAE businesses, mortgages &amp; consumers', dom) + (B.game > 1 ? UI.bsSubRow('of which loans to other game companies', B.game) : '') + (intl ? UI.bsSubRow('of which 🌍 lent abroad', intl) : '');
+};

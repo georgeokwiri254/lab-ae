@@ -15,7 +15,10 @@ var UAE = window.UAE || (window.UAE = {});
 
 UAE.MALL_UNIT_M2 = 600;
 UAE.mallSlots = function (m) { return Math.round(UAE.LEASE.mallM2 * m.size / UAE.MALL_UNIT_M2); };
-UAE.mallTenants = function (m) { return UAE.allFirms().filter(function (f) { return f.mall === m.id; }); };
+UAE.mallTenants = function (m) {
+  if (!UAE._idx) return UAE.allFirms().filter(function (f) { return f.mall === m.id; });
+  return (UAE.dayGroup('mallT', function (f) { return f.mall || null; })[m.id] || []).slice();
+};
 UAE.mallUsed = function (m) { return UAE.mallTenants(m).reduce(function (s, f) { return s + f.size; }, 0); };
 UAE.mallVacancy = function (m) { return Math.max(0, UAE.mallSlots(m) - UAE.mallUsed(m)); };
 UAE.sameGroup = function (a, b) {

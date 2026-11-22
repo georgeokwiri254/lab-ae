@@ -76,7 +76,7 @@ UAE.monthEnd = function () {
   if (month % 3 === 2) UAE.allCos().forEach(UAE.payDividend);
   // firms: roll monthly P&L
   UAE.allFirms().forEach(function (f) {
-    f.last = { rev: f.m.rev, cost: f.m.cost, profit: f.m.rev - f.m.cost };
+    f.last = { rev: f.m.rev, cost: f.m.cost, profit: f.m.rev - f.m.cost, va: UAE.firmVA(f) };
     f.hist.push(f.last.profit); if (f.hist.length > 24) f.hist.shift();
     f.m = { rev: 0, cost: 0 };
     f.lines.forEach(function (l) { l.made = 0; l.exported = 0; if (UAE.FIRM_TYPES[f.type].kind !== 'retail') l.sold = 0; });   // producers: monthly counters
@@ -86,6 +86,7 @@ UAE.monthEnd = function () {
   if (UAE.econMonth) UAE.econMonth();
   if (UAE.govDevMonth) UAE.govDevMonth();     // government reinvests revenue: housing, offices, civic, roads, new zones (engine/govdev.js)      // national & world macroeconomy, central banks (engine/macro2.js)
   UAE.microMonth();          // product market history (engine/micro.js)
+  if (UAE.worldMonth) UAE.worldMonth();     // global reach, world rankings (engine/worldmkt.js)
   UAE.expertiseMonth();      // managers and CEOs gain expertise (engine/ceo.js)
   UAE.checkGoals();
 };
@@ -134,6 +135,16 @@ UAE.yearEnd = function () {
 };
 
 /* ===================================================== CITY MACRO ==== */
+/* GDP (income / production approach): value added of a firm = its revenue minus what it buys from other firms
+ * (goods, utilities, advertising, rent, services) = wages + profit + depreciation + interest it pays.
+ * Banks: interest paid to depositors is their main input, so it is deducted (interest margin = their output). */
+UAE.firmVA = function (f) {
+  var bank = /^bank/.test(f.type);
+  return Math.max(0, f.m.rev - f.m.cost + (f.m.wage || 0) + (bank ? 0 : (f.m.int || 0)));
+};
+/** City GDP shown in the game = the rest of the economy (c.gdp, real 2025 figures growing on trend - drives demand)
+ *  + the value added of every modelled company's firms in that city (last month x 12). AED bn / year. */
+UAE.cityGdp = function (c) { return c.gdp + (c.modelVA || 0); };
 UAE.macroMonth = function () {
   var S = UAE.S, m = S.macro;
   Object.keys(S.cities).forEach(function (k) {
@@ -142,11 +153,11 @@ UAE.macroMonth = function () {
     var rev = 0, jobs = 0, housing = 0, civic = 0;
     UAE.allFirms().forEach(function (f) {
       if (f.city !== k || f.status !== 'open') return;
-      rev += f.last.rev; var T = UAE.FIRM_TYPES[f.type]; jobs += T.staff * (1 + 0.8 * (f.size - 1));
+      rev += f.last.va != null ? f.last.va : f.last.rev * 0.35; var T = UAE.FIRM_TYPES[f.type]; jobs += T.staff * (1 + 0.8 * (f.size - 1));
       if (f.type === 'apartment') housing += UAE.LEASE.apartmentUnits * f.size;
       if (f.type === 'civic' || f.type === 'sports') civic += f.size;
     });
-    c.modelVA = rev * 12 * 0.35 / 1e9;
+    c.modelVA = rev * 12 / 1e9;                                   // value added of modelled firms, AED bn / year
     var shock = UAE.rng.normal() * 0.002;
     var g = C.growth / 12 * (0.5 + 0.5 * m.property) + shock + (m.retail - 1) * 0.01;
     c.gdp *= 1 + g;

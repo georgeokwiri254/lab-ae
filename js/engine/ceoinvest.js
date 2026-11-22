@@ -18,6 +18,8 @@ UAE.isHeadOffice = function (f) { return f.type === 'hq' || f.type === 'bankhq' 
 /** Never closed as "loss-making": headquarters, and bank branches / insurance offices (their revenue is booked at the HQ). */
 UAE.neverCloseAsLoser = function (f) {
   if (UAE.isHeadOffice(f) || f.type === 'bankbranch' || f.type === 'insoffice') return true;
+  if (f.type === 'rnd') return true;                                          // R&D is an investment: always a loss on its own
+  if (f.project) return true;                                                 // a firm with a research project running (software, R&D)
   // producers that supply your own firms deliver at cost (no revenue of their own): their profit shows at the store, so a
   // factory / farm / mine / warehouse that delivered goods this month is not a loser
   var k = UAE.FIRM_TYPES[f.type].kind;

@@ -132,6 +132,7 @@ UAE.createFirm = function (ownerId, type, c, opts) {
   // product lines
   (opts.lines || []).forEach(function (l) { UAE.addLine(f, l.pid, l); });
   UAE.S.firms[id] = f;
+  if (UAE.plotAdd) UAE.plotAdd(f);        // map plot index (engine/plots.js)
   if (UAE._idx) UAE._idx = {};            // firm list changed: drop the per-day lookup cache
   return f;
 };
@@ -184,8 +185,9 @@ UAE.sellFirm = function (f, opts) {
   // detach any buyers that used this firm as supplier; tenants of a demolished mall become street stores
   UAE.allFirms().forEach(function (g) {
     g.lines.forEach(function (l) { if (l.supplier === f.id) l.supplier = 'IMPORT'; });
-    if (g.mall === f.id) { g.mall = null; g.lease = null; g._trafDay = null; }
+    if (g.mall === f.id) { g.mall = null; g.lease = null; g._trafDay = null; if (UAE.plotAdd) UAE.plotAdd(g); }   // now a street store: takes its plot
   });
+  if (UAE.plotRemove) UAE.plotRemove(f);
   if (f.manager && UAE.person(f.manager)) { var mp = UAE.person(f.manager); mp.title = 'Candidate'; mp.co = null; }
   delete UAE.S.firms[f.id];
   if (UAE._idx) UAE._idx = {};

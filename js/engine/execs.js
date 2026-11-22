@@ -22,13 +22,14 @@ var UAE = window.UAE || (window.UAE = {});
 
 UAE.TECH_FOCUS_CLASSES = ['Chip Design', 'Semiconductor Materials', 'Semiconductors', 'AI Hardware', 'Software', 'Electronics',
   'Communication Devices', 'Computer', 'Electronic Products', 'Robotics', 'Robotics Components', 'Wearables', 'Drones',
-  'Electric Vehicles', 'Batteries', 'Battery Materials'];
+  'Electric Vehicles', 'Batteries', 'Battery Materials', 'Drugs', 'Pharma Ingredients', 'E-commerce'];
 /* Build order of the tech supply chain: [firm type, product] - missing links are built first. */
 UAE.TECH_CHAIN = [['software', 'chipip'], ['factory', 'wafer'], ['factory', 'chips'], ['factory', 'aichip'], ['factory', 'gpu'],
   ['software', 'ai'], ['software', 'os'], ['factory', 'cpu'], ['factory', 'ram'], ['factory', 'server'], ['datacenter', null],
   ['software', 'llm'], ['internet', 'ecommerce'], ['rnd', 'aichip'], ['factory', 'phone'], ['factory', 'laptop'], ['factory', 'battery'],
   ['factory', 'sensor'], ['factory', 'motor'], ['factory', 'robot'], ['factory', 'arglasses'], ['rnd', 'gpu'], ['factory', 'ev'],
-  ['factory', 'drone'], ['factory', 'vr'], ['datacenter', null], ['rnd', 'robot']];
+  ['factory', 'drone'], ['factory', 'vr'], ['datacenter', null], ['rnd', 'robot'],
+  ['factory', 'api'], ['factory', 'medicine'], ['factory', 'generic'], ['rnd', 'rxdrug'], ['factory', 'rxdrug'], ['rnd', 'biologic'], ['factory', 'biologic'], ['rnd', 'ecom']];
 
 UAE.isTechPid = function (pid) { var P = UAE.P[pid]; return !!P && UAE.TECH_FOCUS_CLASSES.indexOf(P.cls) >= 0; };
 UAE.focusOn = function (co) { return UAE.policy(co).focus === 'tech'; };
@@ -163,6 +164,10 @@ UAE.ctoMonth = function (co) {
   var best = function (pid) { var b = 0; UAE.allCos().forEach(function (c) { if (c !== co) b = Math.max(b, c.tech[pid] || 0); }); return b; };
   var cand = Object.keys(mine).filter(function (pid) { return (co.tech[pid] || 40) < 99.5; })
     .sort(function (a, b) { return ((UAE.isTechPid(b) ? 30 : 0) + best(b) - (co.tech[b] || 40)) - ((UAE.isTechPid(a) ? 30 : 0) + best(a) - (co.tech[a] || 40)); });
+  if (UAE.techPriority) {   // world race: products with a world market first, biggest (gap to the world leader x market) first
+    cand = Object.keys(mine).filter(function (pid) { return UAE.WM[pid] && UAE.P[pid].kind !== 'software' && (UAE.techPriority(co, pid) || 0) > 0; })
+      .sort(function (a, b) { return UAE.techPriority(co, b) - UAE.techPriority(co, a); }).concat(cand.filter(function (pid) { return !UAE.WM[pid]; }));
+  }
   var used = {};
   UAE.firmsOf(co.id).forEach(function (f) {
     if (f.status !== 'open' || f.project) { if (f.project) used[f.project.pid] = 1; return; }
@@ -274,6 +279,7 @@ UAE.execsDay = function () {
     if ((S.day + 7 + (UAE.AI.hash ? UAE.AI.hash(co.id) : 0)) % 30 !== 0) return;
     co.lastMonthRev = co.is && co.is.months && co.is.months.length ? co.is.months[co.is.months.length - 1].revenue || 0 : 0;
     UAE.cmoMonth(co); UAE.ctoMonth(co);
+    if (UAE.ceoTechRace) UAE.ceoTechRace(co);         // research to beat the world leaders (engine/worldmkt.js)
     if (UAE.syncTraits) UAE.syncTraits(co);            // your companies act with their CEO's personality
     UAE.aggressiveExpand(co);
     if (UAE.segAutoCapital) UAE.segAutoCapital(co);

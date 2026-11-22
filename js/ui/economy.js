@@ -13,7 +13,7 @@ UI.phasePill = function (p) {
 UI.R.economy = function () {
   UAE.econInit();
   var tab = UI.tabState.econTab || 'uae';
-  var h = UI.tabs('econTab', [['uae', '🇦🇪 UAE economy'], ['cb', '🏛 Central banks'], ['gov', '🧾 Government & taxes'], ['sca', '⚖ SCA regulator'], ['world', '🌍 World ranking'], ['dev', '🏗 Development & jobs']], tab);
+  var h = UI.tabs('econTab', [['uae', '🇦🇪 UAE economy'], ['cb', '🏛 Central banks'], ['gov', '🧾 Government & taxes'], ['sca', '⚖ SCA regulator'], ['world', '🌍 World ranking'], ['dev', '🏗 Development & jobs'], ['race', '🚀 Global tech race']], tab);
   return h + (UI['econ_' + tab] || UI.econ_uae)();
 };
 
@@ -40,7 +40,7 @@ UI.econ_uae = function () {
   } else h += '<div class="note">Charts fill in month by month.</div>';
   h += '<div class="box"><h3>Emirates</h3><table class="t"><tr><th>Emirate</th><th class="n">GDP (AED bn)</th><th class="n">Inflation</th><th class="n">Unemployment</th><th class="n">Population</th><th class="n">Corporate tax YTD</th><th class="n">VAT YTD</th></tr>' +
     Object.keys(S.cities).map(function (k) { var c = S.cities[k], hh = c.hist[c.hist.length - 1];
-      return '<tr><td>' + UAE.CITIES[k].name + '</td><td class="n">' + UAE.fmt.num(c.gdp) + '</td><td class="n">' + UI.pc(hh ? hh.infl : UAE.CITIES[k].cpi) + '</td><td class="n">' + UI.pc(c.unemp) + '</td><td class="n">' + UAE.fmt.num(c.pop) + '</td><td class="n">' + A(c.ct || 0) + '</td><td class="n">' + A(c.vat || 0) + '</td></tr>'; }).join('') + '</table></div>';
+      return '<tr><td>' + UAE.CITIES[k].name + '</td><td class="n">' + UAE.fmt.num(UAE.cityGdp(c)) + '</td><td class="n">' + UI.pc(hh ? hh.infl : UAE.CITIES[k].cpi) + '</td><td class="n">' + UI.pc(c.unemp) + '</td><td class="n">' + UAE.fmt.num(c.pop) + '</td><td class="n">' + A(c.ct || 0) + '</td><td class="n">' + A(c.vat || 0) + '</td></tr>'; }).join('') + '</table></div>';
   return h;
 };
 
