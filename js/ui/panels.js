@@ -787,6 +787,7 @@ UI.R.settings = function () {
   h += '<div class="box"><h3>Options</h3><div class="row"><label><input type="checkbox" data-ch="govMode"' + (UAE.S.settings.govMode ? ' checked' : '') + '> Government Mode (civic buildings)</label></div>' +
     '<div class="row"><label><input type="checkbox" data-ch="constructionTime"' + (UAE.S.settings.constructionTime ? ' checked' : '') + '> Realistic construction time (off = buildings open instantly, like Capitalism Lab)</label></div>' +
     '<div class="row"><label><input type="checkbox" data-ch="hoverHelp"' + (UAE.S.settings.hoverHelp !== false ? ' checked' : '') + '> Beginner hover help (explanations when the mouse points at buttons and numbers)</label> <a href="#" data-act="help">Open Help guide (F1)</a></div>' +
+    (window.pwaCheckUpdate ? '<div class="row"><button class="btn a" data-act="pwaUpdate">⬇ Check for updates</button><span class="muted">phone app: downloads the newest version and restarts (your game is saved first)</span></div>' : '') +
     '<div class="row"><button class="btn" data-act="reloadGame">⟳ Load new game version (Ctrl+Shift+R)</button><span class="muted">after an update: save first, reload, then load your save</span></div></div>';
   if (D && D.listBackups) {
     var bk = D.listBackups().slice(0, 30);
@@ -828,6 +829,7 @@ UI.act.restoreYes = function (arg) {
   var i = arg.lastIndexOf('|'), D = UAE.desktop(), ok = D && D.restoreBackup(arg.slice(0, i), arg.slice(i + 1));
   UI.closeModal(); UI.toast(ok ? 'Restored to slot ' + arg.slice(i + 1) + '. Load it from the Save slots list.' : 'Restore failed.', ok ? 'good' : 'bad'); UI.render();
 };
+UI.act.pwaUpdate = function () { if (window.pwaCheckUpdate) window.pwaCheckUpdate(true); };
 UI.act.reloadGame = function () { UI.modal('<h2>Load the new game version?</h2><p>Unsaved progress is lost – save first (Save slots above). After the reload, load your save.</p><div class="row"><button class="btn a" data-act="reloadYes">Reload now</button><button class="btn" data-act="closeModal">Cancel</button></div>'); };
 UI.act.reloadYes = function () { location.reload(); };
 UI.act.addCash = function () { UI.act.addCashQ(UI.num('cheatAmt')); };

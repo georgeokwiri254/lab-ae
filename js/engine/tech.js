@@ -133,7 +133,7 @@ UAE.researchDay = function (f) {
     var co0 = UAE.co(f.owner), pid0 = f.type === 'software' ? UAE.swPid(f) : f.target, q0 = UAE.researchQuote(f, pid0);
     var allowAuto = f.type === 'software'
       ? UAE.canAutoSoftwareResearch(co0, f, pid0)
-      : (UAE.needsAutoResearch(co0, pid0) && UAE.activeResearchCount(co0, pid0) < UAE.rndTeamCap(co0, pid0));
+      : (UAE.needsAutoResearch(co0, pid0) && UAE.activeResearchCount(co0, pid0) < UAE.rndTeamCap(co0, pid0) && (UAE.isHuman(co0) || !UAE.rndOverBudget(co0)));
     if (allowAuto && co0.bs.cash >= q0.cost * 0.5 && UAE.startResearch(f, pid0).ok)       // keeps a cash buffer before starting
       UAE.news(f.name + ' auto-started research on ' + UAE.modelName(co0, pid0).replace(/(Gen |v)\d+/, function (m) { return m.replace(/\d+/, q0.next); }) + ' (' + UAE.fmt.aed(q0.cost) + ', ' + q0.days + ' days).', 'firm');
   }
@@ -157,7 +157,7 @@ UAE.researchDay = function (f) {
   if (UAE.SUBS && UAE.SUBS[p.pid] && UAE.frontierRelease) UAE.frontierRelease(co, p.pid);   // AI: a new frontier model ships
   var wNote = UAE.WM && UAE.WM[p.pid] && co.gtech && co.gtech[p.pid] != null ? ' · world tech index ' + co.gtech[p.pid].toFixed(1) : '';
   UAE.news(f.name + ' completed ' + UAE.modelName(co, p.pid) + ' - technology now ' + co.tech[p.pid].toFixed(1) + wNote + '.', UAE.isHuman(co) ? 'firm' : 'ai');
-  if (!UAE.isHuman(co) && UAE.needsAutoResearch(co, p.pid) && UAE.activeResearchCount(co, p.pid) < UAE.rndTeamCap(co, p.pid) && co.bs.cash > p.cost * 3) UAE.startResearch(f, p.pid);   // AI keeps its pipeline going
+  if (!UAE.isHuman(co) && !UAE.rndOverBudget(co) && UAE.needsAutoResearch(co, p.pid) && UAE.activeResearchCount(co, p.pid) < UAE.rndTeamCap(co, p.pid) && co.bs.cash > p.cost * 3) UAE.startResearch(f, p.pid);   // AI keeps its pipeline going
 };
 
 /** A finished AI research project ships a new frontier model: every AI studio of the company serving that market

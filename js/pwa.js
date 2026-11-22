@@ -105,6 +105,23 @@
           };
         };
         if (reg.waiting) offer(reg.waiting);                                // downloaded earlier, still waiting
+        // Settings -> "Check for updates": ask the server now; install straight away if there is a new version
+        window.pwaCheckUpdate = function (install) {
+          if (window.UI && UI.toast) UI.toast('Checking for a new version…', 'good');
+          var go = function (w) {
+            if (!install) return offer(w);
+            try { if (window.UAE && UAE.S && window.UI && UI.started) UAE.saveSlot(0); } catch (e) { /* ignore */ }
+            if (window.UI && UI.toast) UI.toast('New version found – installing and restarting…', 'good');
+            w.postMessage('skipWaiting'); setTimeout(function () { location.reload(); }, 4000);
+          };
+          if (reg.waiting) return go(reg.waiting);
+          reg.update().then(function () {
+            var w = reg.installing || reg.waiting;
+            if (!w) { if (window.UI && UI.toast) UI.toast('You have the latest version.', 'good'); return; }
+            if (w.state === 'installed') return go(w);
+            w.addEventListener('statechange', function () { if (w.state === 'installed') go(w); });
+          }).catch(function () { if (window.UI && UI.toast) UI.toast('No connection – try again when online.', 'bad'); });
+        };
         reg.addEventListener('updatefound', function () {
           var nw = reg.installing; if (!nw) return;
           nw.addEventListener('statechange', function () { if (nw.state === 'installed') offer(nw); });

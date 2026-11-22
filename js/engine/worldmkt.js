@@ -253,7 +253,7 @@ UAE.ceoTechRace = function (co) {
     if (launched) delete f.entryFor;                                                    // entered the market: normal R&D planning from now on
     else if (!f.project && co.bs.cash > UAE.researchQuote(f, f.entryFor).cost * 0.5) { f.target = f.entryFor; UAE.startResearch(f, f.entryFor); }
   });
-  var idle = UAE.firmsOf(co.id).filter(function (f) { return f.type === 'rnd' && f.status === 'open' && !f.project && !f.entryFor; });
+  var idle = !human && UAE.rndOverBudget(co) ? [] : UAE.firmsOf(co.id).filter(function (f) { return f.type === 'rnd' && f.status === 'open' && !f.project && !f.entryFor; });   // computer-run: no new projects over budget
   if (idle.length) {
     // Spread labs across all lagging world products, capped at MAX_AUTO_RND active teams per product so
     // hundreds of labs don't pile duplicate multi-billion projects onto the same product.
