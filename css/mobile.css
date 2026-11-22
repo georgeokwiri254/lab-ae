@@ -156,3 +156,30 @@ body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-are
   #dBody .phero .pname { font-size: 20px; overflow-wrap: anywhere; }
   #dBody .phero .ptxt { min-width: 0; max-width: 100%; }
 }
+
+/* ---- phone HUD (2026-11-22): net profit in the top bar, small events log on the left, thin city strip ---- */
+@media (max-width: 820px) {
+  /* top bar: Date | speed | Cash | Net profit (sideways scroll if it ever overflows) */
+  #topbar .kpi.opt:has(#kNI) { display: flex; }
+  #topbar .kpi.opt:has(#kNI) label { font-size: 0; } #topbar .kpi.opt:has(#kNI) label::after { content: 'Net TTM'; font-size: 8px; }
+  #speed button { width: 25px; }
+
+  /* events log: small collapsible widget on the left under the top bar, with the company picker */
+  #feed { display: flex; left: 6px; top: calc(54px + env(safe-area-inset-top)); bottom: auto; width: 182px; min-width: 0; max-height: 34vh; border-radius: 9px; }
+  #feed header { padding: 4px 5px; gap: 3px; flex-wrap: wrap; }
+  #feed header .ft { font-size: 8.5px; letter-spacing: .08em; flex: 1 1 auto; }
+  #feed .ffilt { order: 3; flex: 1 1 100%; max-width: none; height: 22px; min-height: 22px !important; margin: 3px 0 0; font-size: 10px !important; padding: 0 3px !important; }
+  #feed .fbtn { width: 20px; height: 18px; font-size: 10px; padding: 0; }
+  #feed.collapsed .ffilt { display: none; }
+  #feed .flist { padding: 4px 5px 6px; }
+  #feed .fi { font-size: 10px; line-height: 1.3; padding: 4px 5px 4px 7px; margin-bottom: 4px; border-left-width: 2px; }
+  #feed .fi .fd { font-size: 8.5px; margin-bottom: 1px; }
+  body.building #feed { top: calc(100px + env(safe-area-inset-top)); }
+
+  /* city buttons: one thin sideways-scrolling strip above the ticker */
+  #bottom { flex-direction: column; gap: 4px; }
+  #cities { display: flex; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; gap: 3px; padding: 3px; border-radius: 8px; scrollbar-width: none; }
+  #cities::-webkit-scrollbar { display: none; }
+  #cities button { flex: none; padding: 2px 8px; font-size: 9.5px; line-height: 1.4; min-height: 0 !important; border-radius: 5px; }
+}
+@media (max-height: 520px) { #feed { max-height: 46vh; } }
