@@ -43,4 +43,4 @@ Object.assign(UAE.LOGO_DOMAINS, {
 
 Object.assign(UAE.LOGO_DOMAINS, { KE_SCOM: 'safaricom.co.ke', KE_EQTY: 'equitygroupholdings.com', KE_KCB: 'kcbgroup.com', KE_EABL: 'eabl.com',
   KE_COOP: 'co-opbank.co.ke', KE_NCBA: 'ncbagroup.com', KE_SBIC: 'stanbicbank.co.ke', KE_ABSA: 'absabank.co.ke', KE_BAT: 'batkenya.com',
-  KE_KEGN: 'kengen.co.ke', KE_KPLC: 'kplc.co.ke', US_SPACEX: 'spacex.com' });
+  KE_KEGN: 'kengen.co.ke', KE_KPLC: 'kplc.co.ke', US_SPACEX: 'spacex.com', US_ANT: 'anthropic.com' });

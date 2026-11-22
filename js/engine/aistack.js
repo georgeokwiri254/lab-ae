@@ -165,7 +165,12 @@ UAE.subsDay = function (list) {
     firms.forEach(function (f) {
       var pl = UAE.subPlans(f, pid); f._plans = pl; f.tierMix = pl.mix; f.subPrice = pl.avgPrice;     // average price across plans
       var co = UAE.co(f.owner), b = UAE.brandRating(co, pid, co.hq || 'DXB');
-      f._sA = Math.pow((f.quality || 40) / 55, 2) * Math.pow(pl.priceIndex, 1.8) * Math.pow((b + 15) / 45, 0.5);
+      // frontier factor: how the company's model compares with the world's best (world tech index vs frontier labs):
+      // 30 points behind ~0.2x, level 1x, ahead up to 2.5x; a new frontier model gives a launch boost for ~4 months
+      var fr = UAE.gtech && UAE.WM[pid] ? Math.max(0.2, Math.min(2.5, Math.exp((UAE.gtech(co, pid) - UAE.wmFrontier(pid)) / 15))) : 1;
+      var boost = f.launchDay != null && S.day - f.launchDay < 120 ? 1 + 0.3 * (1 - (S.day - f.launchDay) / 120) : 1;
+      f.frontierFactor = fr;
+      f._sA = Math.pow((f.quality || 40) / 55, 2) * Math.pow(pl.priceIndex, 1.8) * Math.pow((b + 15) / 45, 0.5) * fr * boost;
       sum += f._sA;
     });
     firms.forEach(function (f) {

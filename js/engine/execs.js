@@ -166,7 +166,7 @@ UAE.ctoMonth = function (co) {
   var cand = Object.keys(mine).filter(function (pid) { return (co.tech[pid] || 40) < 99.5; })
     .sort(function (a, b) { return ((UAE.isTechPid(b) ? 30 : 0) + best(b) - (co.tech[b] || 40)) - ((UAE.isTechPid(a) ? 30 : 0) + best(a) - (co.tech[a] || 40)); });
   if (UAE.techPriority) {   // world race: products with a world market first, biggest (gap to the world leader x market) first
-    cand = Object.keys(mine).filter(function (pid) { return UAE.WM[pid] && UAE.P[pid].kind !== 'software' && (UAE.techPriority(co, pid) || 0) > 0; })
+    cand = Object.keys(mine).filter(function (pid) { return UAE.WM[pid] && (UAE.P[pid].kind !== 'software' || (UAE.SUBS && UAE.SUBS[pid])) && (UAE.techPriority(co, pid) || 0) > 0; })
       .sort(function (a, b) { return UAE.techPriority(co, b) - UAE.techPriority(co, a); }).concat(cand.filter(function (pid) { return !UAE.WM[pid]; }));
   }
   var used = {}, cap = UAE.MAX_AUTO_RND || 4;
@@ -187,7 +187,7 @@ UAE.ctoMonth = function (co) {
     }
   });
   // R&D labs: spread across all lagging products, capped at MAX_AUTO_RND active teams per product
-  var nonSw = cand.filter(function (x) { return UAE.P[x] && UAE.P[x].kind !== 'software'; });
+  var nonSw = cand.filter(function (x) { return UAE.P[x] && (UAE.P[x].kind !== 'software' || (UAE.SUBS && UAE.SUBS[x])); });   // AI models: frontier race in R&D labs too
   var assigned = [];
   rndIdle.forEach(function (f) {
     var pick = null;

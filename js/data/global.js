@@ -208,7 +208,15 @@ UAE.RICH_UAE = [
     { id:'KE_BAT',  t:'BAT',  x:'NSEKE', name:'BAT Kenya',                 sec:'retail',   px:3.1,   pxs:'EST', sh:0.1,   rev:0.2,  ni:0.04, div:0.9,  home:'KE' },
     { id:'KE_KEGN', t:'KEGN', x:'NSEKE', name:'KenGen',                    sec:'utility',  px:0.047, pxs:'EST', sh:6.59,  rev:0.43, ni:0.05, div:0.3,  home:'KE' },
     { id:'KE_KPLC', t:'KPLC', x:'NSEKE', name:'Kenya Power & Lighting',    sec:'utility',  px:0.093, pxs:'EST', sh:1.95,  rev:1.5,  ni:0.2,  div:0.1,  home:'KE' },
-    { id:'US_SPACEX', t:'', x:'', st:'UNLISTED', name:'SpaceX (Space Exploration Technologies)', sec:'space', px:0, pxs:'', sh:1.3, rev:22, ni:3, div:0, home:'US' }
+    // IPOs of 2026: SpaceX listed 12-Jun-2026 at USD 135 (Nasdaq: SPCX); Anthropic listed 19-Nov-2026 at USD 83 (Nasdaq: ANT).
+    // Prices REAL closes; shares, revenue and profit EST from the prospectuses / reported quarters (see documentation 3.34).
+    { id:'US_SPACEX', t:'SPCX', x:'NASDAQ', name:'SpaceX (Space Exploration Technologies)', sec:'space', px:127.79, pxs:'REAL close 21-Nov-2026', sh:13.58, rev:32, ni:6, div:0, home:'US' },
+    { id:'US_ANT',    t:'ANT',  x:'NASDAQ', name:'Anthropic PBC',            sec:'tech',     px:97.17,  pxs:'REAL close 19-Nov-2026 (IPO USD 83)', sh:13.07, rev:38, ni:2, div:0, home:'US' }
   ];
   add.forEach(function (g) { if (!UAE.GLOBAL_COMPANIES.some(function (x) { return x.id === g.id; })) UAE.GLOBAL_COMPANIES.push(g); });
+  // rich list: Elon Musk's fortune is now mostly SpaceX shares (~42% stake, EST)
+  UAE.RICH_GLOBAL.forEach(function (r) { if (r.name === 'Elon Musk') { r.co = 'US_SPACEX'; r.w = 0.75; } });
+  [{ name: 'Dario Amodei', wiki: 'Dario_Amodei', nw: 15, src: 'EST Nov-2026', ctry: 'US', what: 'Anthropic (co-founder, CEO)', co: 'US_ANT', w: 0.95 },
+   { name: 'Daniela Amodei', wiki: 'Daniela_Amodei', nw: 15, src: 'EST Nov-2026', ctry: 'US', what: 'Anthropic (co-founder, President)', co: 'US_ANT', w: 0.95 }
+  ].forEach(function (r) { if (!UAE.RICH_GLOBAL.some(function (x) { return x.name === r.name; })) UAE.RICH_GLOBAL.push(r); });
 })();

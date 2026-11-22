@@ -240,7 +240,7 @@ UAE.ceoTechRace = function (co) {
   });
   // entry markets the company is researching from scratch count too (R&D first, launch later)
   UAE.firmsOf(co.id).forEach(function (f) { if (f.type === 'rnd' && f.target && UAE.WM[f.target] && UAE.P[f.target].kind === 'software') mine[f.target] = 1; });
-  var cand = Object.keys(mine).filter(function (pid) { return UAE.P[pid].kind !== 'software' || !UAE.firmsOf(co.id).some(function (f) { return f.type === 'software' && f.lines.length && f.lines[0].pid === pid; }); })
+  var cand = Object.keys(mine).filter(function (pid) { return UAE.P[pid].kind !== 'software' || (UAE.SUBS && UAE.SUBS[pid]) || !UAE.firmsOf(co.id).some(function (f) { return f.type === 'software' && f.lines.length && f.lines[0].pid === pid; }); })
     .map(function (pid) { return { pid: pid, p: UAE.techPriority(co, pid) }; }).filter(function (x) { return x.p > 0; })
     .sort(function (a, b) { return b.p - a.p; });
   if (!cand.length) return;

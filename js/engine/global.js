@@ -22,7 +22,11 @@ UAE.ensureGlobalMarkets = function () {
     if (!S.index[x]) S.index[x] = { base: E.base, level: E.base, src: E.src, hist: [] };
   });
   UAE.GLOBAL_COMPANIES.forEach(function (g) {
-    if (S.companies[g.id]) return;
+    var old = S.companies[g.id];
+    if (old && old.status === 'UNLISTED' && (g.st || 'LISTED') === 'LISTED' && !Object.keys(old.holders || {}).some(function (k) { return /^(P|C):/.test(k) && old.holders[k] > 0; })   /* no player / company holds it */) {
+      delete S.companies[g.id]; old = null;                 // went public since (SpaceX IPO, Jun-2026): re-create as a listed company
+    }
+    if (old) return;
     UAE.seedCompany({ id: g.id, name: g.name, t: g.t, x: g.x, st: g.st || 'LISTED', hq: 'DXB', sec: g.sec,
       rev: g.rev * usd, ni: g.ni * usd, fin: 'EST', px: g.px * usd, pxs: g.pxs, sh: g.sh });
     var co = S.companies[g.id];

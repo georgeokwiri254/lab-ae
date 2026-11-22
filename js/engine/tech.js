@@ -149,11 +149,24 @@ UAE.researchDay = function (f) {
   }
   f.project = null;
   if (UAE._idx && UAE._idx.actR) delete UAE._idx.actR[co.id + '|' + p.pid];
+  if (UAE.SUBS && UAE.SUBS[p.pid] && UAE.frontierRelease) UAE.frontierRelease(co, p.pid);   // AI: a new frontier model ships
   var wNote = UAE.WM && UAE.WM[p.pid] && co.gtech && co.gtech[p.pid] != null ? ' · world tech index ' + co.gtech[p.pid].toFixed(1) : '';
   UAE.news(f.name + ' completed ' + UAE.modelName(co, p.pid) + ' - technology now ' + co.tech[p.pid].toFixed(1) + wNote + '.', UAE.isHuman(co) ? 'firm' : 'ai');
   if (!UAE.isHuman(co) && UAE.needsAutoResearch(co, p.pid) && UAE.activeResearchCount(co, p.pid) < UAE.rndTeamCap(co, p.pid) && co.bs.cash > p.cost * 3) UAE.startResearch(f, p.pid);   // AI keeps its pipeline going
 };
 
+/** A finished AI research project ships a new frontier model: every AI studio of the company serving that market
+ *  gets a ~4-month launch boost, and the release is announced with its standing against the world's best. */
+UAE.frontierRelease = function (co, pid) {
+  co.frontier = co.frontier || {};
+  var n = co.frontier[pid] = (co.frontier[pid] || 0) + 1, S = UAE.S;
+  var name = co.name.split(' ')[0] + (pid === 'llm' ? ' Frontier ' : ' Assistant ') + n;
+  co.frontierName = co.frontierName || {}; co.frontierName[pid] = name;
+  UAE.firmsOf(co.id).forEach(function (f) { if (f.type === 'software' && f.status === 'open' && UAE.swPid(f) === pid) f.launchDay = S.day; });
+  var idx = UAE.gtech(co, pid), F = UAE.wmFrontier(pid), lead = UAE.WM[pid].leaders.slice().sort(function (a, b) { return UAE.leaderIdx(b) - UAE.leaderIdx(a); })[0];
+  if (UAE.isHuman(co) || n % 5 === 0)
+    UAE.news('🤖 ' + co.name + ' releases ' + name + ': world AI index ' + idx.toFixed(1) + (idx >= F ? ' - now the world\'s best model, ahead of ' + lead[0] : ' vs ' + lead[0] + ' ' + UAE.leaderIdx(lead).toFixed(1) + ' (' + (F - idx).toFixed(1) + ' behind)') + '.', UAE.isHuman(co) ? 'firm' : 'ai');
+};
 /** Daily operation of every software company: development drift, licence stock, online direct sales. */
 UAE.softwareDay = function (list) {
   var S = UAE.S, m = S.macro, byPid = {};
