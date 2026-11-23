@@ -7,7 +7,7 @@ UI.ceoInvestBox = function (co) {
   var pol = UAE.policy(co), ceo = UAE.ceoPerson(co), A = UAE.fmt.aed, dis = ceo ? '' : ' disabled', L = co.ceoInvest;
   UAE.investMix(pol); var sp = pol.stockPct, bp = pol.bondPct;
   var h = '<div class="box"><h3>CEO investments</h3>' + (ceo ? '' : '<div class="note">Appoint a CEO (Persons → Appoint as CEO) to use these.</div>') +
-    '<label><input type="checkbox" data-ch="execInvEx" data-arg="' + co.id + '"' + (pol.investExcess ? ' checked' : '') + dis + '> Put excess cash to work after expansion: <b>' + bp + '% bonds, ' + sp + '% stocks, the rest 50/50 into our bank and insurer</b> (as capital – keeps a 6-month cash cushion; takes money back if cash runs short)</label>' +
+    '<label><input type="checkbox" data-ch="execInvEx" data-arg="' + co.id + '"' + ((pol.investExcess || UAE.isHuman(co)) ? ' checked' : '') + (UAE.isHuman(co) ? ' disabled' : dis) + '> Put excess cash to work after expansion: <b>' + bp + '% bonds, ' + sp + '% stocks, the rest 50/50 into our bank and insurer</b> (as capital; takes money back if cash runs short)</label>' + (UAE.isHuman(co) ? '<br><span style="margin-left:26px">Keep <input class="in num" id="cashPct" style="width:44px" value="' + UAE.cashPct(co) + '">% of cash (at least 1 month of costs) – <b>always reinvests the rest</b> <button class="btn sm" data-act="execCashPct" data-arg="' + co.id + '">Set</button></span>' : ' <span class="muted">(keeps a 6-month cash cushion)</span>') +
     '<br><label><input type="checkbox" data-ch="execInvSt" data-arg="' + co.id + '"' + (pol.investStocks ? ' checked' : '') + dis + '> Invest in the stock exchange using investment analysis: P/E, fair value vs price, revenue growth, profit trend; sells overvalued or loss-making stocks</label>' +
     '<br><span style="margin-left:26px">Share of the excess for stocks <input type="range" class="slider" min="0" max="100" step="5" value="' + sp + '" data-in="execStockPct" data-arg="' + co.id + '" style="width:180px;vertical-align:middle"> <b id="stockPctOut" class="t-a">' + sp + '%</b></span>' +
     '<br><label><input type="checkbox" data-ch="execInvBd" data-arg="' + co.id + '"' + (pol.investBonds !== false ? ' checked' : '') + dis + '> Invest in the <b>bond market</b> (government &amp; corporate bonds, best yield first; sold first if cash runs short). If no bonds are on offer, that money goes to stocks</label>' +
@@ -27,6 +27,7 @@ UI.ceoInvestBox = function (co) {
   var base = UI.execBox;
   if (base) UI.execBox = function (co) { return base.apply(this, arguments) + UI.ceoInvestBox(co); };
 })();
+UI.act.execCashPct = function (id) { var n = UI.num('cashPct'); if (isNaN(n)) return; UAE.policy(UAE.co(id)).cashPct = Math.max(5, Math.min(100, n)); UI.toast('CEO keeps ' + UAE.policy(UAE.co(id)).cashPct + '% of cash and reinvests the rest each month.', 'good'); UI.render(); };
 UI.act.execInvEx = function (id, el) { UAE.policy(UAE.co(id)).investExcess = el.checked; UI.toast(el.checked ? 'CEO will put excess cash 50/50 into the bank and insurer each month.' : 'Excess-cash investing off.', 'good'); };
 UI.act.execInvSt = function (id, el) { UAE.policy(UAE.co(id)).investStocks = el.checked; UI.toast(el.checked ? 'CEO will invest in the stock market each month.' : 'Stock investing off.', 'good'); };
 UI.act.execInvGl = function (id, el) { UAE.policy(UAE.co(id)).investGlobal = el.checked; UI.toast(el.checked ? 'CEO will also buy global (NYSE / NASDAQ) stocks.' : 'UAE stocks only.', 'good'); };
@@ -35,7 +36,7 @@ UI.act.ceoInvAll = function (id) {
   var src = UAE.policy(UAE.co(id)), n = 0;
   UAE.allCos().forEach(function (c) {
     if (c.controller !== 'PLAYER' || c.foreign) return; var p = UAE.policy(c);
-    ['investExcess', 'investStocks', 'stockPct', 'investBonds', 'bondPct', 'investDev', 'devPct', 'devProg', 'investGlobal', 'globalPct', 'stocksViaIns'].forEach(function (k) { p[k] = src[k]; }); n++;
+    ['investExcess', 'cashPct', 'investStocks', 'stockPct', 'investBonds', 'bondPct', 'investDev', 'devPct', 'devProg', 'investGlobal', 'globalPct', 'stocksViaIns'].forEach(function (k) { p[k] = src[k]; }); n++;
   });
   UI.toast('CEO investment settings copied to ' + n + ' companies.', 'good'); UI.render();
 };

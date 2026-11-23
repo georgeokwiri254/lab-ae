@@ -42,13 +42,21 @@ UAE.monthCosts = function (co) {
   var ms = co.is && co.is.months; if (!ms || !ms.length) return 0;
   var m = ms[ms.length - 1]; return Math.max(0, (m.revenue || 0) + (m.interestInc || 0) + (m.investInc || 0) - UAE.netIncome(m));
 };
-UAE.cashCushion = function (co) { return Math.max(UAE.monthCosts(co) * 6, 5e8); };
+/** Cash kept back. Your companies: policy cashPct (default 15) % of free cash, never below one month of costs - the rest is reinvested.
+ *  Computer companies: a 6-month cushion. */
+UAE.CASH_KEEP_PCT = 15;
+UAE.cashPct = function (co) { var p = UAE.policy(co).cashPct; return p == null ? UAE.CASH_KEEP_PCT : p; };
+UAE.cashCushion = function (co) {
+  if (UAE.isHuman(co)) return Math.max(UAE.groupFreeCash(co) * UAE.cashPct(co) / 100, UAE.monthCosts(co), 5e8);
+  return Math.max(UAE.monthCosts(co) * 6, 5e8);
+};
 UAE.hasBank = function (co) { return !!(co.bank && UAE.bankFirms(co).some(function (f) { return f.type === 'bankhq'; })); };
 UAE.hasIns = function (co) { return !!(co.ins && UAE.insFirms(co).some(function (f) { return f.type === 'inshq'; })); };
 
 UAE.ceoInvestMonth = function (co) {
   var pol = UAE.policy(co), ceo = UAE.ceoPerson(co);
-  if (!ceo || co.foreign || (!pol.investExcess && !pol.investStocks)) return;
+  var human = UAE.isHuman(co), invEx = pol.investExcess || human;          // your companies always reinvest everything above the cash they keep
+  if (!ceo || co.foreign || (!invEx && !pol.investStocks)) return;
   var A = UAE.fmt.aed, cushion = UAE.cashCushion(co), free = UAE.groupFreeCash(co), log = [];
   // short of cash: take injected money back from the bank / insurer first
   if (free < cushion * 0.5) {
@@ -72,7 +80,7 @@ UAE.ceoInvestMonth = function (co) {
     if (bspent > 0) log.push('bought ' + A(bspent) + ' of bonds');
   }
   // 2 stock market (analysis below) - pol.stockPct of the excess (default 40%) + any unspent bond money, and sells overvalued holdings every month
-  if (pol.investStocks) {
+  if (pol.investStocks || human) {
     var sold = UAE.ceoSellStocks(co); co.ceoInvest.sold = sold; if (sold > 0) log.push('sold ' + A(sold) + ' of overvalued shares');
     if (excess > 0) {
       var spent = UAE.ceoBuyStocks(co, Math.min(excess, (excess + (bondBudget - bondLeft)) * pol.stockPct / 100 + bondLeft));
@@ -81,8 +89,19 @@ UAE.ceoInvestMonth = function (co) {
     }
   }
   // 3 the rest: 50% bank, 50% insurer (all to one if the other does not exist)
-  if (pol.investExcess && excess > 1e6) {
+  if (invEx && excess > 1e6) {
     var hb = UAE.hasBank(co), hi = UAE.hasIns(co);
+    if (!hb && !hi && human) {
+      // no bank or insurer: development bonds (devPct), then more stocks, then bonds - cash is not left idle
+      var rest0 = excess, dv = pol.investDev !== false ? excess * (pol.devPct == null ? 10 : pol.devPct) / 100 : 0, pl = dv >= 1e6 ? UAE.ceoDevPlan(co) : null;
+      if (pl && UAE.govInvest(co, pl.city, dv, pl.prog === 'zone' && pl.gap ? 'zone' : 'growth').ok) { excess -= dv; co.ceoInvest.dev = dv; co.ceoInvest.devPlan = pl; pl.zone = pl.prog === 'zone' ? dv : 0; pl.growth = pl.prog === 'zone' ? 0 : dv; log.push(A(dv) + ' into ' + UAE.CITIES[pl.city].name + ' development bonds'); }
+      var s2 = UAE.ceoBuyStocks(co, excess); co.ceoInvest.stocks += s2; excess -= s2;
+      var b2 = excess > 1e6 ? UAE.ceoBuyBonds(co, excess) : 0; co.ceoInvest.bonds += b2; excess -= b2;
+      if (s2 + b2 > 0) log.push('reinvested ' + A(s2 + b2) + ' (no bank or insurer: ' + A(s2) + ' stocks, ' + A(b2) + ' bonds)');
+      co.ceoInvest.idle = Math.max(0, excess);
+      if (excess > rest0 * 0.2) log.push(A(excess) + ' found no investment (markets full) – build a Bank HQ / Insurance HQ to put it to work');
+      excess = 0;
+    }
     var toBank = hb ? (hi ? excess / 2 : excess) : 0, toIns = hi ? excess - toBank : 0;
     // part of the bank's share goes into government development bonds (economic projects or new zones, CEO's choice)
     if (toBank > 0 && pol.investDev !== false && UAE.govInvest) {
@@ -271,10 +290,23 @@ UAE.buyReason = function (a) {
 UAE.ceoBuyStocks = function (co, budget) {
   if (budget < 1e6) return 0;
   var pol = UAE.policy(co), all = UAE.investable(co).map(UAE.stockAnalysis).filter(UAE.isBuy).sort(function (a, b) { return b.score - a.score; });
+  var room = function (a) { return UAE.stockRoom(co, a.c) * a.c.price > 1e6; };
+  all = all.filter(room);
   var glob = pol.investGlobal === false ? [] : all.filter(function (a) { return a.c.foreign; }).slice(0, 4);
   var home = all.filter(function (a) { return !a.c.foreign; }).slice(0, 6);
   var gShare = glob.length ? (home.length ? (pol.globalPct == null ? 40 : pol.globalPct) / 100 : 1) : 0;
-  return UAE.ceoBuyList(co, home, budget * (1 - gShare)) + UAE.ceoBuyList(co, glob, budget * gShare);
+  var spent = UAE.ceoBuyList(co, home, budget * (1 - gShare)) + UAE.ceoBuyList(co, glob, budget * gShare);
+  // your companies: what the first picks could not take goes to the next stocks with room (up to 3 more rounds)
+  for (var k = 0; k < 3 && UAE.isHuman(co) && budget - spent > 1e8; k++) {
+    var more = all.filter(room); if (!more.length) break;
+    var got = UAE.ceoBuyList(co, more.slice(0, 10), budget - spent); if (got < 1e6) break; spent += got;
+  }
+  return spent;
+};
+/** Shares this company may still buy of c: 20% per buyer, 45% for your whole group, 25% of the public float. */
+UAE.stockRoom = function (co, c) {
+  var key = 'C:' + co.id, held = c.holders[key] || 0, tot = 0; for (var hk in c.holders) tot += c.holders[hk];
+  return Math.max(0, Math.min(c.shares * 0.2 - held, tot * UAE.CEO_GROUP_CAP - UAE.playerStake(c) * tot, (c.holders.PUBLIC || 0) * 0.25));
 };
 UAE.ceoBuyList = function (co, picks, budget) {
   if (!picks.length || budget < 1e6) return 0;
