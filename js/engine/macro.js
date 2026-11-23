@@ -58,7 +58,9 @@ UAE.monthEnd = function () {
     }
     // CEO salary from company to person
     var ceo = UAE.person(co.ceo);
-    if (ceo && ceo.salary) { UAE.L.expense(co, 'salaries', ceo.salary); ceo.cash += ceo.salary * 0.9; }
+    if (ceo && ceo.isPlayer && ceo.salary) { UAE.L.expense(co, 'salaries', ceo.salary); ceo.cash += ceo.salary * 0.9; }   // your own salary
+    if (UAE.payExecs) UAE.payExecs(co);   // hired CEO / COO / CMO / CTO: base + revenue bonus + profit share (engine/pay.js)
+    else if (ceo && !ceo.isPlayer && ceo.salary) { UAE.L.expense(co, 'salaries', ceo.salary); ceo.cash += ceo.salary * 0.9; }
     // roll the month
     co.is.months.push(Object.assign({ day: S.day }, co.is.cur)); if (co.is.months.length > 60) co.is.months.shift();
     co.cf.months.push(Object.assign({ day: S.day }, co.cf.cur)); if (co.cf.months.length > 60) co.cf.months.shift();

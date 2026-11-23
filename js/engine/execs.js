@@ -337,6 +337,7 @@ UAE.AGGRESSION = { normal: { n: 0, reserve: 0.3 }, high: { n: 4, reserve: 0.25 }
 UAE.aggressiveExpand = function (co) {
   var pol = UAE.policy(co), A0 = UAE.AGGRESSION[pol.aggression || 'normal'] || UAE.AGGRESSION.normal;
   var A = { n: pol.maxNewPerMonth != null ? pol.maxNewPerMonth : A0.n, reserve: pol.cashReserve != null ? pol.cashReserve : A0.reserve };
+  var mceo = UAE.ceoPerson && UAE.ceoPerson(co); if (mceo && UAE.motMult && A.n) A.n = Math.max(1, Math.round(A.n * UAE.motMult(mceo)));   // motivated CEOs build more (engine/pay.js)
   if (!A.n || co.foreign) return;
   if (UAE.isHuman(co) && !co.ceoAuto) return;                       // only when the CEO runs the company
   var start = co.bs.cash, built = 0, grown = 0;
