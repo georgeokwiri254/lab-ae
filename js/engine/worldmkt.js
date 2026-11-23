@@ -53,6 +53,8 @@ UAE.gtech = function (co, pid) {
     // UAE tech has no cap any more (can be 400+): only up to 100 counts here, so a newcomer starts at best ~15 behind the leader
     // and has to out-research it (before this, tech 465 put a brand-new subsidiary 200 points AHEAD of the world)
     co.gtech[pid] = Math.max(10, F - (UAE.isHuman(co) ? 15 : 25) - (100 - Math.min(100, t)) * 0.6);
+    var par = co.parent && UAE.co(co.parent);             // a subsidiary copies its parent company’s technology (normal inside a group)
+    if (par && par !== co && par.gtech && par.gtech[pid] != null) co.gtech[pid] = Math.max(co.gtech[pid], par.gtech[pid]);
   }
   return co.gtech[pid];
 };
