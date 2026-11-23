@@ -245,7 +245,7 @@ UAE.govDevMonth = function () {
       d.homes += next.homes; d.govHomes += next.homes; d.office += next.office; d.roadCap += next.homes * G.household;
       Gs.log.unshift({ day: S.day, city: k, zone: next.id, name: next.name }); if (Gs.log.length > 60) Gs.log.pop();
       UAE.news('🏗 Government of ' + UAE.EMIRATES[C.emirate].name + ' opens a new zone: ' + next.name + ' (' + next.zone + (next.homes ? ', ' + UAE.fmt.num(next.homes) + ' homes' : '') +
-        (next.office ? ', ' + UAE.fmt.num(next.office) + ' m² of offices' : '') + '). Companies can now build there.', 'event');
+        (next.office ? ', ' + UAE.fmt.num(next.office) + ' m² of offices' : '') + '). Companies can now build there.', 'gov');
     }
     // every planned zone of this city is open: the zone fund goes to economic projects instead of sitting idle
     if (!next && d.sinceZone > 0) { projBudget += d.sinceZone; d.sinceZone = 0; }
@@ -256,6 +256,40 @@ UAE.govDevMonth = function () {
     // unemployment: at least the share of the labour force without a job
     c.unemp = Math.max(c.unemp, Math.min(0.25, d.structUnemp || 0));
     if (UAE.cal.isYearEnd(S.day)) d.spentYtd = 0;
+  });
+  UAE.govNewsMonth();
+};
+/** Events log: one 'gov' line per emirate each month with what its government did (from each city's d.last),
+ *  plus milestones (power & water price cuts every 5 points, yearly budget summary in December). */
+UAE.govNewsMonth = function () {
+  var S = UAE.S, Gs = UAE.govState(), A = UAE.fmt.aed, N = UAE.fmt.num, em = {};
+  Object.keys(S.cities).forEach(function (k) {
+    var c = S.cities[k], d = c.dev, L = d && d.last; if (!L || L.day !== S.day) return;
+    var e = em[UAE.CITIES[k].emirate] || (em[UAE.CITIES[k].emirate] = { homes: 0, office: 0, civic: 0, roads: 0, spent: 0, proj: 0, util: 0, soe: 0, draw: 0, gdp: 0, zones: [], ppp: 0, rev: 0, exp: 0 });
+    e.homes += L.add.homes || 0; e.office += L.add.office || 0; e.civic += L.spend.civic || 0; e.roads += L.spend.roads || 0;
+    e.spent += L.spent || 0; e.proj += L.proj || 0; e.util += L.util || 0; e.soe += L.soe || 0; e.draw += L.draw || 0;
+    e.gdp += d.proj ? d.proj.lastGdp || 0 : 0; if (L.zone) e.zones.push(L.zone);
+    e.ppp += (L.ppp.growth || 0) + (L.ppp.zone || 0) + (L.ppp.housing || 0);
+    e.rev += c.govRevYtd || 0; e.exp += c.govExpYtd || 0;
+  });
+  Gs.utilNote = Gs.utilNote || {};
+  Object.keys(em).forEach(function (x) {
+    var e = em[x], name = UAE.EMIRATES[x].name, bits = [];
+    if (e.spent < 1e6) return;
+    if (e.homes >= 1) bits.push(N(e.homes) + ' homes');
+    if (e.office >= 1) bits.push(N(e.office) + ' m² of offices');
+    if (e.civic > 1e6) bits.push(A(e.civic) + ' civic facilities (schools, clinics, parks)');
+    if (e.roads > 1e6) bits.push(A(e.roads) + ' roads & transport');
+    if (e.proj > 1e6) bits.push(A(e.proj) + ' economic projects' + (e.gdp > 0.0005 ? ' (+' + A(e.gdp * 1e9) + ' a year of GDP came into service)' : ''));
+    if (e.util > 1e6) bits.push(A(e.util) + ' power & water utilities');
+    if (e.soe > 1e6) { var so = UAE.govSOE(x); bits.push(A(e.soe) + ' capital into ' + (so ? so.name : 'its state company')); }
+    var tail = [];
+    if (e.draw > 1e6) tail.push('drew ' + A(e.draw) + ' from savings');
+    if (e.ppp > 1e6) tail.push(A(e.ppp) + ' of it came from company development bonds');
+    UAE.news('🏛 Government of ' + name + ' spent ' + A(e.spent) + ' this month: ' + (bits.join(', ') || 'running costs') + (tail.length ? '; ' + tail.join(', ') : '') + '.', 'gov');
+    var cut = UAE._utilCut && UAE._utilCut[x] ? UAE._utilCut[x].cut : 0, step = Math.floor(cut * 100 / 5) * 5;
+    if (step > (Gs.utilNote[x] || 0)) { Gs.utilNote[x] = step; UAE.news('⚡ ' + name + ': utility investment has cut business power & water prices by ' + step + '% (now ' + (cut * 100).toFixed(1) + '% below the published tariff).', 'gov'); }
+    if (UAE.cal.isYearEnd(S.day)) UAE.news('📊 ' + name + ' government ' + UAE.cal.year() + ': revenue ' + A(e.rev) + ', spending ' + A(e.exp) + ' - ' + (e.rev >= e.exp ? 'surplus ' + A(e.rev - e.exp) : 'deficit ' + A(e.exp - e.rev)) + '.', 'gov');
   });
 };
 /** Economic projects (metro, ports, airports, power, digital infrastructure): money enters a pipeline and
@@ -355,7 +389,7 @@ UAE.govInvest = function (co, city, amt, prog) {
   var b = { id: 'GB' + (S.nextId++), city: city, prog: prog, face: amt, rate: S.macro.rate + G.bondSpread, day: S.day, mat: S.day + Math.round(G.bondYears * 365), paid: 0 };
   (co.devBonds = co.devBonds || []).push(b);
   var Gs = UAE.govState(); Gs.ppp = (Gs.ppp || 0) + amt;
-  UAE.news('🏛 ' + co.name + ' invests ' + UAE.fmt.aed(amt) + ' in ' + UAE.CITIES[city].name + ' development bonds (' + UAE.GOV_PROGRAMMES[prog].replace(/^\S+ /, '').toLowerCase() + ', ' + (b.rate * 100).toFixed(2) + '% a year for ' + G.bondYears + ' years).', 'finance');
+  UAE.news('🏛 ' + co.name + ' invests ' + UAE.fmt.aed(amt) + ' in ' + UAE.CITIES[city].name + ' development bonds (' + UAE.GOV_PROGRAMMES[prog].replace(/^\S+ /, '').toLowerCase() + ', ' + (b.rate * 100).toFixed(2) + '% a year for ' + G.bondYears + ' years).', 'gov');
   return { ok: true, bond: b };
 };
 UAE.govRedeem = function (co, id) {
@@ -372,7 +406,7 @@ UAE.govBondsMonth = function () {
     co.devBonds.slice().forEach(function (b) {
       var cpn = b.face * b.rate / 12; UAE.L.income(co, 'interestInc', cpn, 'op'); b.paid += cpn;
       var c = UAE.S.cities[b.city]; if (c) c.govExpYtd += cpn;
-      if (UAE.S.day >= b.mat) { UAE.govRedeem(co, b.id); UAE.news('🏛 ' + co.name + ': ' + UAE.CITIES[b.city].name + ' development bond of ' + UAE.fmt.aed(b.face) + ' repaid at maturity.', 'finance'); }
+      if (UAE.S.day >= b.mat) { UAE.govRedeem(co, b.id); UAE.news('🏛 ' + co.name + ': ' + UAE.CITIES[b.city].name + ' development bond of ' + UAE.fmt.aed(b.face) + ' repaid at maturity.', 'gov'); }
     });
   });
 };

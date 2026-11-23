@@ -741,7 +741,7 @@ UI.newsList = function (list) {
 };
 UI.R.news = function () {
   var k = UI.tabState.nk || 'all';
-  return UI.tabs('nk', [['all','All'],['event','Economy'],['finance','Finance'],['ai','Competitors'],['firm','My firms'],['goal','Goals'],['warning','Warnings']], k) +
+  return UI.tabs('nk', [['all','All'],['gov','Government'],['event','Economy'],['finance','Finance'],['ai','Competitors'],['firm','My firms'],['goal','Goals'],['warning','Warnings']], k) +
     UI.newsList(UAE.S.news.filter(function (n) { return k === 'all' || n.kind === k; }));
 };
 

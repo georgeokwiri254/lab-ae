@@ -365,7 +365,7 @@ svg.logo.lg3 { border: 1px solid; background: #05060a; padding: 0; }
   font-size: 12px; line-height: 1.35; color: #d8ecf8; cursor: pointer; animation: feedIn .45s ease-out; }
 #feed .fi .fd { display: block; font-size: 10px; color: var(--muted); letter-spacing: .04em; margin-bottom: 2px; }
 #feed .fi.new { box-shadow: 0 0 12px color-mix(in srgb, var(--fc, #00f0ff) 55%, transparent); }
-#feed .fi.warn { --fc: #ff2bd6; } #feed .fi.mine { --fc: #b8ff2c; } #feed .fi.fin { --fc: #00f0ff; } #feed .fi.event { --fc: #ffd24d; } #feed .fi.ai { --fc: #6b7a8c; color: #a9b8c8; } #feed .fi.sys { --fc: #8b9cff; }
+#feed .fi.warn { --fc: #ff2bd6; } #feed .fi.mine { --fc: #b8ff2c; } #feed .fi.fin { --fc: #00f0ff; } #feed .fi.event { --fc: #ffd24d; } #feed .fi.gov { --fc: #ff9a3c; } #feed .fi.ai { --fc: #6b7a8c; color: #a9b8c8; } #feed .fi.sys { --fc: #8b9cff; }
 #feed.alert { box-shadow: 0 0 22px rgba(255,43,214,.75); }
 @keyframes feedIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
 body.spot-open #feed { opacity: 0; pointer-events: none; }

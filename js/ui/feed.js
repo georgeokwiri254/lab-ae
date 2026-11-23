@@ -8,7 +8,7 @@
 var UI = window.UI || (window.UI = {});
 
 UI.FEED_MAX = 60;
-UI.FEED_KIND = { bad: 'warn', warning: 'warn', good: 'mine', firm: 'mine', finance: 'fin', event: 'event', ai: 'ai', system: 'sys', info: 'sys' };
+UI.FEED_KIND = { bad: 'warn', warning: 'warn', good: 'mine', firm: 'mine', finance: 'fin', event: 'event', gov: 'gov', ai: 'ai', system: 'sys', info: 'sys' };
 UI.feedEl = function () {
   var el = document.getElementById('feed');
   if (!el) {
@@ -50,7 +50,7 @@ UI.feedMine = function () { return UAE.S ? UAE.allCos().filter(function (c) { re
 UI.feedFilterOptions = function (sel) {
   var cur = sel.value; if (!cur) { try { cur = localStorage.getItem('feedFilter') || 'all'; } catch (x) { cur = 'all'; } }
   var opts = [['all', 'All updates'], ['mine', 'My companies (all)']].concat(UI.feedMine().map(function (c) { return ['co:' + c.id, '· ' + c.name]; }))
-    .concat([['exec', 'My CEO / CMO / CTO'], ['fin', 'Finance & investing'], ['warn', 'Warnings'], ['ai', 'Competitors'], ['event', 'Market & economy']]);
+    .concat([['exec', 'My CEO / CMO / CTO'], ['fin', 'Finance & investing'], ['warn', 'Warnings'], ['ai', 'Competitors'], ['gov', 'Government'], ['event', 'Market & economy']]);
   sel.innerHTML = opts.map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === cur ? ' selected' : '') + '>' + UI.esc(o[1]) + '</option>'; }).join('');
   if (sel.value !== cur) sel.value = 'all';
 };

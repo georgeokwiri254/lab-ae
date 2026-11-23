@@ -386,7 +386,7 @@ UAE.randomPointIn = function (d, type) {
 /* --------------------------------------------------------------- News --- */
 UAE.news = function (text, kind) {
   UAE.S.news.unshift({ day: UAE.S.day, text: text, kind: kind || 'info' });
-  if (UAE.S.news.length > 400) UAE.S.news.length = 400;
+  if (UAE.S.news.length > 600) UAE.S.news.length = 600;
   if (UAE.onNews) UAE.onNews(UAE.S.news[0]);
 };
 
