@@ -179,7 +179,7 @@ UAE.controlCheck = function (co) {
   if (co.foreign) { if (co.controller === 'PLAYER') { co.controller = 'AI'; co.parent = null; if (UAE.S.activeCo === co.id) UAE.S.activeCo = UAE.S.playerCo; UAE.news('You no longer control ' + co.name + ' (US companies are trade-only).', 'finance'); } return; }
   var st = UAE.playerStake(co);
   if (st > 0.5 && co.controller !== 'PLAYER') {
-    co.controller = 'PLAYER'; co.parent = UAE.S.playerCo;
+    co.controller = 'PLAYER'; co.parent = UAE.S.playerCo; UAE.policy(co).backward = 100;
     UAE.news('TAKEOVER: you now control ' + co.name + ' (' + UAE.fmt.pct(st) + '). It is now your subsidiary.', 'finance');
   } else if (st <= 0.5 && co.controller === 'PLAYER' && co.id !== UAE.S.playerCo && !co.createdByPlayer) {
     co.controller = 'AI'; co.parent = null; if (UAE.S.activeCo === co.id) UAE.S.activeCo = UAE.S.playerCo;
@@ -418,7 +418,7 @@ UAE.acquirePrivate = function (buyer, target) {
     if (k.indexOf('P:') === 0) UAE.person(k.slice(2)).cash += share;
   }
   target.holders = {}; target.holders['C:' + buyer.id] = target.shares;
-  target.controller = 'PLAYER'; target.parent = buyer.id; target.createdByPlayer = true;
+  target.controller = 'PLAYER'; target.parent = buyer.id; target.createdByPlayer = true; UAE.policy(target).backward = 100;
   UAE.news(buyer.name + ' acquired ' + target.name + ' for ' + UAE.fmt.aed(price) + '.', 'finance');
   return { ok: true, price: price };
 };

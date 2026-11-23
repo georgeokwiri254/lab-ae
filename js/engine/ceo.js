@@ -104,7 +104,7 @@ UAE.defaultPolicy = function (co) {
   exp.retail = exp.retail || co.sector === 'retail' || co.fictional;
   var scope = {}; UAE.productClasses().forEach(function (c) { scope[c] = true; });
   return {
-    expand: exp, acquireTech: true, sellTech: true, backward: Math.round(30 + t.aggression * 50), expandRetail: true,
+    expand: exp, acquireTech: true, sellTech: true, backward: co.controller === 'PLAYER' ? 100 : Math.round(30 + t.aggression * 50),   // your companies: always 100 expandRetail: true,
     scope: scope,
     mgmt: { price: t.pricing < 0.3 ? 'below' : t.pricing > 0.7 ? 'above' : 'avg', priceOverride: {}, purchasing: 'cheap',   // default: best value (price / quality)
      
