@@ -177,5 +177,11 @@ UAE.founderTitle = function () {
 UAE.syncFounderTitle = function () { var me = UAE.playerPerson && UAE.playerPerson(); if (me) { me.title = UAE.founderTitle(); me.founder = true; } };
 (function () {
   var ds = UAE.deserialize;
-  if (ds) UAE.deserialize = function () { var r = ds.apply(this, arguments); try { UAE.syncFounderTitle(); } catch (e) { } return r; };
+  if (ds) UAE.deserialize = function () { var r = ds.apply(this, arguments); try { UAE.syncFounderTitle(); UAE.purchasingV2(); } catch (e) { } return r; };
 })();
+
+/** One-time (per save): purchasing policy default changed from "prefer own supply" to "best value (price / quality)". */
+UAE.purchasingV2 = function () {
+  var S = UAE.S; if (!S || S.purchV2) return; S.purchV2 = true;
+  UAE.allCos().forEach(function (c) { var m = c.policy && c.policy.mgmt; if (m && m.purchasing === 'own') m.purchasing = 'cheap'; });
+};

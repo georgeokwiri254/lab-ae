@@ -106,7 +106,8 @@ UAE.defaultPolicy = function (co) {
   return {
     expand: exp, acquireTech: true, sellTech: true, backward: Math.round(30 + t.aggression * 50), expandRetail: true,
     scope: scope,
-    mgmt: { price: t.pricing < 0.3 ? 'below' : t.pricing > 0.7 ? 'above' : 'avg', priceOverride: {}, purchasing: 'own',
+    mgmt: { price: t.pricing < 0.3 ? 'below' : t.pricing > 0.7 ? 'above' : 'avg', priceOverride: {}, purchasing: 'cheap',   // default: best value (price / quality)
+     
       issueShares: true, issueBonds: false, takeLoans: true, closeLosers: true, loserMonths: 12,
       adPct: 1.5, trainPct: 0.5, farmForRetail: false, expandCashPct: Math.round((0.25 + 0.45 * t.aggression) * 100),
       minCash: 0, minProfit: null }        // "adequate cash / annual profit for expansion" - none by default
