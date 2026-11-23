@@ -100,7 +100,9 @@ UI.setSpeed = function (s) {
 UI.loop = function (t) {
   var dt = Math.min(250, t - UI.lastT); UI.lastT = t;
   var S = UAE.S;
-  if (S && S.speed > 0) {
+  // UI.SIM_DUTY (phone build): share of the time the simulation may use; after a slow day the map / touch get the rest
+  var simOk = !UI.SIM_DUTY || performance.now() >= (UI._simFree || 0);
+  if (S && S.speed > 0 && simOk) {
     UI.acc += dt;
     var ms = UI.SPEED_MS[S.speed], n = 0, t0 = performance.now();
     while (UI.acc >= ms && n < 12) {
@@ -112,6 +114,7 @@ UI.loop = function (t) {
       if (performance.now() - t0 > (UI.SIM_BUDGET || 60)) { UI.acc = Math.min(UI.acc, ms); break; }
     }
     if (n) UI.dirty = true;
+    if (n && UI.SIM_DUTY) { var spent = performance.now() - t0; UI._simFree = performance.now() + spent * (1 / UI.SIM_DUTY - 1); }
   }
   UI.frame = (UI.frame || 0) + 1;
   // refresh intervals (ms): the phone version uses longer ones (pwa/pwa.js) so a slower CPU spends its time on the game

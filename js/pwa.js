@@ -139,7 +139,10 @@
   // phone CPU: shorter simulation slices per frame (smooth touch & scrolling), less frequent map / window redraws
   window.addEventListener('DOMContentLoaded', function () {
     if (!window.UI) return;
-    UI.SIM_BUDGET = 35; UI.HUD_EVERY = 500; UI.MAP_EVERY = 2500; UI.PANEL_EVERY = 2500;
+    // phone map: no antialiasing, at most 2x pixel density, plots + 3D buildings only from street zoom (they are sub-pixel further out)
+    UI.MAP_OPTS = { antialias: false, pixelRatio: Math.min(2, window.devicePixelRatio || 1) }; UI.LOT_MINZOOM = 12.5;
+    UI.SIM_DUTY = 0.5;   // the simulation gets at most half the time; the map and touch always get the other half
+    UI.SIM_BUDGET = 35; UI.HUD_EVERY = 500; UI.MAP_EVERY = 5000; UI.PANEL_EVERY = 3000;   // big empires: the map re-uploads at most every 5 s
     // company value under the events log (copied from the desktop top-bar figure, which the phone hides)
     var hudV = UI.refreshHUD;
     UI.refreshHUD = function () {
@@ -153,10 +156,35 @@
           el.onclick = function () { try { UI.tabState.corp = 'valuation'; UI.act.corp(UAE.player().id); } catch (e) { } };
         }
         el.lastChild.innerHTML = src.innerHTML;
+        UI.phoneCos(feed);
       } catch (e) { /* ignore */ }
       return r;
     };
   });
+  // "My companies" under the events log: every company you control with its value; tap = manage it (company page)
+  window.addEventListener('DOMContentLoaded', function () {   // UI exists only after the game scripts load
+    if (!window.UI) return;
+    UI.phoneCos = function (feed) {
+      var box = document.getElementById('feedCos'), now = Date.now();
+      if (!box) {
+        box = document.createElement('div'); box.id = 'feedCos';
+        box.onclick = function (e) {
+          var row = e.target.closest('[data-co]'); if (!row) return;
+          var id = row.getAttribute('data-co');
+          try { if (UAE.S.activeCo !== id) UI.act.switchCo(id); UI.tabState.corp = 'overview'; UI.act.corp(id); } catch (x) { /* ignore */ }
+          UI._cosT = 0;
+        };
+        feed.appendChild(box);
+      }
+      if (UI._cosT && now - UI._cosT < 5000) return;          // values every 5 s (valuing big groups is not free on a phone)
+      UI._cosT = now;
+      var cos = UAE.allCos().filter(function (c) { return c.controller === 'PLAYER' && c.status !== 'BANKRUPT' && !c.foreign; })
+        .map(function (c) { return { c: c, v: UAE.companyValue(c) }; }).sort(function (a, b) { return b.v - a.v; });
+      box.innerHTML = '<label>My companies · ' + cos.length + ' · tap to manage</label>' + cos.map(function (x) {
+        return '<div class="mc' + (x.c.id === UAE.S.activeCo ? ' on' : '') + '" data-co="' + x.c.id + '"><span class="n">' + UI.esc(x.c.name) + (x.c.id === UAE.S.playerCo ? ' ★' : '') + '</span><span class="v">' + UAE.fmt.aed(x.v) + '</span></div>';
+      }).join('');
+    };
+    });
   // Android may kill a backgrounded app: pause and auto-save (slot 0) when it is hidden
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState !== 'hidden' || !window.UI || !UI.started || !UAE.S) return;

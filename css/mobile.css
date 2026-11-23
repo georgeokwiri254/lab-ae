@@ -191,3 +191,17 @@ body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-are
   #feedVal span { font-family: var(--mono); font-size: 10.5px; color: var(--cyan); white-space: nowrap; }
   #feed.collapsed #feedVal { border-top: 1px solid var(--line); }
 }
+
+/* My companies list under the events log (phone home screen): name + value, tap to manage */
+#feedCos { display: none; }
+@media (max-width: 820px) {
+  #feed { max-height: 56vh; }
+  #feedCos { display: block; flex: 0 0 auto; max-height: 20vh; overflow-y: auto; border-top: 1px solid var(--line); padding: 3px 5px 5px; }
+  #feedCos label { display: block; font-size: 8px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 1px 2px 3px; }
+  #feedCos .mc { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; padding: 4px 5px; border-radius: 5px; font-size: 10px; cursor: pointer; border-left: 2px solid transparent; }
+  #feedCos .mc .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  #feedCos .mc .v { font-family: var(--mono); font-size: 9.5px; color: var(--cyan); white-space: nowrap; }
+  #feedCos .mc.on { border-left-color: var(--lime, #b8ff2c); background: rgba(184, 255, 44, .07); }
+  #feedCos .mc:active { background: rgba(0, 240, 255, .12); }
+  #feed.collapsed #feedCos { max-height: 14vh; }
+}

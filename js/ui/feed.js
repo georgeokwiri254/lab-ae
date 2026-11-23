@@ -47,6 +47,13 @@ UI.feedAdd = function (html, kind, when) {
 };
 /* ---- filter: All / My companies / one of my companies / CEO-CMO-CTO / Finance / Competitors / Market & economy / Warnings */
 UI.feedMine = function () { return UAE.S ? UAE.allCos().filter(function (c) { return c.controller === 'PLAYER'; }) : []; };
+/** PERF: your companies with their names and executives, rebuilt at most every 2 s (feedTag runs for every news line). */
+UI.feedMineTags = function () {
+  var now = Date.now(), C = UI._fmt;
+  if (C && C.S === UAE.S && now - C.t < 2000) return C.list;
+  var list = UI.feedMine().map(function (c) { return { id: c.id, name: c.name ? c.name.trim() : '', ex: [c.ceo, c.cmo, c.cto].map(function (pid) { var p = pid && UAE.person(pid); return p && !p.isPlayer ? p.name : null; }).filter(Boolean) }; });
+  UI._fmt = { S: UAE.S, t: now, list: list }; return list;
+};
 UI.feedFilterOptions = function (sel) {
   var cur = sel.value; if (!cur) { try { cur = localStorage.getItem('feedFilter') || 'all'; } catch (x) { cur = 'all'; } }
   var opts = [['all', 'All updates'], ['mine', 'My companies (all)']].concat(UI.feedMine().map(function (c) { return ['co:' + c.id, '· ' + c.name]; }))
@@ -57,9 +64,9 @@ UI.feedFilterOptions = function (sel) {
 /** Tag an entry: its kind, which of my companies it mentions, and whether it is about my executives. */
 UI.feedTag = function (it, html, kind) {
   var txt = String(html).replace(/<[^>]*>/g, ''), cos = [], exec = /\((CEO|CMO|CTO)[,)]/.test(txt);
-  UI.feedMine().forEach(function (c) {
-    if (c.name && txt.indexOf(c.name.trim()) >= 0) cos.push(c.id);
-    [c.ceo, c.cmo, c.cto].forEach(function (pid) { var p = pid && UAE.person(pid); if (p && !p.isPlayer && txt.indexOf(p.name) >= 0) { exec = true; if (cos.indexOf(c.id) < 0) cos.push(c.id); } });
+  UI.feedMineTags().forEach(function (c) {
+    if (c.name && txt.indexOf(c.name) >= 0) cos.push(c.id);
+    c.ex.forEach(function (nm) { if (txt.indexOf(nm) >= 0) { exec = true; if (cos.indexOf(c.id) < 0) cos.push(c.id); } });
   });
   it.dataset.k = UI.FEED_KIND[kind] || 'sys'; it.dataset.cos = cos.join(','); it.dataset.exec = exec && cos.length ? '1' : '';
   it.dataset.mine = (cos.length || kind === 'good' || kind === 'firm') ? '1' : '';

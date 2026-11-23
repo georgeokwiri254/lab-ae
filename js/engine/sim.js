@@ -78,13 +78,17 @@ UAE.dayIdx = function () {
 };
 /** Keep the per-day cache in step when a firm is built or removed mid-day (instead of rebuilding it all).
  *  Only these keys are updated in place; every other cached grouping is dropped and rebuilt on demand. */
-UAE.IDX_KEEP = ['has', 'prod', 'sup', 'all', 'own', 'gw'];
+UAE.IDX_KEEP = ['has', 'prod', 'sup', 'all', 'own', 'gw', 'typeCity', 'ownTypeCity'];   // typeCity / ownTypeCity: UAE.cityAppeal (engine/execs.js)
 UAE.idxFirmChanged = function (f, removed) {
   var X = UAE._idx; if (!X) return;
   var keep = {}; UAE.IDX_KEEP.forEach(function (k) { if (X[k]) keep[k] = X[k]; });
   UAE._idx = keep; X = keep;
   var T = UAE.FIRM_TYPES[f.type], prodKind = ['factory','farm','mine','oil','warehouse','software'].indexOf(T.kind) >= 0;
   if (!removed) {
+    if (f.status !== 'closed') {
+      if (X.typeCity) (X.typeCity[f.type + '|' + f.city] = X.typeCity[f.type + '|' + f.city] || []).push(f);
+      if (X.ownTypeCity) (X.ownTypeCity[f.owner + '|' + f.type + '|' + f.city] = X.ownTypeCity[f.owner + '|' + f.type + '|' + f.city] || []).push(f);
+    }
     if (X.all) X.all.push(f);
     if (X.own) (X.own[f.owner] = X.own[f.owner] || []).push(f);
     if (X.has && f.status === 'open') {
@@ -99,6 +103,7 @@ UAE.idxFirmChanged = function (f, removed) {
     return;
   }
   var not = function (g) { return g !== f; };
+  [['typeCity', f.type + '|' + f.city], ['ownTypeCity', f.owner + '|' + f.type + '|' + f.city]].forEach(function (x) { var G = X[x[0]]; if (G && G[x[1]]) G[x[1]] = G[x[1]].filter(not); });
   if (X.all) X.all = X.all.filter(not);
   if (X.own && X.own[f.owner]) X.own[f.owner] = X.own[f.owner].filter(not);
   if (X.prod) for (var p in X.prod) if (X.prod[p].indexOf(f) >= 0) X.prod[p] = X.prod[p].filter(not);

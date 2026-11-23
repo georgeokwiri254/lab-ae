@@ -65,11 +65,11 @@ UI.initMap = function () {
           'fill-extrusion-opacity': 0.55, 'fill-extrusion-vertical-gradient': true } }
     ]
   };
-  var map = UI.map = new maplibregl.Map({
+  var map = UI.map = new maplibregl.Map(Object.assign({
     container: 'map', style: style, center: [55.2744, 25.1972], zoom: 15.4, pitch: 64, bearing: -28,
     maxPitch: 80, antialias: true, attributionControl: { compact: true },
     boxZoom: false                                      // Shift is reserved for Shift+click "build & keep placing"
-  });
+  }, UI.MAP_OPTS || {}));                                // phone build overrides (pwa.js): lighter rendering
   map.on('error', function (e) { if (window.console) console.warn('map:', e && e.error && e.error.message); });
   map.on('load', function () {
     map.addSource('districts', { type: 'geojson', data: UI.districtGeo() });
@@ -97,11 +97,11 @@ UI.initMap = function () {
       paint: { 'circle-color': ['get', 'col'], 'circle-radius': 5, 'circle-stroke-color': '#000', 'circle-stroke-width': 1.5 } });
     // land plots under every building + the buildings themselves
     map.addSource('lots', { type: 'geojson', data: empty() });
-    map.addLayer({ id: 'lots-fill', type: 'fill', source: 'lots', paint: { 'fill-color': ['get', 'col'], 'fill-opacity': 0.18 } });
-    map.addLayer({ id: 'lots-line', type: 'line', source: 'lots', paint: { 'line-color': ['get', 'col'], 'line-width': 1.2, 'line-opacity': 0.8 } });
+    map.addLayer({ id: 'lots-fill', type: 'fill', source: 'lots', minzoom: UI.LOT_MINZOOM || 0, paint: { 'fill-color': ['get', 'col'], 'fill-opacity': 0.18 } });
+    map.addLayer({ id: 'lots-line', type: 'line', source: 'lots', minzoom: UI.LOT_MINZOOM || 0, paint: { 'line-color': ['get', 'col'], 'line-width': 1.2, 'line-opacity': 0.8 } });
     map.addSource('foot', { type: 'geojson', data: empty() });
-    map.addLayer({ id: 'foot-line', type: 'line', source: 'foot', paint: { 'line-color': ['get', 'col'], 'line-width': 2, 'line-blur': 1.2 } });
-    map.addLayer({ id: 'foot-3d', type: 'fill-extrusion', source: 'foot',
+    map.addLayer({ id: 'foot-line', type: 'line', source: 'foot', minzoom: UI.LOT_MINZOOM || 0, paint: { 'line-color': ['get', 'col'], 'line-width': 2, 'line-blur': 1.2 } });
+    map.addLayer({ id: 'foot-3d', type: 'fill-extrusion', source: 'foot', minzoom: UI.LOT_MINZOOM || 0,   // phone: from street zoom only (pwa.js)
       paint: { 'fill-extrusion-color': ['get', 'col'], 'fill-extrusion-height': ['get', 'h'], 'fill-extrusion-base': ['coalesce', ['get', 'b'], 0], 'fill-extrusion-opacity': 0.82 } });
     // build mode: plot grid, blocked plots, footprint ghost
     map.addSource('grid', { type: 'geojson', data: empty() });
