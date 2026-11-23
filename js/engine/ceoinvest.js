@@ -57,17 +57,30 @@ UAE.ceoInvestMonth = function (co) {
     if (need > 0 && UAE.hasIns(co)) { var wi = Math.min(need, UAE.insMaxWithdraw(co)); if (wi > 1e6 && UAE.insCapital(co, -wi, 'ceo').ok) log.push('took ' + A(wi) + ' back from the insurer'); }
   }
   var excess = UAE.groupFreeCash(co) - cushion;
-  co.ceoInvest = { day: UAE.S.day, cushion: cushion, excess: Math.max(0, excess), bank: 0, ins: 0, stocks: 0, sold: 0, picks: [] };
-  // 1 stock market (analysis below) - a share of the excess, and sells overvalued holdings every month
+  co.ceoInvest = { day: UAE.S.day, cushion: cushion, excess: Math.max(0, excess), bank: 0, ins: 0, stocks: 0, bonds: 0, bondsSold: 0, sold: 0, picks: [] };
+  UAE.investMix(pol);
+  // still short after the bank / insurer: sell bonds (they are the most liquid)
+  if (UAE.groupFreeCash(co) < cushion * 0.5) {
+    var gotB = UAE.ceoSellBonds(co, cushion - UAE.groupFreeCash(co)); if (gotB > 0) { log.push('sold ' + A(gotB) + ' of bonds to rebuild the cash cushion'); excess = UAE.groupFreeCash(co) - cushion; }
+  }
+  // 1 bond market - pol.bondPct of the excess (default 10%); whatever finds no bond goes to stocks
+  var bondBudget = 0, bondLeft = 0;
+  if (pol.investBonds !== false && excess > 0) {
+    bondBudget = excess * pol.bondPct / 100;
+    var bspent = UAE.ceoBuyBonds(co, bondBudget); co.ceoInvest.bonds = bspent; excess -= bspent;
+    bondLeft = Math.max(0, bondBudget - bspent);
+    if (bspent > 0) log.push('bought ' + A(bspent) + ' of bonds');
+  }
+  // 2 stock market (analysis below) - pol.stockPct of the excess (default 40%) + any unspent bond money, and sells overvalued holdings every month
   if (pol.investStocks) {
     var sold = UAE.ceoSellStocks(co); co.ceoInvest.sold = sold; if (sold > 0) log.push('sold ' + A(sold) + ' of overvalued shares');
     if (excess > 0) {
-      var spent = UAE.ceoBuyStocks(co, excess * (pol.stockPct == null ? 30 : pol.stockPct) / 100);
+      var spent = UAE.ceoBuyStocks(co, Math.min(excess, (excess + (bondBudget - bondLeft)) * pol.stockPct / 100 + bondLeft));
       co.ceoInvest.stocks = spent; excess -= spent;
-      if (spent > 0) log.push('invested ' + A(spent) + ' in ' + co.ceoInvest.picks.length + ' stocks');
+      if (spent > 0) log.push('invested ' + A(spent) + ' in ' + co.ceoInvest.picks.filter(function (p) { return !p.bond && p.action === 'buy'; }).length + ' stocks');
     }
   }
-  // 2 the rest: 50% bank, 50% insurer (all to one if the other does not exist)
+  // 3 the rest: 50% bank, 50% insurer (all to one if the other does not exist)
   if (pol.investExcess && excess > 1e6) {
     var hb = UAE.hasBank(co), hi = UAE.hasIns(co);
     var toBank = hb ? (hi ? excess / 2 : excess) : 0, toIns = hi ? excess - toBank : 0;
@@ -78,6 +91,55 @@ UAE.ceoInvestMonth = function (co) {
     else if (!hb) log.push('no Bank HQ, so the bank\'s half went to the insurer');
   }
   if (log.length && UAE.isHuman(co)) UAE.news(ceo.name + ' (CEO, ' + co.name + ') ' + log.join(', ') + '.', 'finance');
+};
+
+/* ------------------------------------------------------------ bond market */
+/** Investment mix: 40% stocks, 10% bonds (rest to bank / insurer). Old saves move to the new mix once. */
+UAE.investMix = function (pol) {
+  if (pol.bondPct == null) { pol.bondPct = 10; pol.stockPct = 40; }
+  if (pol.stockPct == null) pol.stockPct = 40;
+  return pol;
+};
+/** Face value of bond b still held by the market (not by companies). */
+UAE.bondFloat = function (b) {
+  var held = 0; UAE.allCos().forEach(function (c) { var p = c.bondPositions && c.bondPositions[b.id]; if (p) held += p.face; });
+  return Math.max(0, b.face - held);
+};
+/** Bonds the CEO may buy: not matured, more than 6 months left, not our own issue; best yield first. */
+UAE.bondPicks = function (co) {
+  var S = UAE.S;
+  return Object.keys(S.bonds).map(function (id) { return S.bonds[id]; }).filter(function (b) {
+    if (b.matured || b.maturity - S.day < 180) return false;
+    if (b.issuer === 'CO:' + co.id) return false;
+    if (b.issuer.indexOf('CO:') === 0) { var ic = UAE.co(b.issuer.slice(3)); if (!ic || ic.status === 'BANKRUPT' || (co.controller && ic.controller === co.controller)) return false; }
+    return UAE.bondFloat(b) > 1e5;
+  }).sort(function (a, b) { return (b.ytm || b.coupon) - (a.ytm || a.coupon); });
+};
+/** Spend up to budget on bonds (max 5 issues, at most 50% of any issue's float). Returns AED spent. */
+UAE.ceoBuyBonds = function (co, budget) {
+  if (budget < 1e6) return 0;
+  var picks = UAE.bondPicks(co).slice(0, 5), spent = 0;
+  picks.forEach(function (b, i) {
+    var left = budget - spent; if (left < 1e5) return;
+    var amt = Math.min(left / (picks.length - i), UAE.bondFloat(b) * 0.5 * b.price / 100, UAE.groupFreeCash(co));
+    var face = Math.floor(amt / (b.price / 100)); if (face < 1e5) return;
+    var r = UAE.tradeBond(co, b.id, face);
+    if (r.ok) { spent += r.cost; co.ceoInvest.picks.push({ id: b.id, name: b.name, ticker: 'BOND', amount: r.cost, action: 'buy', why: 'bond yield ' + ((b.ytm || b.coupon) * 100).toFixed(2) + '%, matures ' + UAE.cal.label(b.maturity), bond: true }); }
+  });
+  return spent;
+};
+/** Sell bonds (lowest yield first) to raise about need. Returns AED raised. */
+UAE.ceoSellBonds = function (co, need) {
+  var got = 0, S = UAE.S;
+  Object.keys(co.bondPositions || {}).map(function (id) { return S.bonds[id]; }).filter(function (b) { return b && !b.matured && co.bondPositions[b.id].face > 0; })
+    .sort(function (a, b) { return (a.ytm || a.coupon) - (b.ytm || b.coupon); }).forEach(function (b) {
+      if (got >= need) return;
+      var pos = co.bondPositions[b.id], face = Math.min(pos.face, Math.ceil((need - got) / (b.price / 100)));
+      var r = UAE.tradeBond(co, b.id, -face);
+      if (r.ok) { got += r.proceeds; co.ceoInvest.picks.push({ id: b.id, name: b.name, ticker: 'BOND', amount: r.proceeds, action: 'sell', why: 'cash cushion', bond: true }); }
+    });
+  co.ceoInvest.bondsSold = got;
+  return got;
 };
 
 /* ---------------------------------------------------------- stock analysis */

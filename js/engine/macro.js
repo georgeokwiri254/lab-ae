@@ -87,6 +87,8 @@ UAE.monthEnd = function () {
   if (UAE.govDevMonth) UAE.govDevMonth();     // government reinvests revenue: housing, offices, civic, roads, new zones (engine/govdev.js)      // national & world macroeconomy, central banks (engine/macro2.js)
   UAE.microMonth();          // product market history (engine/micro.js)
   if (UAE.worldMonth) UAE.worldMonth();
+  if (UAE.talentMonth) UAE.talentMonth();
+  if (UAE.ipoMonth) UAE.ipoMonth();           // about 5 private computer companies list on DFM / ADX each year (engine/market.js)     // 3 elite CEO candidates join the talent market each month (engine/ceo.js)
   if (UAE.nameSyncAll) UAE.nameSyncAll();    // names follow the product / title / research target     // global reach, world rankings (engine/worldmkt.js)
   UAE.expertiseMonth();      // managers and CEOs gain expertise (engine/ceo.js)
   UAE.checkGoals();

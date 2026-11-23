@@ -13,6 +13,9 @@ window.addEventListener('DOMContentLoaded', function () {
   UI.orbit();
   var sel = UI.$('ngCity');
   Object.keys(UAE.CITIES).forEach(function (k) { var o = document.createElement('option'); o.value = k; o.textContent = UAE.CITIES[k].name + ' (' + UAE.EMIRATES[UAE.CITIES[k].emirate].name + ')'; sel.appendChild(o); });
+  UI.$('ngCoRand').onclick = function () {   // random company name + matching ticker
+    var n = UAE.randomCompanyName(null, Math.random); UI.$('ngCo').value = n; UI.$('ngTick').value = UAE.tickerFor(n).slice(0, 8);
+  };
   UI.$('ngGo').onclick = function () {
     UAE.newGame({
       playerName: UI.$('ngName').value, companyName: UI.$('ngCo').value, ticker: UI.$('ngTick').value, hq: UI.$('ngCity').value,

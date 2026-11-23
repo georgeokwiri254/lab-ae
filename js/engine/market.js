@@ -269,6 +269,47 @@ UAE.ipo = function (co, exch, pctFloat, ticker) {
   UAE.news(co.name + ' IPO on ' + exch + ' at AED ' + px.toFixed(2) + ' raises ' + UAE.fmt.aed(proceeds) + '.', 'finance');
   return { ok: true, px: px, proceeds: proceeds };
 };
+/** IPO wave: computer-run private companies go public on their own, about UAE.IPO_PER_YEAR a year
+ *  (spread over the year). Best candidates first: fictional companies, then highest value. State-owned,
+ *  foreign and your own companies are never listed for you. */
+UAE.IPO_PER_YEAR = 5;
+UAE.ipoCandidates = function () {
+  var S = UAE.S;
+  return UAE.allCos().filter(function (co) {
+    return co.status === 'PRIVATE' && !co.foreign && !co.soe && !UAE.isHuman(co) && co.shares > 0 &&
+      UAE.bookValue(co) >= 50e6 && S.day - (co.founded || 0) >= 180;
+  }).map(function (co) { return { co: co, v: UAE.privateValue(co) }; })
+    .sort(function (a, b) { return (b.co.fictional ? 1 : 0) - (a.co.fictional ? 1 : 0) || b.v - a.v; });
+};
+UAE.STARTUPS_PER_MONTH = 1;   // new private computer start-ups founded each month (the IPO pipeline)
+UAE.startupMonth = function () {
+  var S = UAE.S, pipe = UAE.allCos().filter(function (co) { return co.status === 'PRIVATE' && !co.foreign && !co.soe && !UAE.isHuman(co); }).length;
+  if (pipe >= UAE.IPO_PER_YEAR * 3) return 0;
+  var sectors = UAE.FICTIONAL_COMPANIES.map(function (x) { return x[1]; }), n = 0;
+  for (var i = 0; i < UAE.STARTUPS_PER_MONTH; i++) {
+    var sec = UAE.rng.pick(sectors), co = UAE.makeStartup(UAE.randomCompanyName(sec), sec, true);
+    co.ticker = UAE.tickerFor(co.name); n++;
+    UAE.news('🚀 New start-up: ' + co.name + ' (' + sec + ', ' + UAE.CITIES[co.hq].name + ') - privately funded, may IPO later.', 'finance');
+  }
+  return n;
+};
+UAE.ipoMonth = function () {
+  if (UAE.startupMonth) UAE.startupMonth();
+  var S = UAE.S, y = UAE.cal.year(), m = UAE.cal.date(S.day).getUTCMonth() + 1;
+  S.ipoYear = S.ipoYear || {}; var done = S.ipoYear[y] || 0;
+  var due = Math.round(UAE.IPO_PER_YEAR * m / 12) - done; if (due <= 0) return 0;
+  var used = {}; UAE.allCos().forEach(function (c) { if (c.ticker) used[c.ticker.toUpperCase()] = true; });
+  var n = 0;
+  UAE.ipoCandidates().slice(0, due).forEach(function (x) {
+    var co = x.co, base = (co.ticker || co.name.replace(/[^A-Za-z]/g, '').slice(0, 4) || 'IPO').toUpperCase(), t = base, k = 2;
+    if (co.status !== 'PRIVATE' || !co.ticker) { while (used[t]) t = base + (k++); }
+    var exch = (co.hq === 'AUH' || co.hq === 'AAN') ? 'ADX' : 'DFM';
+    var r = UAE.ipo(co, exch, UAE.rng.range(0.2, 0.3), t);
+    if (r.ok) { used[co.ticker] = true; co.ipoDay = S.day; n++; }
+  });
+  S.ipoYear[y] = done + n;
+  return n;
+};
 /** FA10 Privatise: buy out the whole public float at a 25% premium. */
 UAE.privatize = function (co) {
   if (!UAE.isTradable(co)) return { ok: false, why: 'Not listed.' };

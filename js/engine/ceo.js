@@ -532,3 +532,20 @@ UAE.eliteCandidate = function (role) {
   var S = UAE.S; S.candidates = S.candidates || []; S.candidates.unshift(p.id);
   return p;
 };
+/** Talent market: every month UAE.TALENT_PER_MONTH elite CEOs join the candidate list on their own.
+ *  Unhired elite CEOs beyond UAE.TALENT_MAX_WAITING leave (oldest first) so the list does not grow forever. */
+UAE.TALENT_PER_MONTH = 3;
+UAE.TALENT_MAX_WAITING = 12;
+UAE.talentMonth = function () {
+  var S = UAE.S, made = [];
+  for (var i = 0; i < UAE.TALENT_PER_MONTH; i++) {
+    var p = UAE.eliteCandidate('ceo'); p.age = UAE.rng.int(38, 58); p.talentDay = S.day; made.push(p);
+  }
+  var waiting = S.candidates.filter(function (id) { var q = UAE.person(id); return q && q.elite === 'ceo' && q.title === 'Candidate'; });
+  waiting.slice(UAE.TALENT_MAX_WAITING).forEach(function (id) {   // list is newest first
+    var q = UAE.person(id); q.title = 'Executive (elsewhere)';
+    S.candidates.splice(S.candidates.indexOf(id), 1);
+  });
+  if (UAE.news) UAE.news('👔 New talent: ' + made.map(function (p) { return p.name; }).join(', ') + ' (elite CEOs) are on the market - Persons → Candidates.', 'good');
+  return made;
+};

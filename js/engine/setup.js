@@ -313,14 +313,35 @@ UAE.seedCompany = function (s) {
   });
 };
 
+/** Random fictional company name that no company in the game uses yet. sector (optional) biases the core word; rnd (optional) = random source (UI passes Math.random, engine uses the seeded UAE.rng). */
+UAE.randomCompanyName = function (sector, rnd) {
+  var N = UAE.CO_NAME_PARTS, R = { next: rnd || UAE.rng.next }, used = {}, pick = function (a) { return a[Math.floor(R.next() * a.length)]; };
+  if (UAE.S && UAE.S.companies) Object.keys(UAE.S.companies).forEach(function (k) { used[UAE.S.companies[k].name] = true; });
+  var bySector = { retail: 'Retail', trading: 'Trading', industrial: 'Industries', property: 'Properties', hospitality: 'Hospitality', logistics: 'Logistics',
+    media: 'Media', internet: 'Digital', tech: 'Tech', holding: 'Capital' };
+  for (var i = 0; i < 40; i++) {
+    var core = sector && bySector[sector] && R.next() < 0.6 ? bySector[sector] : (R.next() < 0.75 ? pick(N.core) : '');
+    var name = [pick(N.prefix), core, pick(N.suffix)].filter(Boolean).join(' ');
+    if (!used[name]) return name;
+  }
+  return pick(N.prefix) + ' ' + pick(N.core) + ' ' + (100 + Math.floor(R.next() * 900));
+};
+/** Ticker from a name (up to 6 letters), unique among listed / named companies. */
+UAE.tickerFor = function (name) {
+  var used = {}; if (UAE.S && UAE.S.companies) Object.keys(UAE.S.companies).forEach(function (k) { var t = UAE.S.companies[k].ticker; if (t) used[t.toUpperCase()] = true; });
+  var w = String(name).toUpperCase().replace(/[^A-Z ]/g, '').split(/ +/).filter(Boolean);
+  var base = (w.length > 1 ? (w[0].slice(0, 4) + w[1].slice(0, 2)) : (w[0] || 'CO').slice(0, 6)) || 'CO', t = base, k = 2;
+  while (used[t]) t = base.slice(0, 5) + (k++);
+  return t;
+};
 /** A fictional AI-run start-up with a founder, HQ and 1-3 first firms. */
-UAE.makeStartup = function (name, sector) {
+UAE.makeStartup = function (name, sector, forcePrivate) {
   var S = UAE.S, R = UAE.rng;
   var cityW = [['DXB',5],['AUH',3],['SHJ',1.4],['AAN',0.8],['AJM',0.6],['RAK',0.6],['FUJ',0.4]];
   var tot = cityW.reduce(function (s, x) { return s + x[1]; }, 0), r = R.next() * tot, city = 'DXB';
   for (var i = 0; i < cityW.length; i++) { r -= cityW[i][1]; if (r <= 0) { city = cityW[i][0]; break; } }
   var cap = Math.round(R.range(60e6, 350e6) / 1e6) * 1e6;
-  var listed = R.chance(0.6), exch = UAE.CITIES[city].emirate === 'AD' ? 'ADX' : 'DFM';
+  var listed = !forcePrivate && R.chance(0.6), exch = UAE.CITIES[city].emirate === 'AD' ? 'ADX' : 'DFM';
   var tick = name.replace(/[^A-Z]/g, '').slice(0, 4) + 'X';
   var price = Math.round(R.range(1.5, 8) * 100) / 100;
   var co = UAE.makeCompany({ id: UAE.uid('C'), name: name, ticker: listed ? tick : '', exch: listed ? exch : '',

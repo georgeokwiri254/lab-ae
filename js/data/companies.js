@@ -197,6 +197,16 @@ UAE.FICTIONAL_COMPANIES = [
   ['Wadi Farms','industrial'], ['Gulf Horizon Holdings','holding'], ['Al Noor Perfumes','retail'],
   ['Zayed Road Ventures','holding'], ['Creekside Apparel','retail'], ['Hatta Springs Water','industrial']
 ];
+/** Random company name parts (SYN): prefix + optional core + suffix, e.g. "Sahara Quantum Holdings". */
+UAE.CO_NAME_PARTS = {
+  prefix: ['Falcon','Oasis','Dune','Sahara','Pearl','Dhow','Saffron','Mirage','Najm','Sidra','Wadi','Khaleej','Hatta','Creek','Marina','Jumeirah','Liwa',
+    'Corniche','Qasr','Noor','Zahra','Sarab','Bayan','Rimal','Majlis','Souq','Ghaf','Barakah','Tamr','Areej','Yas','Saadiyat','Hajar','Murjan','Lulu',
+    'Emerald','Sapphire','Crescent','Horizon','Summit','Apex','Vertex','Aurora','Nova','Zenith','Atlas','Orion','Titan','Vega','Neon','Helix','Nexus',
+    'Silverline','Goldcrest','Bluewave','Redsand','Skyline','Sunrise','Starlight','Desert Wind','Seven Seas','Gulfstream','Palmgrove','Sandstone','Lighthouse'],
+  core: ['Quantum','Digital','Dynamics','Energy','Logistics','Foods','Retail','Tech','Labs','Robotics','Capital','Industries','Systems','Networks','Media',
+    'Pharma','Motors','Materials','Trading','Properties','Hospitality','Electronics','Aerospace','Biotech','Analytics','Mobility','Solar','Water','Textiles'],
+  suffix: ['Holdings','Group','Co.','Corporation','LLC','PJSC','Enterprises','International','Ventures','Partners','& Sons','Global','Investments','Company']
+};
 UAE.FIRST_NAMES = ['Omar','Layla','Hamdan','Mariam','Khalid','Fatima','Yousef','Noura','Saeed','Aisha','Rashid',
   'Hessa','Faisal','Reem','Tariq','Sara','Arjun','Priya','James','Elena','Chen','Sofia','Karim','Nadia','Ivan','Leila'];
 UAE.LAST_NAMES = ['Al Fardan','Al Kaabi','Al Mazrouei','Al Shamsi','Al Nuaimi','Bin Saeed','Al Hashimi','Al Qasimi',
