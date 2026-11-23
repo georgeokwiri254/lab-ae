@@ -239,7 +239,7 @@ UAE.newGame = function (opt) {
   pco.color = '#b8ff2c';
   S.companies.PLAYER = pco;
   UAE.L.issueEquity(pco, cap);
-  var me = UAE.makePerson({ name: opt.playerName || 'Sanchez', title: 'Chairman & CEO', co: 'PLAYER', isPlayer: true,
+  var me = UAE.makePerson({ name: opt.playerName || 'Sanchez', title: 'Founder & CEO', co: 'PLAYER', isPlayer: true,
     cash: cap * 0.1, age: 38, skill: { mgmt: 70, tech: 60, marketing: 65, finance: 70 } });
   pco.ceo = me.id; S.playerPerson = me.id; S.playerCo = 'PLAYER'; S.activeCo = 'PLAYER';
   if (listing === 'private') pco.holders['P:' + me.id] = pco.shares;

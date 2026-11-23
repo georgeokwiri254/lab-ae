@@ -667,13 +667,19 @@ UI.act.bondTrade = function (arg) {
 
 /* ============================================================ Rankings & CEOs */
 UI.act.rank = function () { UI.open('Rankings & CEOs', UI.R.rank); };
+/** Who leads a company: on your parent company "You · Founder" (+ the hired CEO), elsewhere the CEO. */
+UI.leaderCell = function (c) {
+  var me = UAE.playerPerson(), ceo = c.ceo && UAE.person(c.ceo);
+  if (c.id === UAE.S.playerCo && me) return '<b>' + UI.esc(me.name) + '</b> <span class="pill real">' + UI.esc(me.title || 'Founder') + '</span>' + (ceo && ceo !== me ? '<br><span class="muted">CEO ' + UI.esc(ceo.name) + '</span>' : '');
+  return ceo ? UI.esc(ceo.name) + (ceo.isPlayer ? ' <span class="t-a">YOU</span>' : '') : '<span class="muted">—</span>';
+};
 UI.rankTable = function (by, highlight) {
   var rows = UAE.allCos().filter(function (c) { return c.status !== 'BANKRUPT' && !c.foreign; }).map(function (c) {
     var t = UAE.ttm(c); return { c: c, rev: UAE.totalRevenue(t), ni: UAE.netIncome(t), value: UAE.companyValue(c), assets: UAE.totals(c).assets };
   }).sort(function (a, b) { return b[by] - a[by]; });
-  var h = '<table class="t"><tr><th>#</th><th>Company</th><th class="n">Revenue TTM</th><th class="n">Net profit TTM</th><th class="n">Value</th><th class="n">Assets</th></tr>';
+  var h = '<table class="t"><tr><th>#</th><th>Company</th><th>Founder / CEO</th><th class="n">Revenue TTM</th><th class="n">Net profit TTM</th><th class="n">Value</th><th class="n">Assets</th></tr>';
   rows.forEach(function (r, i) {
-    h += '<tr class="click' + (r.c.id === highlight || r.c.controller === 'PLAYER' ? ' me' : '') + '" data-act="corp" data-arg="' + r.c.id + '"><td>' + (i + 1) + '</td><td>' + UI.coLink(r.c) + '</td><td class="n">' + F().aed(r.rev) + '</td><td class="n">' + UI.money(r.ni) + '</td><td class="n">' + F().aed(r.value) + '</td><td class="n">' + F().aed(r.assets) + '</td></tr>';
+    h += '<tr class="click' + (r.c.id === highlight || r.c.controller === 'PLAYER' ? ' me' : '') + '" data-act="corp" data-arg="' + r.c.id + '"><td>' + (i + 1) + '</td><td>' + UI.coLink(r.c) + '</td><td>' + UI.leaderCell(r.c) + '</td><td class="n">' + F().aed(r.rev) + '</td><td class="n">' + UI.money(r.ni) + '</td><td class="n">' + F().aed(r.value) + '</td><td class="n">' + F().aed(r.assets) + '</td></tr>';
   });
   return h + '</table>';
 };
@@ -729,7 +735,7 @@ UI.R.rank = function () {
     h += '<div class="note">Net worth = personal cash + shares held at market price (private companies at estimated value) + mansion. CEO score = 50 + ROE×120 + revenue growth×40 + 1-year share return×30, capped 0-100. All CEO personas are fictional.</div>' +
       '<table class="t"><tr><th>#</th><th>CEO</th><th>Company</th><th class="n">Net worth</th><th>Share of all CEO wealth</th><th class="n">Stake</th><th class="n">Score</th><th class="n">ROE</th><th class="n">Rev growth</th><th class="n">TSR 1y</th></tr>';
     rows.forEach(function (r, i) {
-      h += '<tr class="click ' + (r.p.isPlayer || (me && r.p.id === me.id) ? 'me' : '') + '"' + UI.spotAttr({ name: r.p.name, rank: i + 1, nw: r.nw, p: r.p, wiki: r.p.wiki, what: r.c.name, sub: r.p.title, tag: '<span class="pill syn">GAME</span> score ' + r.s.score }) + '><td>' + (i + 1) + '</td><td><span style="display:inline-flex;align-items:center;gap:8px">' + UI.portrait(r.p, 34) + UI.esc(r.p.name) + '</span>' + (r.owner ? ' <span class="muted">(owner)</span>' : '') + '</td><td>' + UI.coLink(r.c) + '</td>' +
+      h += '<tr class="click ' + (r.p.isPlayer || (me && r.p.id === me.id) ? 'me' : '') + '"' + UI.spotAttr({ name: r.p.name, rank: i + 1, nw: r.nw, p: r.p, wiki: r.p.wiki, what: r.c.name, sub: r.p.title, tag: '<span class="pill syn">GAME</span> score ' + r.s.score }) + '><td>' + (i + 1) + '</td><td><span style="display:inline-flex;align-items:center;gap:8px">' + UI.portrait(r.p, 34) + UI.esc(r.p.name) + '</span>' + (r.p.isPlayer ? ' <span class="pill real">' + UI.esc(r.p.title || 'Founder') + '</span>' : '') + '</td><td>' + UI.coLink(r.c) + '</td>' +
         '<td class="n t-a">' + F().aed(r.nw) + '</td><td>' + UI.bar(total ? r.nw / total * 100 * 4 : 0, '#b8ff2c', F().pct(total ? r.nw / total : 0, 1)) + '</td>' +
         '<td class="n">' + F().pct(r.stake, 1) + '</td><td class="n">' + r.s.score + '</td><td class="n">' + F().pct(r.s.roe) + '</td><td class="n">' + F().pct(r.s.growth) + '</td><td class="n">' + F().pct(r.s.tsr) + '</td></tr>';
     });

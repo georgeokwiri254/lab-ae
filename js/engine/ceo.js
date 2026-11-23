@@ -164,17 +164,17 @@ UAE.appointCeo = function (co, personId) {
   UAE.ensurePerson(p);
   var old = UAE.person(co.ceo);
   if (old && !old.isPlayer) { old.title = 'Former CEO'; old.co = null; old.career.push({ day: UAE.S.day, text: 'Left ' + co.name }); }
-  if (old && old.isPlayer) old.title = 'Chairman';
   p.title = 'CEO'; p.co = co.id; p.salary = p.salary || 120000;
   p.career.push({ day: UAE.S.day, text: 'Appointed CEO of ' + co.name });
   co.ceo = p.id; co.chair = co.chair || (old && old.isPlayer ? old.id : null);
+  if (UAE.syncFounderTitle) UAE.syncFounderTitle();   // you stay Founder (above the CEO) of your parent company
   UAE.news(p.name + ' appointed CEO of ' + co.name + '.', 'firm');
   return { ok: true };
 };
 UAE.resumeAsCeo = function (co) {
   var me = UAE.playerPerson(), old = UAE.person(co.ceo);
   if (old && !old.isPlayer) { old.title = 'Candidate'; old.co = null; }
-  co.ceo = me.id; me.title = 'Chairman & CEO'; co.ceoAuto = false;
+  co.ceo = me.id; co.ceoAuto = false; if (UAE.syncFounderTitle) UAE.syncFounderTitle(); else me.title = 'Founder & CEO';
   return { ok: true };
 };
 UAE.appointCmo = function (co, personId) {

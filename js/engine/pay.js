@@ -167,3 +167,15 @@ UAE.hqDeptMonth = function (co) {
     UAE.HQ_DEPTS.forEach(function (k) { if (co.hqPct[k] != null) co.hqBudget[k] = Math.round(rev * co.hqPct[k] / 100 / 1000) * 1000; });
   }
 };
+
+/* ---- You are the Founder of your parent company: above its CEO. Title "Founder & CEO" while you run it yourself,
+ *      "Founder" once a CEO is hired. Shown everywhere a title is shown (rich lists, CEO rankings, persons). */
+UAE.founderTitle = function () {
+  var S = UAE.S, me = UAE.playerPerson && UAE.playerPerson(), pc = S && S.companies[S.playerCo];
+  return me && pc && pc.ceo === me.id ? 'Founder & CEO' : 'Founder';
+};
+UAE.syncFounderTitle = function () { var me = UAE.playerPerson && UAE.playerPerson(); if (me) { me.title = UAE.founderTitle(); me.founder = true; } };
+(function () {
+  var ds = UAE.deserialize;
+  if (ds) UAE.deserialize = function () { var r = ds.apply(this, arguments); try { UAE.syncFounderTitle(); } catch (e) { } return r; };
+})();
