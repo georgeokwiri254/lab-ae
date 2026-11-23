@@ -232,7 +232,10 @@ UAE.govDevMonth = function () {
     if (tot > 0) Object.keys(need).forEach(function (x) { spend[x] = Math.min(need[x], budget * need[x] / tot); left -= spend[x]; });
     // the rest attracts residents: extra homes (60%) and civic facilities (40%) above target
     if (left > 0) { spend.homes += left * 0.6; spend.civic += left * 0.4; left = 0; }
-    spend.homes += ppp.housing || 0;
+    // 'Housing for newcomers' money (development bonds + savings) builds homes AND offices for the people moving in,
+    // split by which shortage is bigger this month (homes 30-80%, the rest office space)
+    var H = ppp.housing || 0;
+    if (H > 0) { var nh = need.homes + need.office, sh = nh > 0 ? Math.max(0.3, Math.min(0.8, need.homes / nh)) : 0.6; spend.homes += H * sh; spend.office += H * (1 - sh); d.housingSplit = sh; }
     var add = { homes: spend.homes / cost.home, office: spend.office / cost.office, civic: spend.civic / G.cost.civic, roads: spend.roads / G.cost.road };
     d.homes += add.homes; d.govHomes += add.homes; d.office += add.office; d.civic += add.civic; d.roadCap += add.roads;
     Object.keys(add).forEach(function (x) { d.built[x] += add[x]; });
@@ -374,7 +377,7 @@ UAE.govDividend = function (holderKey, amt) {
  * housing). The bond pays the CBUAE base rate + 1.5% a year (monthly coupons, rate fixed at purchase) and
  * the face value back after 10 years; it can be redeemed early at 98%. Booked as an investment (asset),
  * coupons as interest income - the government pays them from its budget. */
-UAE.GOV_PROGRAMMES = { growth: '🚇 Economic projects (metro, ports, airports, power, digital)', zone: '🏗 New zones (opens planned districts sooner)', housing: '🏠 Housing for newcomers' };
+UAE.GOV_PROGRAMMES = { growth: '🚇 Economic projects (metro, ports, airports, power, digital)', zone: '🏗 New zones (opens planned districts sooner)', housing: '🏠 Housing & offices for newcomers' };
 UAE.govInvest = function (co, city, amt, prog) {
   var S = UAE.S, c = S.cities[city];
   if (!co || co.foreign) return { ok: false, why: 'No company selected.' };
