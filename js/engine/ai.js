@@ -93,7 +93,7 @@ UAE.AI.strategy = function (co) {
     }
   }
   // 6 listed AI companies issue shares when cash-starved and the price is healthy
-  if (UAE.isTradable(co) && !co.seed && co.bs.cash < monthlyCost && co.price > UAE.bookValue(co) / co.shares)
+  if (!UAE.isHuman(co) && UAE.isTradable(co) && !co.seed && co.bs.cash < monthlyCost && co.price > UAE.bookValue(co) / co.shares)   // never for your companies
     UAE.issueShares(co, Math.round(co.shares * 0.05));
 };
 

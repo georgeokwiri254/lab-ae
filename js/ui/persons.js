@@ -123,7 +123,7 @@ UI.ceoTab = function (co, tab) {
       '<div class="row"><label>Advertising budget</label><input class="in num" id="mpAd" value="' + m.adPct + '"' + dis + '> % of firm revenue<label style="min-width:0">Training</label><input class="in num" id="mpTr" value="' + m.trainPct + '"' + dis + '> %</div>' +
       '<div class="row"><label>Spend on one expansion</label><input class="in num" id="mpCash" value="' + m.expandCashPct + '"' + dis + '> % of cash at most</div>' +
       '<div class="row"><label>Adequate cash for expansion</label><input class="in num" id="mpMinCash" value="' + (m.minCash || 0) + '"' + dis + '><label style="min-width:0">annual profit</label><input class="in num" id="mpMinProfit" value="' + (m.minProfit == null ? '' : m.minProfit) + '" placeholder="none"' + dis + '></div>' +
-      '<div class="grid2">' + chk('takeLoans', 'CEO may take bank loans') + chk('issueShares', 'CEO may issue new shares') + chk('issueBonds', 'CEO may issue bonds') +
+      '<div class="grid2">' + chk('takeLoans', 'CEO may take bank loans') + '<label class="muted"><input type="checkbox" disabled> CEO may issue new shares – <b>never</b> in your companies (only you can, in Financial Actions)</label>' + chk('issueBonds', 'CEO may issue bonds') +
       chk('closeLosers', 'Close firms losing money for') + chk('farmForRetail', 'Set up farms for retail (not only as inputs)') + '</div>' +
       '<div class="row"><label>Loss months before closing</label><input class="in num" id="mpLoser" value="' + m.loserMonths + '"' + dis + '></div>' +
       (ed ? '<div class="row"><button class="btn a" data-act="polMgmt" data-arg="' + co.id + '">Apply policies</button></div>' : '') +
@@ -161,7 +161,7 @@ UI.act.polMgmt = function (id) {
   m.minCash = n('mpMinCash') >= 0 ? n('mpMinCash') : 0;
   m.minProfit = UI.$('mpMinProfit').value.trim() === '' ? null : n('mpMinProfit');
   if (n('mpLoser') >= 2) m.loserMonths = Math.round(n('mpLoser'));
-  ['takeLoans', 'issueShares', 'issueBonds', 'closeLosers', 'farmForRetail'].forEach(function (k) { m[k] = UI.$('mp_' + k).checked; });
+  ['takeLoans', 'issueBonds', 'closeLosers', 'farmForRetail'].forEach(function (k) { m[k] = UI.$('mp_' + k).checked; }); m.issueShares = false;
   UI.toast('Management policies applied.', 'good'); UI.render();
 };
 UI.act.polOverride = function (id) { var m = UAE.policy(UAE.co(id)).mgmt; m.priceOverride = m.priceOverride || {}; m.priceOverride[UI.$('poPid').value] = UI.$('poLvl').value; UI.render(); };

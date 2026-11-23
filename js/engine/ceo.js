@@ -334,7 +334,8 @@ UAE.AI.strategy = function (co) {
   }
   // 7 equity: issue shares only when allowed (or when the company is about to run dry)
   var dry = co.bs.cash < monthlyCost * 0.3;
-  if (UAE.isTradable(co) && !co.seed && (m.issueShares || dry) && co.bs.cash < monthlyCost && co.price > UAE.bookValue(co) / co.shares)
+  // YOUR companies: the CEO never issues new shares (user rule - no dilution); short of cash it borrows instead (takeLoans / emergency loans)
+  if (!UAE.isHuman(co) && UAE.isTradable(co) && !co.seed && (m.issueShares || dry) && co.bs.cash < monthlyCost && co.price > UAE.bookValue(co) / co.shares)
     UAE.issueShares(co, Math.round(co.shares * 0.05));
 };
 
