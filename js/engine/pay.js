@@ -128,3 +128,42 @@ UAE.dropCoo = function (co) {
   var mk = UAE.mktExpMult;
   if (mk) UAE.mktExpMult = function (co, f) { var v = mk.apply(this, arguments), c = co.cmo && UAE.person(co.cmo); return c ? 1 + (v - 1) * UAE.motMult(c) : v; };
 })();
+
+/* ---- HQ departments (CMO / PR / HR / CTO / IR / Community budgets) --------------------------------------
+ * Budgets are sliders in % of monthly revenue (co.hqPct). With "CEO manages the departments" on (default when a
+ * CEO is hired) the CEO works out each month what every department needs (UAE.hqDeptPlan) and sets the AED
+ * budgets itself; the reasons are kept in co.hqPlan for the HQ screen. */
+UAE.HQ_DEPTS = ['cmo', 'pr', 'hr', 'cto', 'ir', 'community'];
+UAE.hqRevenueM = function (co) { var ms = co.is && co.is.months; return ms && ms.length ? Math.max(0, UAE.coRevenue(ms[ms.length - 1])) : 0; };
+UAE.hqDeptPlan = function (co) {
+  var S = UAE.S, rev = UAE.hqRevenueM(co), cl = function (x) { return Math.max(0, Math.min(1, x)); }, out = {};
+  var bv = Object.keys(co.brand || {}).map(function (k) { return +co.brand[k] || 0; }), brand = bv.length ? bv.reduce(function (a, b) { return a + b; }, 0) / bv.length : 0;
+  var firms = UAE.firmsOf(co.id).filter(function (f) { return f.status === 'open'; });
+  var train = firms.length ? firms.reduce(function (a, f) { return a + (f.training || 0); }, 0) / firms.length : 100;
+  var sells = {}; firms.forEach(function (f) { f.lines.forEach(function (l) { sells[l.pid] = 1; }); });
+  var gaps = Object.keys(sells).map(function (pid) { var b = 0; UAE.allCos().forEach(function (c) { if (c !== co && !c.foreign) b = Math.max(b, c.tech[pid] || 0); }); return Math.max(0, b - (co.tech[pid] || 0)); });
+  var gap = gaps.length ? gaps.reduce(function (a, b) { return a + b; }, 0) / gaps.length : 0;
+  var qol = S.cities[co.hq] ? S.cities[co.hq].qol : 75, listed = UAE.isTradable(co), r = Math.round;
+  out.cmo = { amt: rev * 0.006 * cl((80 - brand) / 40), why: 'brand awareness ' + r(brand) + (brand >= 80 ? ' - strong, no corporate ads needed' : ' - corporate ads lift every product class') };
+  out.pr = { amt: rev * 0.002 * cl((70 - brand) / 40), why: brand >= 70 ? 'corporate image already good' : 'image ' + r(brand) + ' - PR helps' };
+  out.hr = { amt: rev * 0.004 * cl((70 - train) / 70), why: 'average firm training ' + r(train) + (train >= 70 ? ' - well trained' : ' - group-wide training lifts efficiency') };
+  out.cto = { amt: rev * 0.01 * Math.max(0.1, cl(gap / 20)), why: gap > 0.5 ? 'behind the best rival by ' + gap.toFixed(1) + ' tech on our products' : 'we lead - small budget keeps inventing (no tech cap)' };
+  out.ir = { amt: listed ? Math.min(25e6, rev * 0.001) : 0, why: listed ? 'listed: supports the share valuation (full effect at AED 25m/month)' : 'private company - no investors to court' };
+  out.community = { amt: rev * 0.001 * cl((75 - qol) / 30), why: 'HQ city quality of life ' + r(qol) + (qol >= 75 ? ' - fine' : ' - donations raise it') };
+  var tot = UAE.HQ_DEPTS.reduce(function (t, k) { return t + out[k].amt; }, 0), cap = Math.min(rev * 0.03, Math.max(0, co.bs.cash) * 0.01);
+  if (tot > cap && tot > 0) UAE.HQ_DEPTS.forEach(function (k) { out[k].amt *= cap / tot; });
+  UAE.HQ_DEPTS.forEach(function (k) { out[k].amt = Math.round(out[k].amt / 1000) * 1000; out[k].pct = rev > 0 ? out[k].amt / rev * 100 : 0; });
+  return { day: S.day, rev: rev, rows: out };
+};
+/** Monthly (from UAE.execsDay): the CEO sets the department budgets, or the sliders' % of revenue are applied. */
+UAE.hqDeptMonth = function (co) {
+  if (!UAE.isHuman(co)) return;
+  var pol = UAE.policy(co), ceo = UAE.ceoPerson(co);
+  if (ceo && pol.hqAuto !== false) {
+    var plan = UAE.hqDeptPlan(co); co.hqPlan = plan;
+    UAE.HQ_DEPTS.forEach(function (k) { co.hqBudget[k] = plan.rows[k].amt; });
+  } else if (co.hqPct) {
+    var rev = UAE.hqRevenueM(co);
+    UAE.HQ_DEPTS.forEach(function (k) { if (co.hqPct[k] != null) co.hqBudget[k] = Math.round(rev * co.hqPct[k] / 100 / 1000) * 1000; });
+  }
+};

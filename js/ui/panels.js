@@ -752,11 +752,41 @@ UI.R.hq = function () {
     ' <button class="btn sm a" data-act="ceo" data-arg="' + co.id + '">Expansion strategies · scope · policies</button></div>' +
     '<div class="row"><label>CMO</label><b>' + UI.esc((UAE.person(co.cmo) || {}).name || 'none') + '</b> <span class="muted">marketing expertise strengthens all advertising</span> <button class="btn sm" data-act="persCand">Hire from candidates (Persons)</button></div></div>';
   h += UI.execBox(co);
-  h += '<div class="box"><h3>Departments (monthly budgets, AED)</h3>';
-  dep.forEach(function (d) { h += '<div class="row"><label>' + d[1] + '</label><input class="in num" id="hq_' + d[0] + '" value="' + Math.round(co.hqBudget[d[0]] || 0) + '"><button class="btn sm" data-act="hqSet" data-arg="' + d[0] + '">Set</button><span class="muted">' + d[2] + '</span></div>'; });
+  h += UI.deptBox(co, dep);
+  return h;
+};
+/** HQ departments: sliders in % of monthly revenue, or "CEO manages" with the CEO's monthly analysis per department. */
+UI.deptBox = function (co, dep) {
+  var pol = UAE.policy(co), ceo = UAE.ceoPerson(co), auto = !!ceo && pol.hqAuto !== false, rev = UAE.hqRevenueM(co), P = co.hqPlan, A = UAE.fmt.aed;
+  co.hqPct = co.hqPct || {};
+  var h = '<div class="box"><h3>Departments (monthly budgets)</h3>' +
+    '<div class="row"><label><input type="checkbox" data-ch="hqAuto" data-arg="' + co.id + '"' + (auto ? ' checked' : '') + (ceo ? '' : ' disabled') + '> <b>CEO manages the departments</b> – every month the CEO analyses what each one needs and sets the budget</label>' +
+    (ceo ? '' : ' <span class="muted">(hire a CEO first)</span>') + '</div>' +
+    '<div class="muted">Last month revenue ' + A(rev) + (auto && P ? ' · CEO plan from ' + UAE.cal.label(P.day) : '') + ' · sliders are % of monthly revenue</div>';
+  h += '<table class="t nosort">' + dep.map(function (d) {
+    var k = d[0], cur = co.hqBudget[k] || 0, pct = co.hqPct[k] != null ? co.hqPct[k] : (rev > 0 ? cur / rev * 100 : 0), row = auto && P && P.rows[k];
+    var v = Math.round(Math.min(3, pct) * 100);
+    return '<tr><td style="width:170px"><b>' + d[1] + '</b><br><span class="muted">' + d[2] + '</span></td><td>' +
+      '<input type="range" class="slider" min="0" max="300" step="5" value="' + v + '" data-in="deptIn" data-ch="deptSet" data-arg="' + co.id + '|' + k + '"' + (auto ? ' disabled' : '') + ' style="width:200px;vertical-align:middle"> ' +
+      '<b id="dp_' + k + '" class="t-a">' + (v / 100).toFixed(2) + '%</b> = <b id="da_' + k + '">' + A(cur) + '</b>/mo' +
+      (row ? '<br><span class="muted">CEO: ' + UI.esc(row.why) + '</span>' : '') + '</td></tr>';
+  }).join('') + '</table>';
   return h + '</div>';
 };
-UI.act.hqSet = function (k) { var v = UI.num('hq_' + k); if (v >= 0) { UAE.player().hqBudget[k] = v; UI.toast('Budget set.', 'good'); UI.render(); } };
+UI.act.hqAuto = function (id, el) {
+  var co = UAE.co(id); UAE.policy(co).hqAuto = el.checked;
+  if (el.checked) UAE.hqDeptMonth(co);
+  UI.toast(el.checked ? 'The CEO now sets the department budgets from its monthly analysis.' : 'You set the department budgets with the sliders.', 'good'); UI.render();
+};
+UI.act.deptIn = function (a, el) {
+  var i = a.lastIndexOf('|'), co = UAE.co(a.slice(0, i)), k = a.slice(i + 1), pct = +el.value / 100, o = document.getElementById('dp_' + k), m = document.getElementById('da_' + k);
+  if (o) o.textContent = pct.toFixed(2) + '%'; if (m) m.textContent = UAE.fmt.aed(Math.round(UAE.hqRevenueM(co) * pct / 100 / 1000) * 1000);
+};
+UI.act.deptSet = function (a, el) {
+  var i = a.lastIndexOf('|'), co = UAE.co(a.slice(0, i)), k = a.slice(i + 1), pct = +el.value / 100;
+  co.hqPct = co.hqPct || {}; co.hqPct[k] = pct; co.hqBudget[k] = Math.round(UAE.hqRevenueM(co) * pct / 100 / 1000) * 1000;
+  UI.toast(k.toUpperCase() + ' budget: ' + pct.toFixed(2) + '% of revenue = ' + UAE.fmt.aed(co.hqBudget[k]) + ' a month.', 'good');
+};
 UI.act.autoPricing = function (a, el) { UAE.player().autoPricing = el.checked; };
 
 /* ============================================================ News */

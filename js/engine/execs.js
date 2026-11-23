@@ -368,6 +368,7 @@ UAE.execsDay = function () {
     if ((S.day + 7 + (UAE.AI.hash ? UAE.AI.hash(co.id) : 0)) % 30 !== 0) return;
     co.lastMonthRev = co.is && co.is.months && co.is.months.length ? co.is.months[co.is.months.length - 1].revenue || 0 : 0;
     UAE.cmoMonth(co); UAE.ctoMonth(co);
+    if (UAE.hqDeptMonth) UAE.hqDeptMonth(co);         // HQ department budgets: CEO analysis or the % sliders (engine/pay.js)
     if (UAE.ceoTechRace) UAE.ceoTechRace(co);         // research to beat the world leaders (engine/worldmkt.js)
     if (UAE.syncTraits) UAE.syncTraits(co);            // your companies act with their CEO's personality
     UAE.aggressiveExpand(co);
