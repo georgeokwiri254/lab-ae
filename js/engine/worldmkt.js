@@ -50,7 +50,9 @@ UAE.gtech = function (co, pid) {
   if (co.gtech[pid] == null) {
     var t = (co.tech && co.tech[pid]) || 40, F = UAE.WM[pid] ? UAE.wmFrontier(pid) : 100;
     // a strong UAE player starts as a credible challenger ~15 points behind the world leader
-    co.gtech[pid] = Math.max(10, F - (UAE.isHuman(co) ? 15 : 25) - (100 - t) * 0.6);
+    // UAE tech has no cap any more (can be 400+): only up to 100 counts here, so a newcomer starts at best ~15 behind the leader
+    // and has to out-research it (before this, tech 465 put a brand-new subsidiary 200 points AHEAD of the world)
+    co.gtech[pid] = Math.max(10, F - (UAE.isHuman(co) ? 15 : 25) - (100 - Math.min(100, t)) * 0.6);
   }
   return co.gtech[pid];
 };
