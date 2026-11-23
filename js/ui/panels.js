@@ -505,8 +505,8 @@ UI.R.factions = function () {
     h += box('FA14', 'Stock split', '<div class="row"><select class="in" id="faSplit"><option>2</option><option>3</option><option>5</option><option>10</option></select>-for-1 <button class="btn sm" data-act="fa" data-arg="split">Split</button></div>');
     h += box('FA10', 'Privatise (buy out float +25%)', '<div class="row">Cost ' + F().aed((co.holders.PUBLIC || 0) * co.price * 1.25) + ' <button class="btn m sm" data-act="fa" data-arg="privatize">Privatise</button></div>');
   }
-  h += box('FA06/07', 'Subsidiaries', '<div class="row"><input class="in" id="faSubName" value="' + UI.esc(co.name.split(' ')[0]) + ' Ventures" style="flex:1"><button class="btn sm" data-act="randSubName" title="Random company name">🎲</button><input class="in num" id="faSubCap" value="50m"><select class="in" id="faSubCity">' + Object.keys(UAE.CITIES).map(function (k) { return '<option value="' + k + '">' + UAE.CITIES[k].name + '</option>'; }).join('') + '</select><button class="btn a sm" data-act="fa" data-arg="sub">Create</button></div>' +
-    UAE.allCos().filter(function (c) { return c.parent === co.id; }).map(function (c) { return '<div class="row">' + UI.coLink(c) + ' <input class="in num" id="inj_' + c.id + '" value="10m"><button class="btn sm" data-act="inject" data-arg="' + c.id + '">Inject capital</button><button class="btn sm a" data-act="switchCo" data-arg="' + c.id + '">Manage</button></div>'; }).join(''));
+  h += box('FA06/07', 'Subsidiaries', '<div class="row"><input class="in" id="faSubName" value="' + UI.esc(co.name.split(' ')[0]) + ' Ventures" style="flex:1"><button class="btn sm" data-act="randSubName" title="Random company name">🎲</button><input class="in num" id="faSubCap" value="1bn" title="Capital in billions: type 1bn, 25bn, 0.5bn..."><select class="in" id="faSubCity">' + Object.keys(UAE.CITIES).map(function (k) { return '<option value="' + k + '">' + UAE.CITIES[k].name + '</option>'; }).join('') + '</select><button class="btn a sm" data-act="fa" data-arg="sub">Create</button></div>' + UI.bnQuick('faSubCap') +
+    UAE.allCos().filter(function (c) { return c.parent === co.id; }).map(function (c) { return '<div class="row">' + UI.coLink(c) + ' <input class="in num" id="inj_' + c.id + '" value="1bn"><button class="btn sm" data-act="inject" data-arg="' + c.id + '">Inject capital</button><button class="btn sm a" data-act="switchCo" data-arg="' + c.id + '">Manage</button></div>' + UI.bnQuick('inj_' + c.id); }).join(''));
   h += box('FA16', 'Shares & takeovers', '<div class="row"><button class="btn" data-act="stock">Open Stock Market</button></div><div class="note">Buy >50% of a listed company (personal + corporate holdings combined) to take control and run it as a subsidiary.</div>');
   h += box('FA20', 'Acquire private company', '<div class="row">Open a private AI company in Corporations → Make acquisition offer. Real state-linked groups are not for sale.</div>');
   h += '</div></div>';
@@ -812,6 +812,11 @@ UI.R.settings = function () {
     '<div class="note">Any amount you like. It is booked as an owner capital injection (share capital) so the balance sheet still balances.' + (co.cheatCash ? ' Added so far: ' + UAE.fmt.aed(co.cheatCash) + '.' : '') + '</div></div>';
   return h;
 };
+/** Quick-fill buttons in billions for an amount box. */
+UI.bnQuick = function (id) {
+  return '<div class="row"><span class="muted">AED</span>' + [1, 5, 10, 50, 100, 500].map(function (v) { return '<button class="btn sm" data-act="setBn" data-arg="' + id + '|' + v + '">' + v + 'bn</button>'; }).join('') + '</div>';
+};
+UI.act.setBn = function (arg) { var i = arg.lastIndexOf('|'), el = UI.$(arg.slice(0, i)); if (el) el.value = arg.slice(i + 1) + 'bn'; };
 UI.act.randSubName = function () { var el = UI.$('faSubName'); if (el) el.value = UAE.randomCompanyName(null, Math.random); };
 UI.act.constructionTime = function (a, el) { UAE.S.settings.constructionTime = el.checked; UI.toast(el.checked ? 'Buildings now take real construction time.' : 'Buildings now open instantly.', 'good'); };
 UI.act.maxMe = function () { UAE.maxExpertise(UAE.playerPerson()); UI.toast('Your expertise is now maxed (100 everywhere).', 'good'); UI.render(); };
