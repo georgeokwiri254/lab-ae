@@ -64,6 +64,7 @@ window.addEventListener('DOMContentLoaded', function () {
 });
 
 UI.start = function () {
+  UI._mapSent = false; UI._mapKeys = null;          // new / loaded game: send every firm to the map again
   UI.started = true;
   UI.$('title').classList.add('hidden');
   ['rail', 'topbar', 'mapctl', 'coords', 'bottom'].forEach(function (id) { UI.$(id).classList.remove('hidden'); });

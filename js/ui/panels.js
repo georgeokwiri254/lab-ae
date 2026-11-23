@@ -248,8 +248,7 @@ UI.mgmtBox = function (co) {
   var ceo = UAE.person(co.ceo);
   var h = '<div class="box"><h3>CEO</h3>' + (ceo ? '<b>' + UI.esc(ceo.name) + '</b> · ' + UI.esc(ceo.title) + ' · salary ' + F().aed(ceo.salary) + '/mo<br>Skills: management ' + ceo.skill.mgmt + ', technology ' + ceo.skill.tech + ', marketing ' + ceo.skill.marketing + ', finance ' + ceo.skill.finance : '—') + '</div>';
   h += '<div class="row"><button class="btn a" data-act="ceo" data-arg="' + co.id + '">CEO expertise, expansion strategies, scope of production & management policies</button></div>';
-  h += '<div class="box"><h3>AI strategy traits</h3><table class="t">' + Object.keys(co.traits).map(function (k) { return '<tr><td>' + k + '</td><td class="n">' + co.traits[k].toFixed(2) + '</td></tr>'; }).join('') + '</table>' +
-    '<div class="note">AI companies review operations monthly: re-pick suppliers, reprice, advertise, close chronic loss-makers, borrow/repay, expand into their sector or diversify, integrate vertically and buy stakes in listed rivals.</div></div>';
+  h += UI.traitsBox(co);
   return h;
 };
 UI.act.switchCo = function (id) { UAE.S.activeCo = id; UI.fillCoSwitch(); UI.refreshHUD(); UI.toast('Now managing ' + UI.esc(UAE.co(id).name), 'good'); UI.render(); };
@@ -375,6 +374,32 @@ UI.R.farmer = function () {
     h += '<tr><td>' + P.name + '</td><td>' + r[1] + '</td><td class="n">' + F().num(s.out) + ' ' + P.unit + '</td><td class="n">' + s.cost + '</td><td class="n">' + UAE.worldPrice(r[0]).toFixed(1) + '</td></tr>';
   });
   return h + '</table><div class="note">Logging is disabled - there is no commercial forestry in the UAE (gap audit B06). Bauxite, wheat, gold, chips and cotton are import-only.</div></div>';
+};
+
+/* ---- AI strategy traits: editable for your companies. With a hired CEO they ARE the CEO's personality
+ *      (UAE.syncTraits copies it every month), so the sliders edit the CEO; when you are the CEO they are the company's own. */
+UI.TRAIT_HELP = { aggression: 'how often and how fast it expands (new firms, upgrades)', risk: 'appetite for loans, big projects and buying shares',
+  pricing: 'low = cheap prices to win share, high = premium prices / margins', diversify: 'how often it enters businesses outside its own sector' };
+UI.traitsBox = function (co) {
+  var mine = UAE.isHuman(co), ceo = UAE.ceoPerson(co), src = mine && ceo && ceo.pers ? ceo.pers : co.traits;
+  var h = '<div class="box"><h3>AI strategy traits</h3>';
+  if (mine) h += '<div class="note">' + (ceo ? 'Connected to your CEO: these are <b>' + UI.esc(ceo.name) + '</b>’s personality. Moving a slider changes the CEO’s personality, and the company follows it every month. A new CEO brings their own personality.'
+    : 'You are the CEO of this company, so these are the company’s own settings.') + ' They steer the CEO’s automatic decisions; the hard limits (new firms per month, cash reserve, policies) are in Expansion strategies.</div>';
+  h += '<table class="t nosort">' + ['aggression', 'risk', 'pricing', 'diversify'].map(function (k) {
+    var v = Math.round((src[k] == null ? 0.5 : src[k]) * 100);
+    return '<tr><td style="width:110px"><b>' + k + '</b><br><span class="muted">' + UI.TRAIT_HELP[k] + '</span></td><td>' +
+      (mine ? '<input type="range" class="slider" min="0" max="100" step="1" value="' + v + '" data-in="traitIn" data-ch="traitSet" data-arg="' + co.id + '|' + k + '" style="width:220px;vertical-align:middle"> <b id="tr_' + k + '" class="t-a">' + v + '</b>'
+        : '<span class="n">' + (v / 100).toFixed(2) + '</span>') + '</td></tr>';
+  }).join('') + '</table>';
+  return h + '<div class="note">Computer companies review operations monthly: re-pick suppliers, reprice, advertise, close chronic loss-makers, borrow/repay, expand into their sector or diversify, integrate vertically and buy stakes in listed rivals.</div></div>';
+};
+UI.act.traitIn = function (a, el) { var k = a.slice(a.lastIndexOf('|') + 1), o = document.getElementById('tr_' + k); if (o) o.textContent = el.value; };
+UI.act.traitSet = function (a, el) {
+  var i = a.lastIndexOf('|'), co = UAE.co(a.slice(0, i)), k = a.slice(i + 1), v = Math.max(0, Math.min(100, +el.value)) / 100;
+  if (!co || !UAE.isHuman(co)) return;
+  var ceo = UAE.ceoPerson(co);
+  if (ceo) { UAE.ensurePerson(ceo); ceo.pers[k] = v; UAE.syncTraits(co); } else co.traits[k] = v;
+  UI.toast(co.name + ': ' + k + ' set to ' + Math.round(v * 100) + (ceo ? ' (CEO ' + UI.esc(ceo.name) + '’s personality)' : '') + '.', 'good');
 };
 
 /* ============================================================ IC13 */
@@ -505,7 +530,7 @@ UI.R.factions = function () {
     h += box('FA14', 'Stock split', '<div class="row"><select class="in" id="faSplit"><option>2</option><option>3</option><option>5</option><option>10</option></select>-for-1 <button class="btn sm" data-act="fa" data-arg="split">Split</button></div>');
     h += box('FA10', 'Privatise (buy out float +25%)', '<div class="row">Cost ' + F().aed((co.holders.PUBLIC || 0) * co.price * 1.25) + ' <button class="btn m sm" data-act="fa" data-arg="privatize">Privatise</button></div>');
   }
-  h += box('FA06/07', 'Subsidiaries', '<div class="row"><input class="in" id="faSubName" value="' + UI.esc(co.name.split(' ')[0]) + ' Ventures" style="flex:1"><button class="btn sm" data-act="randSubName" title="Random company name">🎲</button><input class="in num" id="faSubCap" value="1bn" title="Capital in billions: type 1bn, 25bn, 0.5bn..."><select class="in" id="faSubCity">' + Object.keys(UAE.CITIES).map(function (k) { return '<option value="' + k + '">' + UAE.CITIES[k].name + '</option>'; }).join('') + '</select><button class="btn a sm" data-act="fa" data-arg="sub">Create</button></div>' + UI.bnQuick('faSubCap') +
+  h += box('FA06/07', 'Subsidiaries', '<div class="row"><label>Name</label><input class="in" id="faSubName" value="' + UI.esc(co.name.split(' ')[0]) + ' Ventures" style="flex:1;min-width:200px"><button class="btn sm" data-act="randSubName" title="Random company name">🎲 Random</button></div><div class="row"><label>Capital</label><input class="in num" id="faSubCap" value="1bn" title="Capital in billions: type 1bn, 25bn, 0.5bn..."><select class="in" id="faSubCity">' + Object.keys(UAE.CITIES).map(function (k) { return '<option value="' + k + '">' + UAE.CITIES[k].name + '</option>'; }).join('') + '</select><button class="btn a sm" data-act="fa" data-arg="sub">Create</button></div>' + UI.bnQuick('faSubCap') +
     UAE.allCos().filter(function (c) { return c.parent === co.id; }).map(function (c) { return '<div class="row">' + UI.coLink(c) + ' <input class="in num" id="inj_' + c.id + '" value="1bn"><button class="btn sm" data-act="inject" data-arg="' + c.id + '">Inject capital</button><button class="btn sm a" data-act="switchCo" data-arg="' + c.id + '">Manage</button></div>' + UI.bnQuick('inj_' + c.id); }).join(''));
   h += box('FA16', 'Shares & takeovers', '<div class="row"><button class="btn" data-act="stock">Open Stock Market</button></div><div class="note">Buy >50% of a listed company (personal + corporate holdings combined) to take control and run it as a subsidiary.</div>');
   h += box('FA20', 'Acquire private company', '<div class="row">Open a private AI company in Corporations → Make acquisition offer. Real state-linked groups are not for sale.</div>');

@@ -151,6 +151,7 @@ UAE.addLine = function (f, pid, o) {
   if (X && X.prod && UAE.S.firms[f.id] === f && f.status === 'open' && ['factory','farm','mine','oil','warehouse','software'].indexOf(T.kind) >= 0) {
     (X.prod[pid] = X.prod[pid] || []).push(f);
     if (X.sup && X.sup[pid]) X.sup[pid].push({ g: f, line: line, nm: f.name + ' - ' + UAE.co(f.owner).name, own: f.name + ' (own)' });
+    if (X.supBy) delete X.supBy[pid];
   }
   return line;
 };

@@ -200,10 +200,30 @@ UI.firmRing = function (f) {
 };
 
 /** Rebuild the firm layers from the game state. Called a few times a second. */
+/** PERF: has anything the map shows changed since the last upload? Per firm: owner (and its colour rules), status,
+ *  name, type, size, plot, mall, construction progress. Re-sending ~25k firms to the map every 1.2 s was the lag. */
+UI.mapChanged = function () {
+  var K = UI._mapKeys || (UI._mapKeys = new Map()), stamp = (UI._mapStamp = (UI._mapStamp || 0) + 1), changed = !UI._mapSent, n = 0, F = UAE.S.firms;
+  for (var id in F) {
+    var f = F[id], co = UAE.S.companies[f.owner], n0 = n++;
+    var k = f.owner + '|' + (co ? co.controller + (co.real ? 'r' : '') + (co.color || '') : '') + '|' + UAE.S.playerCo + '|' + f.status + '|' + f.name + '|' + f.type + '|' + f.size + '|' +
+      (f.plot ? f.plot.x + ',' + f.plot.y + ',' + f.plot.n : '') + '|' + (f.mall ? 1 : 0) + (f.seed ? 1 : 0) + '|' + (f.status !== 'open' ? Math.round(UI.buildProgress(f) * 50) : '');
+    var e = K.get(id);
+    if (!e || e.k !== k) { K.set(id, { k: k, s: stamp }); changed = true; } else e.s = stamp;
+  }
+  if (K.size !== n) { changed = true; K.forEach(function (e, id) { if (e.s !== stamp) K.delete(id); }); }   // firms removed
+  return changed;
+};
 UI.refreshMap = function () {
   if (!UI.mapReady || !UAE.S) return;
-  var pts = [], foot = [], lots = [];
   UAE.plotIndex();                                    // makes sure every firm has a plot block
+  if (UI.mapChanged()) UI.refreshMapLayers();
+  if (UI.depOn) UI.map.getSource('deposits').setData(UI.depositGeo());
+  if (UI.trafOn && (!UI._trafT || UAE.S.day - UI._trafT > 15)) { UI._trafT = UAE.S.day; UI.map.getSource('traffic').setData(UI.trafficGeo()); }
+};
+UI.refreshMapLayers = function () {
+  UI._mapSent = true;
+  var pts = [], foot = [], lots = [];
   UAE.allFirms().forEach(function (f) {
     var co = UAE.co(f.owner), col = UI.ownerColor(co);
     pts.push({ type: 'Feature', properties: { id: f.id, col: col, st: f.status, name: f.name }, geometry: { type: 'Point', coordinates: UI.ll(f.c) } });
@@ -221,8 +241,6 @@ UI.refreshMap = function () {
   UI.map.getSource('firms').setData({ type: 'FeatureCollection', features: pts });
   UI.map.getSource('foot').setData({ type: 'FeatureCollection', features: foot });
   UI.map.getSource('lots').setData({ type: 'FeatureCollection', features: lots });
-  if (UI.depOn) UI.map.getSource('deposits').setData(UI.depositGeo());
-  if (UI.trafOn && (!UI._trafT || UAE.S.day - UI._trafT > 15)) { UI._trafT = UAE.S.day; UI.map.getSource('traffic').setData(UI.trafficGeo()); }
 };
 
 /* ------------------------------------------- resource sites & traffic overlays */

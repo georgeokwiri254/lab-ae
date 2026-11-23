@@ -94,6 +94,7 @@ UAE.idxFirmChanged = function (f, removed) {
       (X.prod[l.pid] = X.prod[l.pid] || []).push(f);
       var L = X.sup && X.sup[l.pid];
       if (L) L.push({ g: f, line: l, nm: f.name + ' - ' + UAE.co(f.owner).name, own: f.name + ' (own)' });
+      if (X.supBy) delete X.supBy[l.pid];          // owner grouping of procureCheapest is rebuilt from the new list
     });
     return;
   }
@@ -102,6 +103,7 @@ UAE.idxFirmChanged = function (f, removed) {
   if (X.own && X.own[f.owner]) X.own[f.owner] = X.own[f.owner].filter(not);
   if (X.prod) for (var p in X.prod) if (X.prod[p].indexOf(f) >= 0) X.prod[p] = X.prod[p].filter(not);
   if (X.sup) for (var q in X.sup) X.sup[q] = X.sup[q].filter(function (e) { return e.g !== f; });
+  if (X.supBy) X.supBy = {};
   if (X.gw) delete X.gw[f.id];
   if (X.has) {   // recompute this owner's keys for the firm's type
     var mine = (X.own ? X.own[f.owner] : UAE.firmsOf(f.owner)).filter(function (g) { return g.type === f.type && g.status === 'open' && g !== f; });
@@ -183,24 +185,30 @@ UAE.procureCheapest = function (f, pid, need, pick) {
   var X = UAE.dayIdx(); if (!X) return need;
   if (!(X.sup && X.sup[pid])) UAE.supplyOptions(f, pid, true);          // builds X.sup[pid]
   var L = X.sup[pid] || [], P = UAE.P[pid], perKm = P.t * UAE.RULES.freightPerTonKm, logi = f.owner && UAE.hasFirmIn(f.owner, 'logistics', f.city) ? 0.75 : 1;
-  var cu = [], cg = [], co = [];
-  for (var i = 0; i < L.length; i++) {
-    var g = L[i].g; if (g.id === f.id || g.status !== 'open') continue;
-    var s = g.stock[pid]; if (!(s && s.q > 0)) continue;
-    var same = g.owner === f.owner;
-    cu.push((same ? s.cost : L[i].line.price) + perKm * (UAE.geo.km(g.c, f.c) * 1.25 + 3) * logi); cg.push(g); co.push(same);
-  }
-  var used = new Uint8Array(cu.length);
-  if (pick) for (var k = 0; k < cg.length; k++) if (cg[k].id === pick) { used[k] = 1; need -= UAE.procure(f, pid, need, pick); break; }   // the chosen supplier first
-  for (var pass = 0; pass < 2 && need > 0; pass++) {
-    var wantOwn = pass === 0;
+  // PERF (same picks, same order as scanning the whole list): suppliers grouped by owner once per day, so the
+  // own-supplier pass only looks at our own firms; the market is scanned only if own stock did not fill the order.
+  // Market prices/stock are read after our own purchases, which never change another company's stock or price.
+  var BY = X.supBy || (X.supBy = {}), byO = BY[pid];
+  if (!byO) { byO = BY[pid] = {}; for (var q = 0; q < L.length; q++) (byO[L[q].g.owner] || (byO[L[q].g.owner] = [])).push(L[q]); }
+  var unit = function (e, same) { var s = e.g.stock[pid]; return (same ? s.cost : e.line.price) + perKm * (UAE.geo.km(e.g.c, f.c) * 1.25 + 3) * logi; };
+  var ok = function (g) { if (g.id === f.id || g.status !== 'open') return false; var s = g.stock[pid]; return !!(s && s.q > 0); };
+  var picked = null;
+  if (pick) { var pg = UAE.S.firms[pick], pl = pg && byO[pg.owner];
+    if (pl && ok(pg) && pl.some(function (e) { return e.g === pg; })) { picked = pg; need -= UAE.procure(f, pid, need, pick); } }   // the chosen supplier first
+  // one pass: build the candidate list (snapshot of delivered cost), then take the cheapest until the need is met
+  var run = function (list, same) {
+    var cu = [], cg = [];
+    for (var i = 0; i < list.length; i++) { var e = list[i], g = e.g; if (g === picked || (g.owner === f.owner) !== same || !ok(g)) continue; cu.push(unit(e, same)); cg.push(g); }
+    var used = new Uint8Array(cu.length);
     while (need > 0) {
-      var b = -1;
-      for (var j = 0; j < cu.length; j++) if (!used[j] && co[j] === wantOwn && (b < 0 || cu[j] < cu[b])) b = j;
-      if (b < 0) break;
-      used[b] = 1; need -= UAE.procure(f, pid, need, cg[b].id);
+      var bi = -1;
+      for (var j = 0; j < cu.length; j++) if (!used[j] && (bi < 0 || cu[j] < cu[bi])) bi = j;
+      if (bi < 0) break;
+      used[bi] = 1; need -= UAE.procure(f, pid, need, cg[bi].id);
     }
-  }
+  };
+  if (need > 0 && byO[f.owner]) run(byO[f.owner], true);
+  if (need > 0) run(L, false);
   return need;
 };
 /** Store supplier choice (AI / CEO review): same result as supplyOptions(f, pid, true) + firstStocked + the
