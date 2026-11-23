@@ -1,12 +1,12 @@
 /* ============================================================================
  * UAE CAPITALISM LAB  -  EXECUTIVE PAY, PERFORMANCE BONUSES, MOTIVATION & RAISES
- *   CEO, COO, CMO and CTO are paid every month end (from UAE.monthEnd, before the month rolls):
+ *   CEO, CMO and CTO are paid every month end (from UAE.monthEnd, before the month rolls):
  *     base salary
  *   + revenue bonus  (bonusPct of base) when this month's revenue reaches the target:
  *                    average monthly revenue of the last 12 months x (1 + yearly growth target)^(6.5/12)
  *   + profit share   (CEO ceoProfit, others execProfit of the month's net profit; capped at profitCapX x base)
  *   Motivation (0-100) rises with bonuses and profits, falls with misses and turned-down raises.
- *   Motivated executives work better: CEO builds more, COO runs firms more efficiently, CMO's ads and
+ *   Motivated executives work better: CEO builds more, CMO's ads and
  *   CTO's R&D get stronger (UAE.motMult 0.85 .. 1.15).
  *   Raises: executives ask for one after a strong run (or when unhappy). Computer companies decide on
  *   their own; in your companies you accept / decline in HQ, or tick auto-accept per role.
@@ -14,12 +14,12 @@
 var UAE = window.UAE || (window.UAE = {});
 
 UAE.PAY = { revGrowth: 0.10, bonusPct: 0.5, ceoProfit: 0.005, execProfit: 0.001, profitCapX: 24, raiseEvery: 365, answerDays: 60 };
-UAE.EXEC_ROLES = [['ceo', 'CEO'], ['coo', 'COO'], ['cmo', 'CMO'], ['cto', 'CTO']];
+UAE.EXEC_ROLES = [['ceo', 'CEO'], ['cmo', 'CMO'], ['cto', 'CTO']];
 
 /** Pay settings of a company (stored in its policy). */
 UAE.payPol = function (co) {
   var pol = UAE.policy(co), P = UAE.PAY;
-  if (pol.pay == null) pol.pay = { revGrowth: P.revGrowth, bonusPct: P.bonusPct, ceoProfit: P.ceoProfit, execProfit: P.execProfit, autoRaise: { ceo: false, coo: false, cmo: false, cto: false } };
+  if (pol.pay == null) pol.pay = { revGrowth: P.revGrowth, bonusPct: P.bonusPct, ceoProfit: P.ceoProfit, execProfit: P.execProfit, autoRaise: { ceo: false, cmo: false, cto: false } };
   pol.pay.autoRaise = pol.pay.autoRaise || {};
   return pol.pay;
 };
@@ -40,6 +40,7 @@ UAE.revTarget = function (co) {
 
 /** Month-end pay for every executive of co (books salaries on the month that is closing). */
 UAE.payExecs = function (co) {
+  if (co.coo) UAE.dropCoo(co);
   var ex = UAE.execsOf(co), S = UAE.S;
   if (!ex.length) return;
   var pp = UAE.payPol(co), cur = co.is.cur, rev = UAE.coRevenue(cur), ni = UAE.netIncome(cur), target = UAE.revTarget(co);
@@ -99,26 +100,15 @@ UAE.raiseAnswer = function (co, role, yes, timeout, auto) {
   return { ok: true, salary: p.salary };
 };
 
-/* ---- COO: runs day-to-day operations (firm efficiency + the HQ "Delegate operations" switch) */
-UAE.appointCoo = function (co, personId) {
-  var p = UAE.person(personId); if (!p) return { ok: false, why: 'Unknown person.' };
-  if (p.co && p.co !== co.id) UAE.leavePost(p);
-  var old = co.coo && UAE.person(co.coo); if (old && old !== p) { old.title = 'Candidate'; old.co = null; }
-  UAE.ensurePerson(p);
-  p.title = 'Chief Operating Officer'; p.co = co.id; co.coo = p.id; p.salary = p.salary || 140000; p.hiredDay = UAE.S.day;
-  UAE.news(p.name + ' appointed COO of ' + co.name + '.', 'firm');
-  return { ok: true };
-};
-/** Extra firm efficiency target from the company's COO (management skill x motivation). */
-UAE.cooEff = function (co) {
-  var c = co && co.coo && UAE.S.persons[co.coo];
-  return c ? (c.skill.mgmt / 1000) * UAE.motMult(c) : 0;
+/* ---- No COO in this game (CEO, CMO, CTO only): release anyone appointed by the short-lived COO build */
+UAE.dropCoo = function (co) {
+  if (!co.coo) return; var p = UAE.person(co.coo); if (p && p.co === co.id) { p.title = 'Candidate'; p.co = null; p.raiseReq = null; } delete co.coo;
 };
 
 /* ---- wire into the rest of the engine (wrappers keep the old functions intact) */
 (function () {
   var lp = UAE.leavePost;
-  UAE.leavePost = function (p) { var old = p.co && UAE.co(p.co); if (old && old.coo === p.id) old.coo = null; p.raiseReq = null; return lp.apply(this, arguments); };
+  UAE.leavePost = function (p) { var old = p.co && UAE.co(p.co); p.raiseReq = null; return lp.apply(this, arguments); };
   ['appointCeo', 'appointCmo', 'appointCto'].forEach(function (k) {
     var f = UAE[k]; if (!f) return;
     UAE[k] = function (co, pid) { var r = f.apply(this, arguments), p = UAE.person(pid); if (r && r.ok !== false && p) { p.hiredDay = UAE.S.day; p.raiseReq = null; if (!p.salary) p.salary = k === 'appointCmo' ? 120000 : 150000; } return r; };

@@ -78,7 +78,7 @@ UI.hireBox = function (p) {
   var cos = UAE.allCos().filter(function (c) { return c.controller === 'PLAYER'; }), target = UI.tabState.hireFor && UAE.co(UI.tabState.hireFor) ? UI.tabState.hireFor : UAE.S.activeCo;
   var title = p.title === 'Candidate' ? 'Hire' : 'Move to another of your companies';
   return '<div class="box"><h3>' + title + '</h3><div class="row"><label>For company</label><select class="in" id="hireCo" data-ch="hireFor">' + cos.map(function (c) { return '<option value="' + c.id + '"' + (c.id === target ? ' selected' : '') + '>' + UI.esc(c.name) + (c.parent ? ' (subsidiary)' : '') + '</option>'; }).join('') + '</select></div><div class="row">' +
-    '<button class="btn a" data-act="hireCeo" data-arg="' + p.id + '">Appoint as CEO</button><button class="btn" data-act="hireCmo" data-arg="' + p.id + '">Appoint as CMO</button><button class="btn" data-act="hireCto" data-arg="' + p.id + '">Appoint as CTO</button><button class="btn" data-act="hireCoo" data-arg="' + p.id + '">Appoint as COO</button>' +
+    '<button class="btn a" data-act="hireCeo" data-arg="' + p.id + '">Appoint as CEO</button><button class="btn" data-act="hireCmo" data-arg="' + p.id + '">Appoint as CMO</button><button class="btn" data-act="hireCto" data-arg="' + p.id + '">Appoint as CTO</button>' +
     '<button class="btn" data-act="info" data-arg="managers">Make firm manager…</button>' +
     (p.maxed ? ' <span class="t-a">✔ maxed</span>' : ' <button class="btn sm" data-act="maxPerson" data-arg="' + p.id + '">Max expertise</button>') + '</div></div>';
 };

@@ -1,7 +1,7 @@
 /* ============================================================================
  * UAE CAPITALISM LAB  -  HQ: EXECUTIVE PAY & PERFORMANCE (engine/pay.js)
  *   Pay table (base, revenue bonus, profit share, motivation), raise requests with
- *   Accept / Decline, auto-accept switches for CEO / COO / CMO / CTO, pay settings.
+ *   Accept / Decline, auto-accept switches for CEO / CMO / CTO, pay settings.
  * ==========================================================================*/
 var UI = window.UI || (window.UI = {});
 
@@ -9,12 +9,9 @@ UI.payBox = function (co) {
   var A = UAE.fmt.aed, pp = UAE.payPol(co), L = co.payLast, ex = UAE.execsOf(co), tgt = UAE.revTarget(co);
   var h = '<div class="box"><h3>💼 Executive pay &amp; performance</h3>' +
     '<div class="note">Executives earn their base salary + a <b>revenue bonus</b> when the month\'s revenue reaches the target + a <b>share of the month\'s profit</b>. ' +
-    'Bonuses and profits raise motivation; misses and turned-down raises lower it. Motivated executives work better (CEO builds more, COO runs firms more efficiently, CMO ads and CTO R&amp;D are stronger).</div>';
+    'Bonuses and profits raise motivation; misses and turned-down raises lower it. Motivated executives work better (CEO builds more, CMO ads and CTO R&amp;D are stronger).</div>';
   h += '<div class="row"><span>Revenue target this month: <b>' + (tgt != null ? A(tgt) : '— (no history yet)') + '</b>' +
     (L ? ' · last month ' + A(L.rev) + ' ' + (L.hit ? '<span class="pos">✔ reached</span>' : L.target != null ? '<span class="neg">✘ missed</span>' : '') + ' · net profit ' + A(L.ni) + ' · paid ' + A(L.total) : '') + '</span></div>';
-  // COO slot (other roles are in the Executive team box above)
-  var coo = co.coo && UAE.person(co.coo);
-  h += '<div class="row"><label>COO</label>' + (coo ? '<b>' + UI.esc(coo.name) + '</b> <span class="muted">firm efficiency +' + (UAE.cooEff(co) * 100).toFixed(1) + ' pts</span>' : '<span class="muted">vacant - appoint one in Persons (Appoint as COO)</span>') + '</div>';
   if (ex.length) {
     h += '<table class="t nosort"><tr><th>Role</th><th>Name</th><th class="n">Base/mo</th><th class="n">Bonus</th><th class="n">Profit share</th><th class="n">Total</th><th class="n">Motivation</th><th>Raise request</th></tr>' +
       ex.map(function (e) {
@@ -57,4 +54,3 @@ UI.act.paySet = function (id) {
   if (g != null) pp.revGrowth = g; if (b != null) pp.bonusPct = b; if (c != null) pp.ceoProfit = c; if (e != null) pp.execProfit = e;
   UI.toast('Executive pay settings saved.', 'good'); UI.render();
 };
-UI.act.hireCoo = function (pid) { var co = UAE.co(UI.$('hireCo').value); UI.result(UAE.appointCoo(co, pid), 'COO appointed - runs day-to-day operations.'); };

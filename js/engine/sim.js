@@ -702,7 +702,7 @@ UAE.fixedCosts = function (f) {
   // efficiency: training & manager push toward 1.2, otherwise drifts to 0.9; expertise adds unit levels
   // (Capitalism Lab: +1 unit level per 20 expertise points of the manager; the CEO adds a quarter of that company-wide)
   var tm = UAE.trainingMult(f);
-  var tgt = 0.9 + Math.min(0.25, (f.trainBudget || 0) / Math.max(1, wages * 30) * 1.5 * tm) + (f.manager && UAE.person(f.manager) ? UAE.person(f.manager).skill.mgmt / 1000 : 0) + (UAE.cooEff ? UAE.cooEff(UAE.S.companies[f.owner]) : 0) +
+  var tgt = 0.9 + Math.min(0.25, (f.trainBudget || 0) / Math.max(1, wages * 30) * 1.5 * tm) + (f.manager && UAE.person(f.manager) ? UAE.person(f.manager).skill.mgmt / 1000 : 0) +
             0.05 * UAE.expertLevels(f);
   f.training = Math.min(100, (f.training || 0) * 0.995 + (f.trainBudget ? 0.4 * tm : 0));
   f.eff += (tgt - f.eff) * 0.02;
