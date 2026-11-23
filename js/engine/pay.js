@@ -85,9 +85,19 @@ UAE.askRaise = function (co, role, pct, why) {
   p.lastRaiseAsk = UAE.S.day;
   var pp = UAE.payPol(co);
   if (!UAE.isHuman(co)) return UAE.raiseAnswer(co, role, co.payLast ? co.payLast.hit || co.payLast.ni > 0 : true);
-  if (pp.autoRaise[role]) return UAE.raiseAnswer(co, role, true, false, true);
+  if (pp.autoRaise[role] || UAE.groupAutoRaise(co)) return UAE.raiseAnswer(co, role, true, false, true);
   UAE.news('💼 ' + p.name + ' (' + lab + ', ' + co.name + ') asks for a raise: ' + UAE.fmt.aed(p.raiseReq.from) + ' → ' + UAE.fmt.aed(nw) + ' a month (+' + Math.round(pct * 100) + '%) - ' + p.raiseReq.why + '. Answer in HQ → Executive pay.', 'firm');
   return { ok: true, pending: true };
+};
+/** The parent company (or any company above it) set "auto-accept every raise in the group"? Returns that company or null. */
+UAE.groupAutoRaise = function (co) {
+  for (var c = co, n = 0; c && n < 10; c = c.parent && UAE.co(c.parent), n++) { var pol = UAE.policy(c); if (pol.pay && pol.pay.groupAuto) return c; }
+  return null;
+};
+/** Subsidiaries of co (all levels below it). */
+UAE.subsOf = function (co) {
+  var out = [], walk = function (id) { UAE.allCos().forEach(function (c) { if (c.parent === id && out.indexOf(c) < 0) { out.push(c); walk(c.id); } }); };
+  walk(co.id); return out;
 };
 /** Accept or decline the pending raise of the executive in `role`. */
 UAE.raiseAnswer = function (co, role, yes, timeout, auto) {

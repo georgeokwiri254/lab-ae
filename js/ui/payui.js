@@ -22,6 +22,10 @@ UI.payBox = function (co) {
             : (p.lastRaise ? '<span class="muted">last raise ' + UAE.cal.label(p.lastRaise.day) + '</span> ' : '') + '<button class="btn sm" data-act="raiseAsk" data-arg="' + co.id + '|' + e.role + '" title="Let this executive ask for a raise now">Ask for raise</button>') + '</td></tr>';
       }).join('') + '</table>';
   } else h += '<div class="muted">No hired executives yet.</div>';
+  var subs = UAE.subsOf(co), grp = UAE.groupAutoRaise(co);
+  if (subs.length) h += '<div class="row"><button class="btn ' + (pp.groupAuto ? 'a' : '') + '" data-act="payGroupAuto" data-arg="' + co.id + '">' + (pp.groupAuto ? '✔ Auto-accepting every raise in the group' : 'Auto-accept every raise in the group') + '</button>' +
+    '<span class="muted">' + UI.esc(co.name) + ' + ' + subs.length + ' subsidiar' + (subs.length === 1 ? 'y' : 'ies') + ' (CEO, CMO and CTO; pending requests are accepted now)' + '</span></div>';
+  else if (grp && grp !== co) h += '<div class="note">Raises here are auto-accepted by the parent company <b>' + UI.esc(grp.name) + '</b> (group setting in its HQ).</div>';
   h += '<div class="row"><b>Auto-accept raises</b> ' + UAE.EXEC_ROLES.map(function (r) {
     return '<label><input type="checkbox" data-ch="payAuto" data-arg="' + co.id + '|' + r[0] + '"' + (pp.autoRaise[r[0]] ? ' checked' : '') + '> ' + r[1] + '</label>';
   }).join(' ') + '</div>';
@@ -47,6 +51,12 @@ UI.act.payAuto = function (a, el) {
   var x = UI.payArg(a), pp = UAE.payPol(x.co); pp.autoRaise[x.role] = el.checked;
   UI.toast(x.role.toUpperCase() + ' raise requests will be ' + (el.checked ? 'accepted automatically.' : 'sent to you.'), 'good');
   var p = x.co[x.role] && UAE.person(x.co[x.role]); if (el.checked && p && p.raiseReq) { UAE.raiseAnswer(x.co, x.role, true, false, true); UI.render(); }
+};
+UI.act.payGroupAuto = function (id) {
+  var co = UAE.co(id), pp = UAE.payPol(co), n = 0; pp.groupAuto = !pp.groupAuto;
+  if (pp.groupAuto) [co].concat(UAE.subsOf(co)).forEach(function (c) { UAE.execsOf(c).forEach(function (e) { if (e.p.raiseReq) { UAE.raiseAnswer(c, e.role, true, false, true); n++; } }); });
+  UI.toast(pp.groupAuto ? 'Every raise in ' + co.name + ' and its subsidiaries is now accepted automatically' + (n ? ' (' + n + ' waiting request' + (n === 1 ? '' : 's') + ' accepted)' : '') + '.' : 'Group auto-accept off - each company uses its own settings.', 'good');
+  UI.render();
 };
 UI.act.paySet = function (id) {
   var pp = UAE.payPol(UAE.co(id)), v = function (k, lo, hi) { var n = UI.num(k); return isNaN(n) ? null : Math.max(lo, Math.min(hi, n)) / 100; };
