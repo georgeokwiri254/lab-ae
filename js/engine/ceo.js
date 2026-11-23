@@ -419,12 +419,7 @@ UAE.AI.expand = function (co, instant) {
   }
   // natural resources: pick a free deposit
   if (type === 'mine' || type === 'oilwell') return UAE.AI.buildOnDeposit(co, type, pid, instant);
-  var cities = Object.keys(S.cities).map(function (k) {
-    var c = S.cities[k], n = UAE.allFirms().filter(function (f) { return f.city === k && f.type === type; }).length;
-    var w = c.pop / 1e6 * UAE.CITIES[k].income / (1 + 0.15 * n) * (k === co.hq ? 2 : 1);
-    if (['farm', 'solar'].indexOf(type) >= 0) w = 1;
-    return { k: k, w: w };
-  });
+  var cities = UAE.cityAppeal(co, type);   // market, land, crowding, infrastructure, new zones (engine/execs.js)
   var choice = null;
   for (var tries = 0; tries < 6 && !choice; tries++) {
     var tw = cities.reduce(function (s, x) { return s + x.w; }, 0), rr = R.next() * tw, city = cities[0].k;
@@ -432,7 +427,7 @@ UAE.AI.expand = function (co, instant) {
     var ds = UAE.DISTRICTS.filter(function (d) { return d.city === city && T.zones.indexOf(d.zone) >= 0; });
     if (!ds.length) continue;
     // retail: prefer high-traffic districts
-    var d = type === 'retail' || type === 'service' ? UAE.AI.pickWeighted(ds, function (x) { return 0.2 + x.foot; }) : R.pick(ds);
+    var d = UAE.pickDistrict(ds, type);
     var pnt = UAE.randomPointIn(d, type);
     if (pnt) choice = { p: pnt, d: d };
   }

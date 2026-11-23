@@ -109,19 +109,14 @@ UAE.AI.expand = function (co, instant) {
   if (integ && R.chance(0.5)) type = integ.type;
   var T = UAE.FIRM_TYPES[type]; if (!T || T.disabled || T.gov) return null;
   // city choice: bigger, richer markets first; home city favoured
-  var cities = Object.keys(S.cities).map(function (k) {
-    var c = S.cities[k], n = UAE.allFirms().filter(function (f) { return f.city === k && f.type === type; }).length;
-    var w = c.pop / 1e6 * UAE.CITIES[k].income / (1 + 0.15 * n) * (k === co.hq ? 2 : 1);
-    if (['mine','oilwell','farm','solar'].indexOf(type) >= 0) w = 1;
-    return { k: k, w: w };
-  });
+  var cities = UAE.cityAppeal(co, type);   // market, land, crowding, infrastructure, new zones (engine/execs.js)
   var choice = null;
   for (var tries = 0; tries < 6 && !choice; tries++) {
     var tw = cities.reduce(function (s, x) { return s + x.w; }, 0), r = R.next() * tw, city = cities[0].k;
     for (var i = 0; i < cities.length; i++) { r -= cities[i].w; if (r <= 0) { city = cities[i].k; break; } }
     var ds = UAE.DISTRICTS.filter(function (d) { return d.city === city && T.zones.indexOf(d.zone) >= 0; });
     if (!ds.length) continue;
-    var d = R.pick(ds), pnt = UAE.randomPointIn(d);
+    var d = UAE.pickDistrict(ds, type), pnt = UAE.randomPointIn(d);
     if (pnt) choice = { p: pnt, d: d };
   }
   if (!choice) return null;

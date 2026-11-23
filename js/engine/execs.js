@@ -58,14 +58,56 @@ UAE.nextTechStep = function (co) {
 /** Build a firm of `type` for company co in its HQ city (or the best city with a matching zone). */
 /** Cities to try for a new firm, in a weighted-random order: bigger, richer markets first, but less attractive where
  * you (and others) already have many firms of this type. HQ city x1.5. Resource firms spread evenly. */
+/** Where would an investor put a new firm of `type`? Weight per city =
+ *    market^0.6   (population x income, with diminishing returns: a big city is not N times better)
+ *  x traffic    (shops, services, malls, hotels, branches: customer foot traffic of the city's districts vs the UAE average;
+ *                Dubai's traffic is the trade-off against its expensive, crowded land)
+ *  x land       (cheaper land than the UAE average for this kind of plot attracts; ^0.75, 0.5-2)
+ *  x crowding   (firms of this type per million people vs the UAE average; uncrowded cities attract)
+ *  x own        (fewer of our own firms of this type there, per million people)
+ *  x infra      (government offices / civic / roads indexes from engine/govdev.js, cheaper utilities)
+ *  x zones      (new government zones opened in the city, recent openings count extra)
+ *  x 1.1 for the company's HQ city. Resource types (farm, solar, mine, well) only look at own saturation.
+ *  Returns [{ k, w, f: { market, traffic, land, crowd, own, infra, zones } }]. */
+UAE.cityAppeal = function (co, type) {
+  var S = UAE.S, T = UAE.FIRM_TYPES[type] || { zones: [] }, ks = Object.keys(S.cities);
+  var all = UAE.dayGroup('typeCity', function (f) { return f.status === 'closed' ? null : f.type + '|' + f.city; });
+  var own = UAE.dayGroup('ownTypeCity', function (f) { return f.status === 'closed' ? null : f.owner + '|' + f.type + '|' + f.city; });
+  var n = function (k) { return (all[type + '|' + k] || []).length; }, no = function (k) { return (own[co.id + '|' + type + '|' + k] || []).length; };
+  if (['farm', 'solar', 'mine', 'oilwell', 'logging'].indexOf(type) >= 0)
+    return ks.map(function (k) { return { k: k, w: 1 / (1 + no(k)), f: { own: 1 / (1 + no(k)) } }; });
+  var land = {}, foot = {}, lsum = 0, lc = 0, fsum = 0, popT = 0, nT = 0;
+  var traffic = ['retail', 'service', 'mall', 'hotel', 'bankbranch', 'insoffice', 'sports'].indexOf(type) >= 0;
+  ks.forEach(function (k) {
+    var ds = UAE.DISTRICTS.filter(function (d) { return d.city === k && T.zones.indexOf(d.zone) >= 0; });
+    land[k] = ds.length ? ds.reduce(function (s, d) { return s + d.land; }, 0) / ds.length * (S.cities[k].landIdx || 1) : null;
+    foot[k] = ds.length ? ds.reduce(function (s, d) { return s + (d.foot || 1); }, 0) / ds.length : 1;
+    if (land[k]) { lsum += land[k]; lc++; fsum += foot[k]; }
+    popT += S.cities[k].pop; nT += n(k);
+  });
+  var avgFoot = lc ? fsum / lc : 1, avgLand = lc ? lsum / lc : 1, avgDens = nT / Math.max(1e-6, popT / 1e6), Gs = S.gov || { zones: [], log: [] };
+  return ks.map(function (k) {
+    var c = S.cities[k], pm = c.pop / 1e6, F = {};
+    if (!land[k]) return { k: k, w: 1e-6, f: { none: true } };                     // no zone allows this type here
+    F.market = Math.pow(pm * UAE.CITIES[k].income, 0.6);
+    F.traffic = traffic ? Math.max(0.6, Math.min(1.8, Math.sqrt(foot[k] / avgFoot) * (1 + Math.min(0.5, (UAE.CITIES[k].tourists || 0) / Math.max(1, c.pop) * 0.1)))) : 1;
+    F.land = Math.max(0.5, Math.min(2, Math.pow(avgLand / land[k], 0.75)));
+    var rel = avgDens > 0 ? (n(k) / Math.max(0.05, pm)) / avgDens : 1;
+    F.crowd = Math.max(0.3, Math.min(2, 1 / (0.5 + 0.5 * rel)));
+    F.own = 1 / (1 + 0.5 * no(k) / Math.max(0.3, pm));
+    var st = c.dev && c.dev.stats, cut = UAE._utilCut && UAE._utilCut[UAE.CITIES[k].emirate] ? UAE._utilCut[UAE.CITIES[k].emirate].cut : 0;
+    F.infra = st ? Math.max(0.5, Math.min(1.2, (Math.min(1.2, st.office || 1) + Math.min(1.2, st.civic || 1) + Math.min(1.2, st.roads || 1)) / 3)) * (1 + cut) : 1;
+    var zs = UAE.PLANNED_ZONES ? UAE.PLANNED_ZONES.filter(function (z) { return z.city === k && Gs.zones.indexOf(z.id) >= 0; }) : [];
+    var fit = zs.filter(function (z) { return T.zones.indexOf(z.zone) >= 0; }).length;
+    var recent = (Gs.log || []).filter(function (x) { return x.city === k && S.day - x.day < 365; }).length;
+    F.zones = 1 + 0.08 * Math.min(5, zs.length) + 0.15 * Math.min(3, fit) + 0.2 * Math.min(2, recent);
+    var w = F.market * F.traffic * F.land * F.crowd * F.own * F.infra * F.zones * (k === co.hq ? 1.1 : 1);
+    return { k: k, w: Math.max(1e-6, w), f: F };
+  });
+};
+/** Cities in the order this company should try them (weighted random draw from UAE.cityAppeal). */
 UAE.cityOrderFor = function (co, type) {
-  var S = UAE.S, R = UAE.rng, nAll = {}, nOwn = {};
-  UAE.allFirms().forEach(function (f) { if (f.type !== type || f.status === 'closed') return; nAll[f.city] = (nAll[f.city] || 0) + 1; if (f.owner === co.id) nOwn[f.city] = (nOwn[f.city] || 0) + 1; });
-  var res = ['farm', 'solar', 'mine', 'oilwell', 'logging'].indexOf(type) >= 0;
-  var list = Object.keys(S.cities).map(function (k) {
-    var c = S.cities[k], w = res ? 1 / (1 + (nOwn[k] || 0)) : c.pop / 1e6 * UAE.CITIES[k].income / (1 + 0.15 * (nAll[k] || 0) + 0.6 * (nOwn[k] || 0)) * (k === co.hq ? 1.5 : 1);
-    return { k: k, w: Math.max(1e-6, w) };
-  }), out = [];
+  var R = UAE.rng, list = UAE.cityAppeal(co, type).map(function (x) { return { k: x.k, w: x.w }; }), out = [];
   while (list.length) {
     var tw = list.reduce(function (t, x) { return t + x.w; }, 0), r = R.next() * tw, i = 0;
     for (; i < list.length - 1; i++) { r -= list[i].w; if (r <= 0) break; }
@@ -73,13 +115,18 @@ UAE.cityOrderFor = function (co, type) {
   }
   return out;
 };
+/** Inside a city: cheaper land and new government zones are preferred (retail / services: foot traffic too). */
+UAE.pickDistrict = function (ds, type) {
+  var traffic = type === 'retail' || type === 'service';
+  return UAE.AI.pickWeighted(ds, function (d) { return (traffic ? 0.2 + d.foot : 1) * Math.sqrt(5000 / Math.max(500, d.land)) * (d.gov ? 1.5 : 1); });
+};
 UAE.buildFor = function (co, type, pid, instant) {
   var T = UAE.FIRM_TYPES[type], R = UAE.rng, S = UAE.S;
   var cities = UAE.cityOrderFor(co, type);           // market-weighted, spread across the emirates (was: HQ city first, always Dubai)
   for (var c = 0; c < cities.length; c++) {
     var ds = UAE.DISTRICTS.filter(function (d) { return d.city === cities[c] && T.zones.indexOf(d.zone) >= 0; });
     for (var tries = 0; tries < 8 && ds.length; tries++) {
-      var d = R.pick(ds), pnt = UAE.randomPointIn(d, type); if (!pnt) continue;
+      var d = UAE.pickDistrict(ds, type), pnt = UAE.randomPointIn(d, type); if (!pnt) continue;
       var q = UAE.quoteFirm(type, pnt, 1); if (!q.ok) continue;
       var budget = co.bs.cash * UAE.policy(co).mgmt.expandCashPct / 100;
       if (q.total > Math.max(budget, co.bs.cash * 0.25)) return null;      // focus projects may use up to 25% of cash
