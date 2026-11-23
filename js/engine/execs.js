@@ -210,7 +210,7 @@ UAE.ctoMonth = function (co) {
   var mine = {};
   UAE.firmsOf(co.id).forEach(function (f) { f.lines.forEach(function (l) { mine[l.pid] = 1; }); });
   var best = function (pid) { var b = 0; UAE.allCos().forEach(function (c) { if (c !== co) b = Math.max(b, c.tech[pid] || 0); }); return b; };
-  var cand = Object.keys(mine).filter(function (pid) { return (co.tech[pid] || 40) < 99.5; })
+  var cand = Object.keys(mine).filter(function (pid) { return !!UAE.P[pid]; })   // no tech cap: the CTO keeps researching
     .sort(function (a, b) { return ((UAE.isTechPid(b) ? 30 : 0) + best(b) - (co.tech[b] || 40)) - ((UAE.isTechPid(a) ? 30 : 0) + best(a) - (co.tech[a] || 40)); });
   if (UAE.techPriority) {   // world race: products with a world market first, biggest (gap to the world leader x market) first
     cand = Object.keys(mine).filter(function (pid) { return UAE.WM[pid] && (UAE.P[pid].kind !== 'software' || (UAE.SUBS && UAE.SUBS[pid])) && (UAE.techPriority(co, pid) || 0) > 0; })

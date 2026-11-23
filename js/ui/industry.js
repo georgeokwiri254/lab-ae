@@ -102,7 +102,7 @@ UI.researchBox = function (f, pid, mine) {
   var active = {};
   UAE.allFirms().forEach(function (g) { if (g.owner !== co.id && (g.target === pid || g.lines.some(function (l) { return l.pid === pid; }))) active[g.owner] = 1; });
   var leader = UAE.allCos().filter(function (c) { return active[c.id]; }).sort(function (a, b) { return (b.tech[pid] || 0) - (a.tech[pid] || 0); })[0];
-  var h = '<div class="cards">' + UI.card('Current model', UI.esc(UAE.modelName(co, pid))) + UI.card('Technology', (co.tech[pid] || 40).toFixed(1) + ' / 100', '', 'a') +
+  var h = '<div class="cards">' + UI.card('Current model', UI.esc(UAE.modelName(co, pid))) + UI.card('Technology', (co.tech[pid] || 40).toFixed(1), 'no cap - every model adds more', 'a') +
     UI.card('Best rival', leader ? (leader.tech[pid] || 0).toFixed(1) : '—', leader ? UI.esc(leader.name) : 'no rival makes it yet') + '</div>';
   if (pr) {
     h += '<div class="row"><b>Researching ' + UI.esc(UAE.modelName(co, pid).replace(/(Gen |v)\d+/, function (m) { return m.replace(/\d+/, pr.gen); })) + '</b>' + (pr.paused ? ' <span class="t-m">⏸ paused: not enough cash</span>' : '') + '</div>' +
@@ -111,9 +111,7 @@ UI.researchBox = function (f, pid, mine) {
   } else if (UAE.canResearch ? !UAE.canResearch(co, pid) : (co.tech[pid] || 0) >= 99.5) {
     h += '<div class="row"><b class="t-a">✔ Maximum technology reached</b><span class="muted">this title / product cannot be improved further, so no research money is spent</span></div>';
   } else if (mine) {
-    var gainTxt = (co.tech[pid] || 0) >= 99.5 && q.gGain != null
-      ? 'world tech index +' + q.gGain.toFixed(1) + ' (now ' + q.gNow.toFixed(1) + ' vs leader ' + q.frontier.toFixed(1) + ')'
-      : 'technology +' + q.gain.toFixed(1) + (q.gGain != null ? ' · world +' + q.gGain.toFixed(1) : '');
+    var gainTxt = 'technology +' + q.gain.toFixed(1) + (q.gGain != null ? ' · world tech index +' + q.gGain.toFixed(1) + ' (now ' + q.gNow.toFixed(1) + ' vs leader ' + q.frontier.toFixed(1) + ')' : '');
     h += '<div class="row"><button class="btn a" data-act="resStart" data-arg="' + f.id + '|' + pid + '">🔬 Research next model (' + (UAE.P[pid].kind === 'software' ? 'v' + q.next + '.0' : 'Gen ' + q.next) + ')</button>' +
       '<span class="muted">' + UAE.fmt.aed(q.cost) + ' over ' + q.days + ' days · ' + gainTxt + '</span></div>';
   }

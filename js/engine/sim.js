@@ -467,7 +467,7 @@ UAE.produceFactory = function (f) {
     qIn /= rec.in.length;
     var lab = rec.lab * units * (UAE.RULES.utilityMult[UAE.CITIES[f.city].emirate] || 1);
     UAE.L.buyInventory(co, lab);
-    var qual = Math.min(100, (co.tech[l.pid] || 50) * 0.75 + qIn * 0.25 + (f.training || 0) * 0.1);
+    var qual = (co.tech[l.pid] || 50) * 0.75 + qIn * 0.25 + (f.training || 0) * 0.1;   // no cap: tech above 100 keeps improving quality
     UAE.stockAdd(f, l.pid, units, (cost + lab) / units, qual);
     l.made += units; UAE.wmCount(l.pid, 'made', units);
     // default selling price: never below cost + 12%; B2B goods follow the UAE wholesale market, consumer goods import parity
@@ -674,7 +674,7 @@ UAE.servicesDay = function (open) {
     var co = UAE.co(f.owner), t = co.tech[f.target] || 40, cls = UAE.P[f.target] ? UAE.P[f.target].cls : '';
     var mgr = f.manager && UAE.person(f.manager), ceo = UAE.person(co.ceo);
     var classExp = Math.max(mgr && mgr.pexp ? mgr.pexp[cls] || 0 : 0, ceo && ceo.pexp ? (ceo.pexp[cls] || 0) * 0.5 : 0);
-    co.tech[f.target] = Math.min(100, t + 0.012 * f.size * f.eff * (1 + classExp / 100) * (1 - t / 110));   // product-class expertise: +1%/point
+    co.tech[f.target] = t + 0.012 * f.size * f.eff * (1 + classExp / 100) * Math.max(0.15, 1 - t / 110);   // no cap: past ~94 it keeps rising at 15% of the base pace   // product-class expertise: +1%/point
   });
 };
 
@@ -774,7 +774,7 @@ UAE.brandTechDay = function (co) {
   });
   if (co.hqBudget.cto) {
     var g = co.hqBudget.cto / 30 / 2e6 * 0.01;
-    for (var p in co.tech) co.tech[p] = Math.min(100, co.tech[p] + g * (1 - co.tech[p] / 110));
+    for (var p in co.tech) co.tech[p] = co.tech[p] + g * Math.max(0.15, 1 - co.tech[p] / 110);   // no cap
   }
   if (co.hqBudget.hr) UAE.L.expense(co, 'training', co.hqBudget.hr / 30);
   if (co.hqBudget.cmo) UAE.L.expense(co, 'advertising', co.hqBudget.cmo / 30);

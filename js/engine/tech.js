@@ -50,7 +50,7 @@ UAE.researchQuote = function (f, pid) {
   if ((P.ref || P.world || 0) > 10000) base *= 2;                      // cars, robots, watches: bigger programmes
   var cost = Math.round(base * (1 + 0.35 * (g - 1)) / 1e4) * 1e4;
   var days = Math.max(20, Math.round(90 / (1 + 0.4 * (f.size - 1)) / (f.eff || 1)));
-  var t = co.tech[pid] || 40, gain = 12 * (1 - t / 130);
+  var t = co.tech[pid] || 40, gain = 12 * Math.max(0.2, 1 - t / 130);   // no cap: past ~104 each model still adds 2.4
   var out = { cost: cost, days: days, gain: gain, next: g + 1 };
   if (UAE.WM && UAE.WM[pid]) {   // world-class R&D programme: ~0.4% of the world market per project, shared by parallel projects
     var n = UAE.rndTeams(co, pid);
@@ -86,15 +86,9 @@ UAE.rndTeamCap = function (co, pid) {
 };
 /** Can company co still run research projects on pid? Local UAE tech stops at 100,
  *  but world-market products have an uncapped World Tech Index racing advancing leaders. */
-UAE.canResearch = function (co, pid) {
-  return (co.tech[pid] || 0) < 99.5 || !!(UAE.WM && UAE.WM[pid]);
-};
-/** Should auto-research start another project on pid? Pauses once local tech is 100 and
- *  (for world-market products) already 10+ index points ahead of the world leader. */
-UAE.needsAutoResearch = function (co, pid) {
-  if ((co.tech[pid] || 0) < 99.5) return true;
-  return !!(UAE.WM && UAE.WM[pid] && UAE.gtech(co, pid) < UAE.wmFrontier(pid) + 10);
-};
+/** Technology has no cap (user rule): research is always possible and auto-research never pauses for being "ahead". */
+UAE.canResearch = function (co, pid) { return !!UAE.P[pid]; };
+UAE.needsAutoResearch = function (co, pid) { return !!UAE.P[pid]; };
 /** Guard for automatic software-studio research: at most 1 active project per title on a studio,
  *  and once local tech is 100 only auto-run on studios whose revenue comfortably covers the project cost. */
 UAE.canAutoSoftwareResearch = function (co, f, pid) {
@@ -102,7 +96,7 @@ UAE.canAutoSoftwareResearch = function (co, f, pid) {
   if (UAE.activeResearchCount(co, pid) >= 1) return false;
   if ((co.tech[pid] || 0) < 99.5) return true;
   var q = UAE.researchQuote(f, pid), mCost = q.cost / Math.max(1, q.days) * 30;
-  return (f.last && f.last.rev || 0) * 0.7 >= mCost;
+  return (f.last && f.last.rev || 0) * 0.7 >= mCost || co.bs.cash > q.cost * 50;   // past 100: pays for itself, or the company is rich enough to keep inventing
 };
 UAE.startResearch = function (f, pid) {
   var co = UAE.co(f.owner), k = UAE.FIRM_TYPES[f.type].kind, P = UAE.P[pid];
@@ -111,7 +105,7 @@ UAE.startResearch = function (f, pid) {
   if (k === 'software' && pid !== UAE.swPid(f)) return { ok: false, why: 'A software company researches its own title.' };
   if (f.status !== 'open') return { ok: false, why: 'The firm is not open yet.' };
   if (f.project) return { ok: false, why: 'A project is already running here: ' + UAE.P[f.project.pid].name + '.' };
-  if (!UAE.canResearch(co, pid)) return { ok: false, why: P.name + ' is already at maximum technology (100).' };
+  if (!UAE.canResearch(co, pid)) return { ok: false, why: P.name + ' cannot be researched.' };
   var q = UAE.researchQuote(f, pid);
   if (co.bs.cash < q.cost * 0.25) return { ok: false, why: 'Needs at least ' + UAE.fmt.aed(q.cost * 0.25) + ' cash to start.' };
   f.project = { pid: pid, cost: q.cost, days: q.days, done: 0, spent: 0, gen: q.next, start: UAE.S.day };
@@ -146,7 +140,7 @@ UAE.researchDay = function (f) {
   if (p.done < p.days) return;
   var t = co.tech[p.pid] || 40, mgr = f.manager && UAE.person(f.manager);
   var exp = mgr && mgr.pexp ? (mgr.pexp[UAE.P[p.pid].cls] || 0) : 0;
-  co.tech[p.pid] = Math.min(100, t + 12 * (1 - t / 130) * (1 + exp / 100) * (UAE.ctoMult ? UAE.ctoMult(co) : 1) * ((p.pid === 'llm' || p.pid === 'ai') && UAE.computeBoost ? UAE.computeBoost(co) : 1));   // a CTO's R&D expertise adds up to +50%
+  co.tech[p.pid] = (t + 12 * Math.max(0.2, 1 - t / 130) * (1 + exp / 100) * (UAE.ctoMult ? UAE.ctoMult(co) : 1) * ((p.pid === 'llm' || p.pid === 'ai') && UAE.computeBoost ? UAE.computeBoost(co) : 1));   // a CTO's R&D expertise adds up to +50%
   co.gen = co.gen || {}; co.gen[p.pid] = p.gen;
   if (UAE.WM && UAE.WM[p.pid]) {   // world tech index: the race against the world leaders (engine/worldmkt.js)
     var gg = UAE.gtechGain(co, p.pid) * Math.pow(UAE.rndTeams(co, p.pid), -0.7) * (1 + exp / 100) * (UAE.ctoMult ? UAE.ctoMult(co) : 1);
@@ -179,8 +173,8 @@ UAE.softwareDay = function (list) {
     var pid = UAE.swPid(f), P = UAE.P[pid], co = UAE.co(f.owner), l = f.lines[0];
     // the development team slowly improves the title on its own (projects give the big jumps)
     var t = co.tech[pid] || 40;
-    co.tech[pid] = Math.min(100, t + 0.008 * f.size * f.eff * (1 - t / 110));
-    f.quality = Math.min(100, co.tech[pid] * 0.9 + (f.training || 0) * 0.1);
+    co.tech[pid] = t + 0.008 * f.size * f.eff * Math.max(0.15, 1 - t / 110);   // no cap
+    f.quality = co.tech[pid] * 0.9 + (f.training || 0) * 0.1;
     // licence stock (what stores and factories buy): keep ~10 days of capacity on hand
     var target = 4000 * f.size, have = UAE.stockQ(f, pid);
     if (have < target * 0.8) {

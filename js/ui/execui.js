@@ -46,12 +46,17 @@ UI.wantPhoto = function (title) {
   return null;
 };
 
+/** Hover info for a product picture: demand, shortages, raw materials, necessity (engine UAE.productInsight). Always shown, even with beginner help off. */
+UI.productTip = function (pid) {
+  var P = UAE.P[pid], lines = UAE.productInsight ? UAE.productInsight(pid) : [];
+  return ' data-help-always="1" data-help-title="' + UI.esc(P.name + ' · ' + P.kind) + '" data-help="' + UI.esc(lines.join(String.fromCharCode(10)) || P.name) + '"';
+};
 /** Product picture tile in the dark neon hyper-render frame. size = width in px. */
 UI.productImg = function (pid, size) {
   var P = UAE.P[pid]; if (!P) return '';
   var s = size || 64, col = UI.kindColor(P), src = UI.wantPhoto(UAE.PRODUCT_WIKI[pid]);
   var inner = src ? '<img src="' + src + '" alt="" loading="lazy">' : '<span class="glyph">' + (UI.PRODUCT_GLYPH[P.kind] || '◆') + '</span>';
-  return '<span class="pimg" style="width:' + s + 'px;height:' + Math.round(s * 0.75) + 'px;--nc:' + col + '" title="' + UI.esc(P.name) + '">' + inner + '<i class="fx"></i></span>';
+  return '<span class="pimg" style="width:' + s + 'px;height:' + Math.round(s * 0.75) + 'px;--nc:' + col + '"' + UI.productTip(pid) + '>' + inner + '<i class="fx"></i></span>';
 };
 /** Large product hero: picture + name + key facts (Product Details, factory lines). */
 UI.productHero = function (pid, extra) {

@@ -168,7 +168,8 @@ UI.helpOn = function () { return !(UAE.S && UAE.S.settings && UAE.S.settings.hov
   };
   document.addEventListener('mouseover', function (e) {
     if (document.body) document.body.classList.toggle('helpon', UI.helpOn());
-    if (!UI.helpOn() || !e.target || !e.target.closest) return;
+    if (!e.target || !e.target.closest) return;
+    if (!UI.helpOn() && !e.target.closest('[data-help-always]')) { hide(); return; }
     var r = UI.helpFor(e.target);
     if (!r) { if (!e.target.closest('#helptip')) hide(); return; }
     if (last && last === r[1]) return;
@@ -176,7 +177,7 @@ UI.helpOn = function () { return !(UAE.S && UAE.S.settings && UAE.S.settings.hov
     var x = e.clientX, y = e.clientY;
     timer = setTimeout(function () {
       if (!tip) { tip = document.createElement('div'); tip.id = 'helptip'; document.body.appendChild(tip); }
-      tip.innerHTML = (r[0] ? '<b>' + UI.esc(String(r[0]).replace(/\s+/g, ' ').trim()) + '</b>' : '') + '<div>' + UI.esc(r[1]) + '</div>';
+      tip.innerHTML = (r[0] ? '<b>' + UI.esc(String(r[0]).replace(/\s+/g, ' ').trim()) + '</b>' : '') + '<div>' + UI.esc(r[1]).split(String.fromCharCode(10)).join('<br>• ') + '</div>';
       tip.style.display = 'block'; place(x, y);
     }, 380);
   });

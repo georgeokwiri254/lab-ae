@@ -323,3 +323,46 @@ UAE.mediaOutlets = function () {
   out.push({ id: 'DIGITAL', name: 'Digital / social ads (UAE-wide)', city: 'UAE', kind: 'DIGITAL', reach: 0.7, quality: 50 });
   return out;
 };
+
+/* ------------------------------------------- product insight (hover help) --- */
+/** Products that use pid as an input (recipe), built once. */
+UAE.usedBy = function (pid) {
+  if (!UAE._usedBy) { UAE._usedBy = {}; UAE.PRODUCTS.forEach(function (P) { if (P.rec) P.rec.in.forEach(function (x) { (UAE._usedBy[x[0]] = UAE._usedBy[x[0]] || []).push(P.id); }); }); }
+  return UAE._usedBy[pid] || [];
+};
+/** Market facts for one product, as plain-text lines (no DOM): demand, supply, shortage, wholesale balance,
+ *  raw-material shortages of its inputs, what it is used for, necessity index, world market size. */
+UAE.productInsight = function (pid) {
+  var S = UAE.S, P = UAE.P[pid]; if (!P || !S) return [];
+  var N = UAE.fmt.num, A = UAE.fmt.aed, out = [], u = P.unit || 'units';
+  var nec = UAE.invNecessity ? UAE.invNecessity(P) : null;
+  if (nec != null) out.push('Necessity index ' + Math.round(nec * 100) + '% - ' + (nec >= 0.6 ? 'essential: people and businesses keep buying when prices rise' : nec >= 0.3 ? 'normal: demand falls somewhat when prices rise' : 'luxury / optional: buyers drop it quickly when prices rise'));
+  // consumer demand across all cities (units per day, from the retail market)
+  var D = 0, sold = 0, sellers = 0;
+  Object.keys(S.cities).forEach(function (c) { var m = S.mkt && S.mkt[c + '|' + pid]; if (m) { D += m.demand || 0; sold += Math.max(0, (m.sold || 0)); sellers += m.sellers || 0; } });
+  if (D > 0) {
+    var met = Math.min(1, sold / D);
+    out.push('UAE shop demand ' + N(D) + ' ' + u + '/day · our modelled shops sell ' + N(sold) + ' (' + Math.round(met * 100) + '%) from ' + sellers + ' stores; the rest is bought from importers / small shops' + (met < 0.5 ? ' - plenty of room for new sellers' : ''));
+  }
+  // wholesale (B2B) balance: used vs made in the UAE
+  var w = S.wmkt && S.wmkt[pid];
+  if (w && (w.made > 0.01 || w.used > 0.01)) {
+    var bal = (w.used + 1e-9) / (w.made + 1e-9);
+    out.push('UAE production ' + N(w.made) + ' ' + u + '/day vs factory use ' + N(w.used) + '/day → ' + (w.made < 0.01 ? 'NO local production: all imported' : bal > 1.1 ? 'SHORTAGE (' + Math.round(bal * 100) + '% of output is needed)' : bal < 0.8 ? 'surplus (only ' + Math.round(bal * 100) + '% used)' : 'balanced') +
+      (w.px ? ' · wholesale ' + A(w.px) + ' (import ' + A(w.imp || 0) + ')' : ''));
+  }
+  // raw materials / inputs and their shortages
+  if (P.rec && P.rec.in.length) {
+    var parts = P.rec.in.map(function (x) {
+      var wi = S.wmkt && S.wmkt[x[0]], Q = UAE.P[x[0]], name = Q ? Q.name : x[0];
+      if (!wi || (wi.made < 0.01 && wi.used < 0.01)) return name + ' (imported)';
+      if (wi.made < 0.01) return name + ' (no UAE producer - imported: a gap to fill)';
+      var b = wi.used / wi.made; return name + (b > 1.1 ? ' (SHORT ' + Math.round(b * 100) + '%)' : b < 0.8 ? ' (plenty)' : ' (ok)');
+    });
+    out.push('Made from: ' + parts.join(', '));
+  }
+  var ub = UAE.usedBy(pid);
+  if (ub.length) out.push('Used to make: ' + ub.slice(0, 8).map(function (x) { return UAE.P[x] ? UAE.P[x].name : x; }).join(', ') + (ub.length > 8 ? ' +' + (ub.length - 8) + ' more' : '') + ' - demand for it follows those factories');
+  if (UAE.wmSize) { var ws = UAE.wmSize(pid); if (ws > 0) out.push('World market about ' + A(ws) + ' a year (UAE firms can export)'); }
+  return out;
+};
