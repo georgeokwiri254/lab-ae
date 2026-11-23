@@ -90,7 +90,8 @@ UAE.monthEnd = function () {
   UAE.microMonth();          // product market history (engine/micro.js)
   if (UAE.worldMonth) UAE.worldMonth();
   if (UAE.talentMonth) UAE.talentMonth();
-  if (UAE.ipoMonth) UAE.ipoMonth();           // about 5 private computer companies list on DFM / ADX each year (engine/market.js)     // 3 elite CEO candidates join the talent market each month (engine/ceo.js)
+  if (UAE.ipoMonth) UAE.ipoMonth();
+  if (UAE.bondMarketMonth) UAE.bondMarketMonth();   // new government & corporate bonds, computer investors buy (engine/ceoinvest.js)           // about 5 private computer companies list on DFM / ADX each year (engine/market.js)     // 3 elite CEO candidates join the talent market each month (engine/ceo.js)
   if (UAE.nameSyncAll) UAE.nameSyncAll();    // names follow the product / title / research target     // global reach, world rankings (engine/worldmkt.js)
   UAE.expertiseMonth();      // managers and CEOs gain expertise (engine/ceo.js)
   UAE.checkGoals();

@@ -111,21 +111,24 @@ UAE.bondPicks = function (co) {
   return Object.keys(S.bonds).map(function (id) { return S.bonds[id]; }).filter(function (b) {
     if (b.matured || b.maturity - S.day < 180) return false;
     if (b.issuer === 'CO:' + co.id) return false;
-    if (b.issuer.indexOf('CO:') === 0) { var ic = UAE.co(b.issuer.slice(3)); if (!ic || ic.status === 'BANKRUPT' || (co.controller && ic.controller === co.controller)) return false; }
+    if (b.issuer.indexOf('CO:') === 0) { var ic = UAE.co(b.issuer.slice(3)); if (!ic || ic.status === 'BANKRUPT' || (UAE.isHuman(co) && UAE.isHuman(ic)) || ic.parent === co.id || co.parent === ic.id) return false; }   // never our own group
     return UAE.bondFloat(b) > 1e5;
   }).sort(function (a, b) { return (b.ytm || b.coupon) - (a.ytm || a.coupon); });
 };
 /** Spend up to budget on bonds (max 5 issues, at most 50% of any issue's float). Returns AED spent. */
-UAE.ceoBuyBonds = function (co, budget) {
+UAE.ceoBuyBonds = function (co, budget, reserve) {
   if (budget < 1e6) return 0;
-  var picks = UAE.bondPicks(co).slice(0, 5), spent = 0;
-  picks.forEach(function (b, i) {
-    var left = budget - spent; if (left < 1e5) return;
-    var amt = Math.min(left / (picks.length - i), UAE.bondFloat(b) * 0.5 * b.price / 100, UAE.groupFreeCash(co));
-    var face = Math.floor(amt / (b.price / 100)); if (face < 1e5) return;
+  // best yield first; keep going down the list until the budget is spent (max 5 issues a month).
+  // reserve = share of each issue left for other investors (computer companies leave 40% for you)
+  var picks = UAE.bondPicks(co), spent = 0, buys = 0, slots = 5;
+  for (var i = 0; i < picks.length && buys < slots; i++) {
+    var b = picks[i], left = budget - spent; if (left < 1e5) break;
+    var avail = UAE.bondFloat(b) - b.face * (reserve || 0); if (avail < 1e6) continue;
+    var amt = Math.min(left / (slots - buys), avail * 0.5 * b.price / 100, UAE.groupFreeCash(co));
+    var face = Math.floor(amt / (b.price / 100)); if (face < 1e5) continue;
     var r = UAE.tradeBond(co, b.id, face);
-    if (r.ok) { spent += r.cost; co.ceoInvest.picks.push({ id: b.id, name: b.name, ticker: 'BOND', amount: r.cost, action: 'buy', why: 'bond yield ' + ((b.ytm || b.coupon) * 100).toFixed(2) + '%, matures ' + UAE.cal.label(b.maturity), bond: true }); }
-  });
+    if (r.ok) { spent += r.cost; buys++; if (co.ceoInvest) co.ceoInvest.picks.push({ id: b.id, name: b.name, ticker: 'BOND', amount: r.cost, action: 'buy', why: 'bond yield ' + ((b.ytm || b.coupon) * 100).toFixed(2) + '%, matures ' + UAE.cal.label(b.maturity), bond: true }); }
+  }
   return spent;
 };
 /** Sell bonds (lowest yield first) to raise about need. Returns AED raised. */
@@ -136,10 +139,55 @@ UAE.ceoSellBonds = function (co, need) {
       if (got >= need) return;
       var pos = co.bondPositions[b.id], face = Math.min(pos.face, Math.ceil((need - got) / (b.price / 100)));
       var r = UAE.tradeBond(co, b.id, -face);
-      if (r.ok) { got += r.proceeds; co.ceoInvest.picks.push({ id: b.id, name: b.name, ticker: 'BOND', amount: r.proceeds, action: 'sell', why: 'cash cushion', bond: true }); }
+      if (r.ok) { got += r.proceeds; if (co.ceoInvest) co.ceoInvest.picks.push({ id: b.id, name: b.name, ticker: 'BOND', amount: r.proceeds, action: 'sell', why: 'cash cushion', bond: true }); }
     });
-  co.ceoInvest.bondsSold = got;
+  if (co.ceoInvest) co.ceoInvest.bondsSold = got;
   return got;
+};
+
+/* ---- a living bond market: governments roll over their debt, companies issue, investors buy ---------------
+ * Monthly (from UAE.monthEnd):
+ *  1 every emirate (and the federal government) keeps 2 sovereign issues outstanding (SYN): when fewer than 2
+ *    have more than a year left, it issues a new 3-15 year bond sized ~0.4% of its GDP;
+ *  2 a few profitable listed computer companies issue 5-10 year corporate bonds (5% of equity);
+ *  3 computer companies with spare cash put 3% of it into bonds (best yield first, up to 50% of an issue);
+ *  4 bonds that matured more than a year ago leave the list. */
+UAE.SOV_ISSUERS = [['DXB', 'Government of Dubai', 0.008], ['AUH', 'Abu Dhabi Govt', 0.004], ['SHJ', 'Sharjah Govt', 0.018], ['RAK', 'RAK Govt', 0.012],
+  ['AJM', 'Ajman Govt', 0.02], ['FUJ', 'Fujairah Govt', 0.02], ['UAQ', 'Umm Al Quwain Govt', 0.022], ['', 'UAE Federal T-Bond', 0.002]];
+UAE.bondMarketMonth = function () {
+  var S = UAE.S, R = UAE.rng, rate = S.macro.rate, A = UAE.fmt.aed, ids = Object.keys(S.bonds);
+  // 4 tidy up
+  ids.forEach(function (id) { var b = S.bonds[id]; if (b.matured && b.maturity < S.day - 365) delete S.bonds[id]; });
+  // 1 sovereign rollover
+  UAE.SOV_ISSUERS.forEach(function (g) {
+    var k = g[0], iss = 'GOV:' + (k || 'UAE');
+    if (k && !S.cities[k]) return;
+    var live = Object.keys(S.bonds).filter(function (id) { var b = S.bonds[id]; return b.issuer === iss && !b.matured && b.maturity - S.day > 365; }).length;
+    if (live >= 2) return;
+    var gdp = k ? (UAE.cityGdp ? UAE.cityGdp(S.cities[k]) : S.cities[k].gdp) : Object.keys(S.cities).reduce(function (t, c) { return t + (UAE.cityGdp ? UAE.cityGdp(S.cities[c]) : S.cities[c].gdp); }, 0) * 0.5;
+    var yrs = R.pick([3, 5, 7, 10, 15]), face = Math.max(1e9, Math.round(gdp * 1e9 * 0.004 / 1e8) * 1e8), yr = UAE.cal.year() + yrs;
+    var id = 'GOV' + (k || 'UAE') + yr + '_' + S.day;
+    S.bonds[id] = { id: id, name: g[1] + ' ' + yr + ' (SYN)', issuer: iss, city: k, face: face, coupon: Math.round((rate + g[2] + 0.005) * 1e4) / 1e4,
+      spread: g[2], maturity: S.day + yrs * 365, price: 100, hist: [], sovereign: true };
+    UAE.news('🏛 ' + g[1] + ' issues a new ' + yrs + '-year bond: ' + A(face) + ' at ' + ((rate + g[2] + 0.005) * 100).toFixed(2) + '% (Bond Market).', 'gov');
+  });
+  // 2 corporate issues
+  var live = {}; Object.keys(S.bonds).forEach(function (id) { var b = S.bonds[id]; if (!b.matured && b.issuer.indexOf('CO:') === 0) live[b.issuer.slice(3)] = 1; });
+  UAE.allCos().filter(function (c) {
+    return !UAE.isHuman(c) && !c.foreign && c.status === 'LISTED' && !live[c.id] && (c.credit === 'AA' || c.credit === 'A') && UAE.netIncome(UAE.ttm(c)) > 0 && UAE.totals(c).equity > 2e9;
+  }).sort(function () { return R.next() - 0.5; }).slice(0, 2).forEach(function (c) {
+    if (!R.chance(0.35)) return;
+    var amt = Math.min(UAE.totals(c).equity * 0.05, 50e9), yrs = R.pick([5, 7, 10]);
+    if (UAE.issueBond(c, amt, yrs).ok) UAE.news(c.name + ' issues a ' + yrs + '-year corporate bond: ' + A(amt) + ' (Bond Market).', 'finance');
+  });
+  // 3 computer investors buy
+  UAE.allCos().forEach(function (c) {
+    if (UAE.isHuman(c) || c.foreign || c.status === 'BANKRUPT') return;
+    var spare = UAE.groupFreeCash(c) - UAE.cashCushion(c) * 1.5; if (spare < 5e7) return;
+    var keep = c.ceoInvest; c.ceoInvest = null;
+    UAE.ceoBuyBonds(c, spare * 0.03, 0.4);
+    c.ceoInvest = keep;
+  });
 };
 
 /* ---------------------------------------------------------- stock analysis */
