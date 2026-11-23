@@ -57,7 +57,7 @@ UAE.ceoInvestMonth = function (co) {
     if (need > 0 && UAE.hasIns(co)) { var wi = Math.min(need, UAE.insMaxWithdraw(co)); if (wi > 1e6 && UAE.insCapital(co, -wi, 'ceo').ok) log.push('took ' + A(wi) + ' back from the insurer'); }
   }
   var excess = UAE.groupFreeCash(co) - cushion;
-  co.ceoInvest = { day: UAE.S.day, cushion: cushion, excess: Math.max(0, excess), bank: 0, ins: 0, stocks: 0, bonds: 0, bondsSold: 0, sold: 0, picks: [] };
+  co.ceoInvest = { day: UAE.S.day, cushion: cushion, excess: Math.max(0, excess), bank: 0, ins: 0, dev: 0, stocks: 0, bonds: 0, bondsSold: 0, sold: 0, picks: [] };
   UAE.investMix(pol);
   // still short after the bank / insurer: sell bonds (they are the most liquid)
   if (UAE.groupFreeCash(co) < cushion * 0.5) {
@@ -84,6 +84,18 @@ UAE.ceoInvestMonth = function (co) {
   if (pol.investExcess && excess > 1e6) {
     var hb = UAE.hasBank(co), hi = UAE.hasIns(co);
     var toBank = hb ? (hi ? excess / 2 : excess) : 0, toIns = hi ? excess - toBank : 0;
+    // part of the bank's share goes into government development bonds (economic projects or new zones, CEO's choice)
+    if (toBank > 0 && pol.investDev !== false && UAE.govInvest) {
+      var devAmt = toBank * (pol.devPct == null ? 10 : pol.devPct) / 100, plan = devAmt >= 1e6 ? UAE.ceoDevPlan(co) : null;
+      if (plan) {
+        // zones only need what is still missing for the next zone; the rest goes to economic projects (swap)
+        var zAmt = plan.prog === 'zone' ? Math.min(devAmt, plan.gap || devAmt) : 0, gAmt = devAmt - zAmt, done = 0, parts = [];
+        if (zAmt >= 1e6 && UAE.govInvest(co, plan.city, zAmt, 'zone').ok) { done += zAmt; parts.push(A(zAmt) + ' new zones (' + plan.why + ')'); }
+        if (gAmt >= 1e6 && UAE.govInvest(co, plan.city, gAmt, 'growth').ok) { done += gAmt; parts.push(A(gAmt) + ' economic projects' + (zAmt ? '' : ' (' + plan.why + ')')); }
+        if (done > 0) { toBank -= done; co.ceoInvest.dev = done; co.ceoInvest.devPlan = plan; plan.zone = zAmt; plan.growth = gAmt;
+          log.push(UAE.CITIES[plan.city].name + ' development bonds: ' + parts.join(' + ')); }
+      }
+    }
     if (toBank > 0 && UAE.bankCapital(co, toBank, 'ceo').ok) { co.ceoInvest.bank = toBank; log.push(A(toBank) + ' into the bank'); }
     if (toIns > 0 && UAE.insCapital(co, toIns, 'ceo').ok) { co.ceoInvest.ins = toIns; log.push(A(toIns) + ' into the insurer'); }
     if (!hb && !hi) log.push('no bank or insurer to invest in – build a Bank HQ / Insurance HQ');
@@ -91,6 +103,30 @@ UAE.ceoInvestMonth = function (co) {
     else if (!hb) log.push('no Bank HQ, so the bank\'s half went to the insurer');
   }
   if (log.length && UAE.isHuman(co)) UAE.news(ceo.name + ' (CEO, ' + co.name + ') ' + log.join(', ') + '.', 'finance');
+};
+
+/* ----------------------------------------- government development bonds (CEO) */
+/** Where should the CEO's development-bond money go this month? Returns { city, prog: 'zone'|'growth', why }.
+ *  Policy devProg: 'auto' (default) | 'zone' | 'growth'. Auto swaps between the two:
+ *   - new zones in the city where the company most wants to grow (its firms there x market size) while that
+ *     city still has planned zones waiting for money (opens them sooner = more land to build on);
+ *   - otherwise economic projects (metro, ports, power...) in that city: they add GDP, so its shops sell more. */
+UAE.ceoDevPlan = function (co) {
+  var S = UAE.S, Gs = UAE.govState(), pol = UAE.policy(co), want = pol.devProg || 'auto', own = {};
+  UAE.firmsOf(co.id).forEach(function (f) { own[f.city] = (own[f.city] || 0) + 1; });
+  var rows = Object.keys(S.cities).map(function (k) {
+    var c = S.cities[k], d = c.dev || {}, next = (UAE.PLANNED_ZONES || []).filter(function (z) { return z.city === k && Gs.zones.indexOf(z.id) < 0; })[0];
+    var gap = next ? Math.max(0, next.cost - (d.sinceZone || 0)) : 0;
+    return { k: k, next: next, gap: gap, score: Math.sqrt((own[k] || 0) + 1) * Math.pow(c.pop / 1e6 * UAE.CITIES[k].income, 0.6) };
+  }).sort(function (a, b) { return b.score - a.score; });
+  if (!rows.length) return null;
+  if (want !== 'growth') {
+    var z = rows.filter(function (r) { return r.next && r.gap > 0; })[0];
+    if (z && (want === 'zone' || z.score >= rows[0].score * 0.5))
+      return { city: z.k, prog: 'zone', gap: z.gap, why: 'brings ' + z.next.name + ' closer (' + UAE.fmt.aed(z.gap) + ' still needed)' };
+    if (want === 'zone') return { city: rows[0].k, prog: 'zone', why: 'zones chosen in policy' };
+  }
+  return { city: rows[0].k, prog: 'growth', why: want === 'growth' ? 'projects chosen in policy' : 'no zone waiting for money in our main cities - projects add GDP and demand' };
 };
 
 /* ------------------------------------------------------------ bond market */

@@ -15,6 +15,11 @@ UI.ceoInvestBox = function (co) {
     '<br><label style="margin-left:26px"><input type="checkbox" data-ch="execInvGl" data-arg="' + co.id + '"' + (pol.investGlobal !== false ? ' checked' : '') + dis + '> Include <b>global stocks</b> (NYSE / NASDAQ – quality growth companies)</label>' +
     ' <span>global share <input type="range" class="slider" min="0" max="100" step="5" value="' + (pol.globalPct == null ? 40 : pol.globalPct) + '" data-in="execGlobalPct" data-arg="' + co.id + '" style="width:120px;vertical-align:middle"> <b id="globalPctOut" class="t-a">' + (pol.globalPct == null ? 40 : pol.globalPct) + '%</b></span>' +
     '<br><label><input type="checkbox" data-ch="execViaIns" data-arg="' + co.id + '"' + (pol.stocksViaIns !== false ? ' checked' : '') + dis + '> Buy &amp; sell shares through the <b>insurance HQ</b> (its investment portfolio: gains and losses go on the insurer\'s income statement)' + (UAE.hasIns(co) ? '' : ' <span class="muted">– build an Insurance HQ first</span>') + '</label>';
+  var dp = pol.devPct == null ? 10 : pol.devPct, dg = pol.devProg || 'auto';
+  h += '<br><label><input type="checkbox" data-ch="execInvDev" data-arg="' + co.id + '"' + (pol.investDev !== false ? ' checked' : '') + dis + '> Put <input class="in num" id="devPct" style="width:44px" value="' + dp + '">% of the bank share into <b>government development bonds</b></label> ' +
+    '<select class="in" data-ch="execDevProg" data-arg="' + co.id + '">' + [['auto', 'CEO decides (swaps zones / projects)'], ['zone', 'New zones'], ['growth', 'Economic projects']].map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === dg ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
+    ' <button class="btn sm" data-act="execDevPct" data-arg="' + co.id + '">Set</button>' +
+    (L && L.devPlan ? '<br><span class="muted" style="margin-left:26px">Last month: ' + A(L.dev) + ' → ' + UAE.CITIES[L.devPlan.city].name + ' · ' + (L.devPlan.zone ? A(L.devPlan.zone) + ' new zones' : '') + (L.devPlan.zone && L.devPlan.growth ? ' + ' : '') + (L.devPlan.growth ? A(L.devPlan.growth) + ' economic projects' : '') + ' (' + UI.esc(L.devPlan.why) + ')</span>' : '');
   if (L) h += '<div class="muted" style="margin-top:6px">Last run ' + UAE.cal.label(L.day) + ': cushion ' + A(L.cushion) + ' · excess ' + A(L.excess) + ' · bank +' + A(L.bank) + ' · insurer +' + A(L.ins) + ' · bonds bought ' + A(L.bonds || 0) + (L.bondsSold ? ' (sold ' + A(L.bondsSold) + ')' : '') + ' · stocks bought ' + A(L.stocks) + ' · sold ' + A(L.sold) + '</div>';
   return h + '<div class="row"><button class="btn a" data-act="ceoPortfolio" data-arg="' + co.id + '">📈 Stock portfolio &amp; analysis</button><button class="btn" data-act="ceoInvAll" data-arg="' + co.id + '" title="Copy these CEO investment settings to every company you control">Use these settings for all my companies</button></div></div>';
 };
@@ -30,12 +35,15 @@ UI.act.ceoInvAll = function (id) {
   var src = UAE.policy(UAE.co(id)), n = 0;
   UAE.allCos().forEach(function (c) {
     if (c.controller !== 'PLAYER' || c.foreign) return; var p = UAE.policy(c);
-    ['investExcess', 'investStocks', 'stockPct', 'investBonds', 'bondPct', 'investGlobal', 'globalPct', 'stocksViaIns'].forEach(function (k) { p[k] = src[k]; }); n++;
+    ['investExcess', 'investStocks', 'stockPct', 'investBonds', 'bondPct', 'investDev', 'devPct', 'devProg', 'investGlobal', 'globalPct', 'stocksViaIns'].forEach(function (k) { p[k] = src[k]; }); n++;
   });
   UI.toast('CEO investment settings copied to ' + n + ' companies.', 'good'); UI.render();
 };
 UI.act.execInvBd = function (id, el) { UAE.policy(UAE.co(id)).investBonds = el.checked; UI.toast(el.checked ? 'CEO will buy bonds each month.' : 'Bond investing off - that share goes to stocks.', 'good'); };
 UI.act.execBondPct = function (id, el) { UAE.policy(UAE.co(id)).bondPct = +el.value; var o = document.getElementById('bondPctOut'); if (o) o.textContent = el.value + '%'; };
+UI.act.execInvDev = function (id, el) { UAE.policy(UAE.co(id)).investDev = el.checked; UI.toast(el.checked ? 'CEO will put part of the bank money into government development bonds.' : 'Development bonds off.', 'good'); };
+UI.act.execDevProg = function (id, el) { UAE.policy(UAE.co(id)).devProg = el.value; };
+UI.act.execDevPct = function (id) { var v = UI.num('devPct'); if (!isNaN(v)) UAE.policy(UAE.co(id)).devPct = Math.max(0, Math.min(100, v)); UI.toast('Development bond share set to ' + UAE.policy(UAE.co(id)).devPct + '% of the bank share each month.', 'good'); UI.render(); };
 UI.act.execViaIns = function (id, el) { UAE.policy(UAE.co(id)).stocksViaIns = el.checked; };
 UI.act.execStockPct = function (id, el) { UAE.policy(UAE.co(id)).stockPct = +el.value; var o = document.getElementById('stockPctOut'); if (o) o.textContent = el.value + '%'; };
 
