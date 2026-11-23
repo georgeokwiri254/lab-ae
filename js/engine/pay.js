@@ -121,7 +121,7 @@ UAE.dropCoo = function (co) {
   UAE.leavePost = function (p) { var old = p.co && UAE.co(p.co); p.raiseReq = null; return lp.apply(this, arguments); };
   ['appointCeo', 'appointCmo', 'appointCto'].forEach(function (k) {
     var f = UAE[k]; if (!f) return;
-    UAE[k] = function (co, pid) { var r = f.apply(this, arguments), p = UAE.person(pid); if (r && r.ok !== false && p) { p.hiredDay = UAE.S.day; p.raiseReq = null; if (!p.salary) p.salary = k === 'appointCmo' ? 120000 : 150000; } return r; };
+    UAE[k] = function (co, pid) { var r = f.apply(this, arguments), p = UAE.person(pid); if (r && r.ok !== false && p) { p.hiredDay = UAE.S.day; p.raiseReq = null; if (!p.salary) p.salary = k === 'appointCmo' ? 120000 : 150000; if (k === 'appointCeo') UAE.delegate(co); } return r; };
   });
   var cm = UAE.ctoMult;
   if (cm) UAE.ctoMult = function (co) { var c = co && co.cto && UAE.person(co.cto), v = cm.apply(this, arguments); return c ? 1 + (v - 1) * UAE.motMult(c) : v; };
@@ -158,6 +158,7 @@ UAE.hqDeptPlan = function (co) {
 /** Monthly (from UAE.execsDay): the CEO sets the department budgets, or the sliders' % of revenue are applied. */
 UAE.hqDeptMonth = function (co) {
   if (!UAE.isHuman(co)) return;
+  UAE.delegate(co);
   var pol = UAE.policy(co), ceo = UAE.ceoPerson(co);
   if (ceo && pol.hqAuto !== false) {
     var plan = UAE.hqDeptPlan(co); co.hqPlan = plan;
@@ -175,10 +176,8 @@ UAE.founderTitle = function () {
   return me && pc && pc.ceo === me.id ? 'Founder & CEO' : 'Founder';
 };
 UAE.syncFounderTitle = function () { var me = UAE.playerPerson && UAE.playerPerson(); if (me) { me.title = UAE.founderTitle(); me.founder = true; } };
-(function () {
-  var ds = UAE.deserialize;
-  if (ds) UAE.deserialize = function () { var r = ds.apply(this, arguments); try { UAE.syncFounderTitle(); UAE.purchasingV2(); UAE.backward100(); } catch (e) { } return r; };
-})();
+/** Called at the end of UAE.deserialize (engine/save.js loads after this file, so no wrapper here). */
+UAE.afterLoad = function () { UAE.syncFounderTitle(); UAE.purchasingV2(); UAE.backward100(); UAE.delegateAll(); };
 
 /** One-time (per save): purchasing policy default changed from "prefer own supply" to "best value (price / quality)". */
 UAE.purchasingV2 = function () {
@@ -188,3 +187,12 @@ UAE.purchasingV2 = function () {
 
 /** Your companies: backward integration always 100 (also fixes companies created earlier with the old 30-80 default). */
 UAE.backward100 = function () { UAE.allCos().forEach(function (c) { if (c.controller === 'PLAYER' && !c.foreign) UAE.policy(c).backward = 100; }); };
+
+/** Your companies: day-to-day running is always delegated (CEO office runs suppliers / prices / ads / training),
+ *  and a hired CEO always runs the company (expansion, pricing, policies). Applied on load, on hiring, monthly. */
+UAE.delegate = function (co) {
+  if (!co || co.controller !== 'PLAYER' || co.foreign) return;
+  co.autoPricing = true;
+  if (UAE.ceoPerson(co)) co.ceoAuto = true;
+};
+UAE.delegateAll = function () { UAE.allCos().forEach(UAE.delegate); };

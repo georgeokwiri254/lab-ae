@@ -752,7 +752,7 @@ UI.R.hq = function () {
   var dep = [['cmo','Chief Marketing Officer','Corporate advertising - raises brand of every product class you sell'],['pr','Public Relations','Corporate image (brand)'],
     ['hr','Human Resources','Group-wide training budget'],['cto','Chief Technology Officer','Raises technology of all products'],['ir','Investor Relations','Supports share valuation (+ up to 10%)'],['community','Community Engagement','Donations - raise quality of life in your HQ city']];
   var h = hasHQ ? '' : '<div class="note">You have no Headquarters yet. Build one (B12) in a CBD or commercial district. Departments still run, but an HQ is required for the "HQ" goal.</div>';
-  h += '<div class="box"><h3>CEO Office</h3><div class="row"><label><input type="checkbox" data-ch="autoPricing"' + (co.autoPricing ? ' checked' : '') + '> Delegate day-to-day operations to the CEO office (AI picks suppliers, prices, ads & training monthly for your firms)</label></div>' +
+  h += '<div class="box"><h3>CEO Office</h3><div class="row"><label><input type="checkbox" checked disabled> <b>Always on:</b> day-to-day operations are delegated to the CEO office (AI picks suppliers, prices, ads & training monthly for your firms)</label></div>' +
     '<div class="row"><label><input type="checkbox" data-ch="autoRent" data-arg="' + co.id + '"' + (co.autoRent ? ' checked' : '') + '> Real Estate Department sets rents automatically</label></div>' +
     '<div class="row"><label>CEO</label><b>' + UI.esc((UAE.person(co.ceo) || {}).name || '—') + '</b>' + (co.ceoAuto ? ' <span class="t-a">running the company</span>' : '') +
     ' <button class="btn sm a" data-act="ceo" data-arg="' + co.id + '">Expansion strategies · scope · policies</button></div>' +

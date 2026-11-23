@@ -33,6 +33,7 @@ UAE.deserialize = function (json) {
     if (l.until) return; var y = UAE.isHuman(co) ? 5 : 3;
     l.years = y; l.until = (l.day || UAE.S.day) + y * 365; l.orig = l.orig || l.amt; l.by = l.by || (UAE.isHuman(co) ? 'player' : 'ceo');
   }); });
+  if (UAE.afterLoad) UAE.afterLoad();          // engine/pay.js: Founder title, purchasing default, backward integration 100, delegation
   return UAE.S;
 };
 UAE.desktop = function () { return typeof window !== 'undefined' && window.desktop && window.desktop.isDesktop ? window.desktop : null; };
