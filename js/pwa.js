@@ -54,15 +54,29 @@
     document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
   }
 
+  /* Saves are kept gzip-compressed (6-10x smaller): big empires made 60 MB saves, and holding 4 slots as
+   * text in memory slowed the phone. Only the slot being loaded is unpacked. Old text saves still load. */
+  var GZ = typeof CompressionStream === 'function' && typeof DecompressionStream === 'function';
+  function gzip(text) { return new Response(new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'))).blob(); }
+  function gunzip(blob) { return new Response(blob.stream().pipeThrough(new DecompressionStream('gzip'))).text(); }
+  var saveSeq = {};
   window.desktop = {
     isDesktop: true, isPwa: true,
     saveSlot: function (slot, json, meta) {
-      mem['save_' + slot] = json; mem['meta_' + slot] = meta;
-      Promise.all([put('save_' + slot, json), put('meta_' + slot, meta)])
+      var k = 'save_' + slot, seq = (saveSeq[slot] = (saveSeq[slot] || 0) + 1);
+      mem[k] = json; mem['meta_' + slot] = meta;
+      (GZ ? gzip(json).then(function (b) { if (saveSeq[slot] === seq) mem[k] = b; return b; }, function () { return json; }) : Promise.resolve(json))
+        .then(function (val) { return Promise.all([put(k, val), put('meta_' + slot, meta)]); })
         .catch(function (e) { warn('Could not write the save to phone storage: ' + (e && e.message || e)); });
       return true;
     },
-    loadSlot: function (slot) { return mem['save_' + slot] || null; },
+    loadSlot: function (slot) { var v = mem['save_' + slot]; return typeof v === 'string' ? v : null; },
+    loadSlotAsync: function (slot) {
+      var v = mem['save_' + slot];
+      if (!v) return Promise.resolve(null);
+      if (typeof v === 'string') return Promise.resolve(v);
+      return gunzip(v);
+    },
     slotMeta: function (slot) { return mem['meta_' + slot] || null; },
     savesDir: function () { return 'this phone (app storage) - use Export to keep a copy'; },
     // Export: Android share sheet (Drive, Files, WhatsApp …) when available, else a download

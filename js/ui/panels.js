@@ -908,7 +908,7 @@ UI.act.addCashQ = function (v) {
 };
 UI.act.saveSlot = function (s) { UI.result({ ok: UAE.saveSlot(s), why: UAE.desktop() ? 'Could not write the save file.' : 'Browser storage unavailable or full - use the desktop app or export to .json.' }, 'Saved to slot ' + s + '.'); };
 UI.act.openSaves = function () { var D = UAE.desktop(); if (D) D.openSavesDir(); };
-UI.act.loadSlot = function (s) { if (UAE.loadSlot(s)) { UI.afterLoad(); UI.toast('Loaded slot ' + s, 'good'); } else UI.toast('Load failed.', 'bad'); };
+UI.act.loadSlot = function (s) { Promise.resolve(UAE.loadSlot(s)).then(function (ok) { if (ok) { UI.afterLoad(); UI.toast('Loaded slot ' + s, 'good'); } else UI.toast('Load failed.', 'bad'); }); };
 UI.act.autosave = function (a, el) { UAE.S.settings.autosave = el.checked; };
 UI.download = function (name, text, type) {
   var D = UAE.desktop();

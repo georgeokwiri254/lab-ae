@@ -61,12 +61,17 @@ UAE.researchQuote = function (f, pid) {
 };
 /** Count how many open firms of company co already have an active research project on pid (cached per game day). */
 UAE.activeResearchCount = function (co, pid) {
-  var X = UAE._idx, key = co.id + '|' + pid;
-  if (X && X.actR && X.actR[key] != null) return X.actR[key];
-  var n = 0;
-  UAE.firmsOf(co.id).forEach(function (g) { if (g.status === 'open' && g.project && g.project.pid === pid) n++; });
-  if (X) { X.actR = X.actR || {}; X.actR[key] = n; }
-  return n;
+  var X = UAE._idx, m = X && X.actRC && X.actRC[co.id];
+  if (!m) {   // one scan per company per day builds the counts for every product (big empires: 20k+ firms)
+    m = {};
+    UAE.firmsOf(co.id).forEach(function (g) { if (g.status === 'open' && g.project) m[g.project.pid] = (m[g.project.pid] || 0) + 1; });
+    if (X) { X.actRC = X.actRC || {}; X.actRC[co.id] = m; }
+  }
+  return m[pid] || 0;
+};
+/** Keep the per-day research counts live when a project starts (+1) or ends (-1). */
+UAE.actRAdj = function (coId, pid, d) {
+  var m = UAE._idx && UAE._idx.actRC && UAE._idx.actRC[coId]; if (m) m[pid] = Math.max(0, (m[pid] || 0) + d);
 };
 /** Max automatic parallel projects on one product (4 labs already captures strong speed without burning
  *  duplicate budgets into n^-0.7 diminishing returns). */
@@ -110,11 +115,11 @@ UAE.startResearch = function (f, pid) {
   if (co.bs.cash < q.cost * 0.25) return { ok: false, why: 'Needs at least ' + UAE.fmt.aed(q.cost * 0.25) + ' cash to start.' };
   f.project = { pid: pid, cost: q.cost, days: q.days, done: 0, spent: 0, gen: q.next, start: UAE.S.day };
   if (k === 'rnd') f.target = pid;
-  if (UAE._idx && UAE._idx.actR) UAE._idx.actR[co.id + '|' + pid] = (UAE._idx.actR[co.id + '|' + pid] || 0) + 1;
+  UAE.actRAdj(co.id, pid, 1);
   return { ok: true, quote: q };
 };
 UAE.cancelResearch = function (f) {
-  if (f.project && UAE._idx && UAE._idx.actR) delete UAE._idx.actR[f.owner + '|' + f.project.pid];
+  if (f.project && f.status === 'open') UAE.actRAdj(f.owner, f.project.pid, -1);
   f.project = null;
 };
 
@@ -132,7 +137,7 @@ UAE.researchDay = function (f) {
       UAE.news(f.name + ' auto-started research on ' + UAE.modelName(co0, pid0).replace(/(Gen |v)\d+/, function (m) { return m.replace(/\d+/, q0.next); }) + ' (' + UAE.fmt.aed(q0.cost) + ', ' + q0.days + ' days).', 'firm');
   }
   var p = f.project; if (!p) return;
-  if (!UAE.canResearch(UAE.co(f.owner), p.pid)) { f.project = null; return; }   // non-world product at maximum: stop spending
+  if (!UAE.canResearch(UAE.co(f.owner), p.pid)) { UAE.actRAdj(f.owner, p.pid, -1); f.project = null; return; }   // non-world product at maximum: stop spending
   var co = UAE.co(f.owner), daily = p.cost / p.days;
   if (co.bs.cash < daily) { p.paused = true; return; }
   p.paused = false;
@@ -147,7 +152,7 @@ UAE.researchDay = function (f) {
     co.gtech[p.pid] = UAE.gtech(co, p.pid) + gg;
   }
   f.project = null;
-  if (UAE._idx && UAE._idx.actR) delete UAE._idx.actR[co.id + '|' + p.pid];
+  UAE.actRAdj(co.id, p.pid, -1);
   if (UAE.SUBS && UAE.SUBS[p.pid] && UAE.frontierRelease) UAE.frontierRelease(co, p.pid);   // AI: a new frontier model ships
   var wNote = UAE.WM && UAE.WM[p.pid] && co.gtech && co.gtech[p.pid] != null ? ' · world tech index ' + co.gtech[p.pid].toFixed(1) : '';
   UAE.news(f.name + ' completed ' + UAE.modelName(co, p.pid) + ' - technology now ' + co.tech[p.pid].toFixed(1) + wNote + '.', UAE.isHuman(co) ? 'firm' : 'ai');

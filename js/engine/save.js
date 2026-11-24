@@ -11,7 +11,12 @@ UAE.serialize = function () {
   var goals = S.goals.map(function (g) { return { id: g.id, done: g.done, day: g.day }; });
   var copy = Object.assign({}, S, { goals: goals });
   // runtime caches (keys starting with "_", e.g. the plot index) are rebuilt after loading
-  return JSON.stringify(copy, function (k, v) { return k.charAt(0) === '_' && k !== '_claims' ? undefined : v; });
+  // numbers: money to the fil (2 decimals) above 100k, 10 significant digits below - long float tails were ~45% of a big save
+  return JSON.stringify(copy, function (k, v) {
+    if (k.charAt(0) === '_' && k !== '_claims') return undefined;
+    if (typeof v === 'number' && v % 1 !== 0 && isFinite(v)) return (v >= 1e5 || v <= -1e5) ? Math.round(v * 100) / 100 : +v.toPrecision(10);
+    return v;
+  });
 };
 UAE.deserialize = function (json) {
   var data = typeof json === 'string' ? JSON.parse(json) : json;
@@ -48,9 +53,14 @@ UAE.saveSlot = function (slot) {
     return true;
   } catch (e) { return false; }
 };
+/** Returns true/false, or a Promise of it when the store unpacks saves asynchronously (phone: gzip in IndexedDB). */
 UAE.loadSlot = function (slot) {
+  var D0 = UAE.desktop();
+  if (D0 && D0.loadSlotAsync) return D0.loadSlotAsync(slot).then(function (j) {
+    if (!j) return false; try { UAE.deserialize(j); return true; } catch (e) { return false; }
+  }, function () { return false; });
   try {
-    var D = UAE.desktop(), j = D ? D.loadSlot(slot) : localStorage.getItem('uaecl_save_' + slot);
+    var D = D0, j = D ? D.loadSlot(slot) : localStorage.getItem('uaecl_save_' + slot);
     if (!j) return false; UAE.deserialize(j); return true;
   } catch (e) { return false; }
 };

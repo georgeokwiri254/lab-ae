@@ -29,7 +29,8 @@ window.addEventListener('DOMContentLoaded', function () {
     var best = null, bm = null;
     [0, 1, 2, 3].forEach(function (s) { var m = UAE.slotMeta(s); if (m && (!bm || m.saved > bm.saved)) { bm = m; best = s; } });
     if (best == null) { UI.toast('No saved game found.', 'bad'); return; }
-    if (UAE.loadSlot(best)) { UI.start(); UI.toast('Loaded ' + UI.esc(bm.co) + ' · ' + bm.date, 'good'); }
+    UI.toast('Loading ' + UI.esc(bm.co) + '…');
+    Promise.resolve(UAE.loadSlot(best)).then(function (ok) { if (ok) { UI.start(); UI.toast('Loaded ' + UI.esc(bm.co) + ' · ' + bm.date, 'good'); } else UI.toast('Load failed.', 'bad'); });
   };
   UI.$('ngImport').onclick = function () { UI.$('ngFile').click(); };
   UI.$('ngFile').onchange = function (e) {
