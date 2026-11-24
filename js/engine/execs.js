@@ -391,7 +391,8 @@ UAE.aggressiveExpand = function (co) {
   var start = co.bs.cash, built = 0, grown = 0;
   for (var i = 0; i < A.n; i++) {
     if (co.bs.cash < start * A.reserve || co.bs.cash < 2e8) break;
-    var f = i % 3 === 2 ? UAE.diversify(co) : UAE.AI.expand(co); if (f) built++;   // every 3rd move: a non-tech business
+    var f = UAE.isHuman(co) && UAE.mixExpand ? UAE.mixExpand(co, i)                 // your companies: 70% factories, 30% R&D centres (engine/invest.js)
+      : (i % 3 === 2 ? UAE.diversify(co) : UAE.AI.expand(co)); if (f) built++;   // computer: every 3rd move a non-tech business
   }
   // grow the best firms (top profit, below size 6)
   UAE.firmsOf(co.id).filter(function (f) { return f.status === 'open' && f.size < 6 && f.last.profit > 0 && !f.seed; })

@@ -259,6 +259,66 @@ UAE.diversify = function (co) {
   return c ? UAE.invBuild(co, c) : UAE.AI.expand(co);
 };
 
+/* ------------------------------------------------------------------------
+ * Monthly new firms of YOUR companies (CEO "new firms per month" slider): 70% factories, 30% R&D centres.
+ * Moves 0-9 repeat F F R F F R F F F R. Factory = best factory project of the investment analysis
+ * (or an upgrade of an own plant); R&D = best R&D project, else a new lab on the product you make
+ * that is furthest behind the world leader. No paying factory project -> the normal best move. */
+UAE.BUILD_MIX = { factory: 0.7, rnd: 0.3 };
+UAE.mixSlotIsRnd = function (i) { var k = i % 10; return k === 2 || k === 5 || k === 9; };
+UAE.invPickType = function (co, type) {
+  var A = UAE.investAnalysis(co), B = UAE.invBudget(co), k = UAE.invCostOfCapital(co);
+  return A.list.find(function (c) {
+    if (c.done || c.type !== type) return false;
+    var spend = c.entry ? UAE.invBuildCost('rnd') : c.invest;
+    return spend <= B.cash || (spend <= B.total && (c.ret || 0) > k + 0.02);
+  }) || null;
+};
+/** Product the company makes (or sells abroad) with the biggest gap to the world best, still below the team cap. */
+UAE.rndGapTarget = function (co) {
+  var mk = {}, best = null, gap = -1e9;
+  UAE.firmsOf(co.id).forEach(function (f) { if (f.status === 'open' && (f.type === 'factory' || f.type === 'software' || f.type === 'farm' || f.type === 'mine')) (f.lines || []).forEach(function (l) { if (l.pid) mk[l.pid] = 1; }); });
+  Object.keys(mk).forEach(function (pid) {
+    if (!UAE.P[pid] || (UAE.rndTeamCap && UAE.activeResearchCount(co, pid) >= UAE.rndTeamCap(co, pid))) return;
+    var g = UAE.WM && UAE.WM[pid] ? UAE.wmFrontier(pid) - UAE.gtech(co, pid) : (UAE.prFrontier ? UAE.prFrontier(pid) : 100) - ((co.tech && co.tech[pid]) || 40);
+    if (g > gap) { gap = g; best = pid; }
+  });
+  return best;
+};
+UAE.mixExpand = function (co, i) {
+  var M = UAE._mixCnt || (UAE._mixCnt = {});
+  if (i === 0 || !M[co.id]) M[co.id] = { fac: 0, rnd: 0 };
+  var cnt = M[co.id], f;
+  // R&D slot - but never more than 3 labs per 7 factories this month, so the ratio holds when few factories pay
+  if (UAE.mixSlotIsRnd(i) && cnt.rnd < cnt.fac * UAE.BUILD_MIX.rnd / UAE.BUILD_MIX.factory) { f = UAE.mixRnd(co); if (f) cnt.rnd++; return f; }
+  f = UAE.mixFactory(co); if (f && f.type === 'factory') cnt.fac++;
+  return f;
+};
+UAE.mixRnd = function (co) {
+  var f = null, c = UAE.invPickType(co, 'rnd');
+  if (c) f = UAE.invBuild(co, c);
+  if (f) return f;
+  var pid = UAE.rndGapTarget(co);
+  if (!pid || co.bs.cash <= UAE.invBuildCost('rnd') * 3) return null;
+  f = UAE.buildFor(co, 'rnd', pid); if (!f) return null;
+  f.target = pid; f.autoResearch = true; UAE.nameSync(f);
+  if (co.bs.cash > UAE.researchQuote(f, pid).cost * 0.5) UAE.startResearch(f, pid);
+  co.expLog = co.expLog || []; co.expLog.unshift({ day: UAE.S.day, firm: f.name, fid: f.id, type: 'rnd', pid: pid, invest: UAE.invBuildCost('rnd'), profitM: 0, payback: 0, margin: 0, why: 'R&D share of new firms (30%): ' + UAE.shortProduct(pid) + ' is your biggest technology gap to the world leader.' });
+  if (co.expLog.length > 80) co.expLog.length = 80;
+  if (UAE._idx) UAE._idx.invProd = null;
+  return f;
+};
+UAE.mixFactory = function (co) {
+  var f = null, c = UAE.invPickType(co, 'factory');
+  if (c) f = UAE.invBuild(co, c);
+  if (!f) {   // no paying factory: best other project that is not R&D (keeps the 70/30 mix)
+    var A = UAE.investAnalysis(co), B = UAE.invBudget(co);
+    c = A.list.find(function (x) { return !x.done && x.type !== 'rnd' && x.invest <= B.cash; });
+    if (c) f = UAE.invBuild(co, c);
+  }
+  return f || null;
+};
+
 /* ============================================================================
  * FIRM NAMES SAY WHAT THE FIRM MAKES OR DOES
  * "Realm Li-ion Battery Module Plant · Dubai South", "Realm Cyber Security Suite R&D Labs · Dubai Silicon Oasis",
