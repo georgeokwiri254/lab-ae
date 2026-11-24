@@ -205,3 +205,8 @@ body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-are
   #feedCos .mc:active { background: rgba(0, 240, 255, .12); }
   #feed.collapsed #feedCos { max-height: 14vh; }
 }
+
+/* venture capital start-ups table: hide Raised + Your stake on phones */
+@media (max-width: 600px) {
+  table.vc-t th:nth-child(3), table.vc-t td:nth-child(3), table.vc-t th:nth-child(5), table.vc-t td:nth-child(5) { display: none; }
+}

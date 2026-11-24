@@ -118,6 +118,7 @@ UAE.distribute = function (co, amt, kind) {
     var share = amt * co.holders[k] / outstanding;
     if (k.indexOf('P:') === 0) { var p = UAE.person(k.slice(2)); if (p) p.cash += share; }
     else if (k.indexOf('C:') === 0) { var c = UAE.co(k.slice(2)); if (c) UAE.L.income(c, 'investInc', share, 'inv'); }
+    else if (k.indexOf('V:') === 0 && UAE.vcCredit) UAE.vcCredit(k, share);                  // venture funds
     else if (k.indexOf('I:') === 0 && UAE.govDividend) UAE.govDividend(k, share);           // government shareholders: into the emirate budget
   }
   if (UAE.isHuman(co) || co.holders['P:' + UAE.S.playerPerson] || co.holders['C:' + UAE.S.playerCo])

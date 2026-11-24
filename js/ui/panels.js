@@ -194,6 +194,7 @@ UI.holderName = function (k) {
   if (k === 'PUBLIC') return 'Public free float (DFM/ADX investors)';
   if (k.indexOf('P:') === 0) { var p = UAE.person(k.slice(2)); return p ? p.name + (p.isPlayer ? ' (YOU)' : '') : k; }
   if (k.indexOf('C:') === 0) { var c = UAE.co(k.slice(2)); return c ? c.name : k; }
+  if (k.indexOf('V:') === 0) return '💸 ' + UI.esc(UAE.vcHolderName(k)) + ' <span class="pill">venture fund</span>';
   return (UAE.HOLDERS[k.slice(2)] || k.slice(2)) + ' <span class="pill est">EST stake</span>';
 };
 UI.holdersTable = function (co) {

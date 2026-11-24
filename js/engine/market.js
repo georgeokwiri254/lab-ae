@@ -416,6 +416,7 @@ UAE.acquirePrivate = function (buyer, target) {
   for (var k in target.holders) {
     var share = price * target.holders[k] / target.shares;
     if (k.indexOf('P:') === 0) UAE.person(k.slice(2)).cash += share;
+    else if (k.indexOf('V:') === 0 && UAE.vcCredit) UAE.vcCredit(k, share);   // venture funds are paid out
   }
   target.holders = {}; target.holders['C:' + buyer.id] = target.shares;
   target.controller = 'PLAYER'; target.parent = buyer.id; target.createdByPlayer = true; UAE.policy(target).backward = 100;
