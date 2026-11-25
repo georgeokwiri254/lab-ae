@@ -50,10 +50,21 @@ UI.pgBox = function (co) {
       return '<tr><td class="n">' + (i + 1) + '</td><td><b>' + UI.esc(b.label) + '</b></td><td class="n">' + b.n + '</td><td class="n pos">' + A(b.avg) + '</td><td class="n">' + UI.pc(b.margin, 0) + '</td><td class="n">' + UI.pc(b.ret, 0) + '</td><td class="n">' + b.cities + '</td><td class="muted" style="white-space:normal">' +
         (b.gaps.length ? b.gaps.map(function (g) { return UI.esc(UAE.CITIES[g.city].name) + (g.have ? ' (thin: ' + g.have + ')' : ''); }).join(', ') : 'every city covered → upgrades') + '</td></tr>';
     }).join('') + '</table>' : '<div class="note">No own business has 6 months of profitable results yet.</div>';
-  var done = (R && R.built || []).concat(R && R.diversified || []);
+  var sw = R && R.software ? R.software : UAE.pgSoftware(co).map(function (b) { return { label: UAE.shortProduct(b.pid) + ' software', n: b.n, profit: b.profit, avg: b.avg, margin: b.margin, teams: b.teams, cap: b.cap }; });
+  if (sw.length) h += '<h4>Software · top earners (grow by R&amp;D, not by more copies)</h4><table class="t nosort inv-t"><tr><th>Title</th><th class="n">Firms</th><th class="n">Profit / mo</th><th class="n">Margin</th><th class="n">R&amp;D teams</th></tr>' +
+    sw.map(function (b) { return '<tr><td><b>' + UI.esc(b.label) + '</b></td><td class="n">' + b.n + '</td><td class="n pos">' + A(b.profit) + '</td><td class="n">' + UI.pc(b.margin, 0) + '</td><td class="n">' + b.teams + ' / ' + b.cap + '</td></tr>'; }).join('') + '</table>' +
+    '<div class="note">A software title’s world sales follow the company’s tech index × brand × global reach and are split over its firms, so the CEO puts software profit into R&amp;D labs on the title (up to the team cap) instead of opening copies.</div>';
+  var done = (R && R.built || []).concat(R && R.diversified || [], R && R.labs || []);
   if (done.length) h += '<div class="note"><b>This month:</b> ' + done.slice(0, 12).map(function (x) { return UI.esc(x.name); }).join(' · ') + (done.length > 12 ? ' …' : '') + '</div>';
   h += '<div class="note"><b>How it works:</b> each month, before spare cash goes to bonds, stocks, the bank or the insurer, the CEO takes the businesses that earn the most per firm (real results, firms older than 6 months, return above the loan rate), opens them in the cities that have none or too few for their population (best city appeal first), upgrades the best earners where every city is covered, and keeps the mix diversified: no business gets more than a quarter of the month’s moves and every 4th move is a new business line from the investment analysis.</div></div>';
   return h;
+};
+/** Product / title under the firm type in firm lists (software, factories, R&D, farms, mines, internet). */
+UI.firmProductTag = function (f) {
+  var pid = f.type === 'rnd' ? f.target : f.type === 'internet' ? null : (f.lines && f.lines[0] && f.lines[0].pid);
+  if (f.type === 'internet') return f.model ? '<br><span class="muted">' + UI.esc((UAE.INET_LABEL || {})[f.model] || f.model) + '</span>' : '';
+  if (['software', 'factory', 'rnd', 'farm', 'mine', 'oilwell'].indexOf(f.type) < 0 || !pid || !UAE.P[pid]) return '';
+  return '<br><span class="muted">' + UI.esc(UAE.P[pid].name) + '</span>';
 };
 UI.act.invRun = function () { UAE.investAnalysis(UAE.player(), true); UI.toast('Investment analysis updated.', 'good'); UI.render(); };
 UI._hqBase = UI._hqBase || UI.R.hq;

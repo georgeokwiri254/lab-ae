@@ -302,7 +302,7 @@ UI.firmTable = function (list) {
   var h = '<table class="t"><tr><th>Firm</th><th>Type</th><th>Owner</th><th>District</th><th class="n">Size</th><th>Status</th><th class="n">Revenue / mo</th><th class="n">Profit / mo</th><th>Trend</th></tr>';
   list.slice(0, 400).forEach(function (f, i) {
     var co = UAE.co(f.owner);
-    h += '<tr class="click' + (co.controller === 'PLAYER' ? ' me' : '') + '" data-act="openFirm" data-arg="' + f.id + '"><td>' + UAE.FIRM_TYPES[f.type].icon + ' ' + UI.esc(f.name) + '</td><td>' + UAE.FIRM_TYPES[f.type].name + '</td><td>' + UI.coLink(co) + '</td><td>' + UI.esc(UAE.geo.district(f.district).name) + '</td><td class="n">' + f.size + '</td><td>' + (f.status === 'open' ? '<span class="pos">open</span>' : '<span class="t-m">building</span>') + '</td>' +
+    h += '<tr class="click' + (co.controller === 'PLAYER' ? ' me' : '') + '" data-act="openFirm" data-arg="' + f.id + '"><td>' + UAE.FIRM_TYPES[f.type].icon + ' ' + UI.esc(f.name) + '</td><td>' + UAE.FIRM_TYPES[f.type].name + (UI.firmProductTag ? UI.firmProductTag(f) : '') + '</td><td>' + UI.coLink(co) + '</td><td>' + UI.esc(UAE.geo.district(f.district).name) + '</td><td class="n">' + f.size + '</td><td>' + (f.status === 'open' ? '<span class="pos">open</span>' : '<span class="t-m">building</span>') + '</td>' +
       '<td class="n">' + F().aed(f.last.rev) + '</td><td class="n">' + UI.money(f.last.profit) + '</td><td><canvas class="spark" id="sp' + i + '"></canvas></td></tr>';
     UI.after(function () { var c = UI.$('sp' + i); if (c) UI.spark(c, f.hist); });
   });

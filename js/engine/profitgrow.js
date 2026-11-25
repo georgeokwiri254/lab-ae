@@ -6,6 +6,7 @@
  *  2. for the most profitable ones, checks every city: where the business is missing (or thin per
  *     million people) it opens one there, in the city with the best appeal (engine/execs.js cityAppeal);
  *     where every city already has it, it upgrades the best-earning existing firm instead;
+ *  2b. software titles (top earners): more copies earn nothing extra, so their profit funds R&D labs on the title;
  *  3. diversifies: no business gets more than DIV_CAP of the month's moves, and every 4th move goes to a
  *     business type the company does not own yet that passes the investment analysis (engine/invest.js).
  * Budget: pol.bizPct (default 40)% of the cash above the cushion, at most pol.bizMax (default 20) new firms
@@ -55,6 +56,22 @@ UAE.pgAnalysis = function (co) {
   return list.filter(function (b) { return b.ret > UAE.invCostOfCapital(co); }).slice(0, UAE.PG.top);
 };
 
+/** Software titles: revenue depends on tech index x brand x reach and is SPLIT over the company's firms making it,
+ *  so a second copy earns nothing extra. Their profit is reinvested as R&D labs on the title (more teams = faster tech gains). */
+UAE.pgSoftware = function (co) {
+  var by = {}, S = UAE.S;
+  UAE.firmsOf(co.id).forEach(function (f) {
+    if (f.type !== 'software' || f.status !== 'open') return;
+    var pid = UAE.swPid ? UAE.swPid(f) : (f.lines[0] && f.lines[0].pid); if (!pid) return;
+    var b = by[pid] || (by[pid] = { key: 'software|' + pid, type: 'software', pid: pid, n: 0, profit: 0, rev: 0 });
+    b.n++; b.profit += (f.last && f.last.profit) || 0; b.rev += (f.last && f.last.rev) || 0;
+  });
+  return Object.keys(by).map(function (k) { var b = by[k]; b.avg = b.profit / b.n; b.margin = b.rev > 0 ? b.profit / b.rev : 0;
+    b.teams = UAE.activeResearchCount ? UAE.activeResearchCount(co, b.pid) : 0; b.cap = UAE.rndTeamCap ? UAE.rndTeamCap(co, b.pid) : 3;
+    b.gap = UAE.WM && UAE.WM[b.pid] ? UAE.wmFrontier(b.pid) - UAE.gtech(co, b.pid) : 0; return b; })
+    .filter(function (b) { return b.profit > 0; }).sort(function (a, c) { return c.profit - a.profit; }).slice(0, 8);
+};
+
 /** Build one firm of a business in a given city (factories: same product line). */
 UAE.pgBuildIn = function (co, b, city) {
   return UAE.buildFor(co, b.type, b.pid, false, city);
@@ -70,6 +87,8 @@ UAE.profitReinvest = function (co) {
   if (!(budget > 5e7) || !maxNew) return;
   var list = UAE.pgAnalysis(co);
   R.top = list.map(function (b) { return { key: b.key, label: UAE.pgLabel(b.key), n: b.n, avg: b.avg, margin: b.margin, ret: b.ret, cities: Object.keys(b.cities).length, gaps: b.gaps.slice(0, 4).map(function (g) { return { city: g.city, have: g.have }; }) }; });
+  var sw = UAE.pgSoftware(co);
+  R.software = sw.map(function (b) { return { label: UAE.shortProduct(b.pid) + ' software', n: b.n, profit: b.profit, avg: b.avg, margin: b.margin, teams: b.teams, cap: b.cap }; });
   var moves = 0, per = {}, cap = Math.max(1, Math.ceil(maxNew * UAE.PG.divCap)), spend0 = co.bs.cash;
   var spent = function () { return Math.max(0, spend0 - co.bs.cash); };
   var log = function (f, b, why) { co.expLog = co.expLog || []; co.expLog.unshift({ day: UAE.S.day, firm: f.name, fid: f.id, type: f.type, pid: b && b.pid, invest: b ? b.cost : UAE.invBuildCost(f.type), profitM: b ? b.avg : 0, payback: b ? b.cost / b.avg : 0, margin: b ? b.margin : 0, why: why }); if (co.expLog.length > 80) co.expLog.length = 80; };
@@ -79,6 +98,16 @@ UAE.profitReinvest = function (co) {
     if (!c) return null;
     var f = UAE.invBuild(co, c); if (f) R.diversified.push({ name: f.name, why: c.why }); return f;
   };
+  // pass 0: top-earning software titles -> one more R&D lab each (below the team cap): tech index is what grows their sales
+  R.labs = [];
+  sw.forEach(function (b) {
+    if (moves >= Math.ceil(maxNew / 4) || spent() >= budget || b.teams >= b.cap || co.bs.cash <= UAE.invBuildCost('rnd') * 3) return;
+    var f = UAE.buildFor(co, 'rnd', b.pid, false); if (!f) return;
+    f.target = b.pid; f.autoResearch = true; if (UAE.nameSync) UAE.nameSync(f);
+    if (UAE.researchQuote && co.bs.cash > UAE.researchQuote(f, b.pid).cost * 0.5) UAE.startResearch(f, b.pid);
+    moves++; R.labs.push({ name: f.name, pid: b.pid });
+    log(f, null, 'Profit reinvestment: ' + UAE.shortProduct(b.pid) + ' software earns ' + A(b.profit) + '/mo. More copies of a title earn nothing extra (sales follow tech index x brand x reach), so its profit funds another R&D team (' + (b.teams + 1) + ' of max ' + b.cap + ')' + (b.gap > 0 ? ' - ' + b.gap.toFixed(0) + ' points behind the world leader.' : ' to stay ahead of the world.'));
+  });
   // pass 1: open the best businesses in the cities that lack them (round-robin over the top earners)
   for (var round = 0; round < 3 && moves < maxNew; round++) {
     for (var i = 0; i < list.length && moves < maxNew; i++) {
@@ -104,10 +133,10 @@ UAE.profitReinvest = function (co) {
   });
   R.spent = spent();
   if (UAE._idx) UAE._idx.invProd = null;
-  if (R.built.length || R.upgraded.length || R.diversified.length) {
+  if (R.built.length || R.upgraded.length || R.diversified.length || R.labs.length) {
     var cities = {}; R.built.forEach(function (x) { cities[x.city] = 1; });
     UAE.news('💹 ' + UAE.ceoPerson(co).name + ' (CEO, ' + co.name + ') reinvested ' + A(R.spent) + ' in the most profitable businesses: ' + R.built.length + ' new firm' + (R.built.length === 1 ? '' : 's') +
-      (R.built.length ? ' in cities that lacked them (' + Object.keys(cities).join(', ') + ')' : '') + ', ' + R.upgraded.length + ' upgraded' +
+      (R.built.length ? ' in cities that lacked them (' + Object.keys(cities).join(', ') + ')' : '') + ', ' + R.upgraded.length + ' upgraded' + (R.labs.length ? ', ' + R.labs.length + ' R&D lab' + (R.labs.length === 1 ? '' : 's') + ' on top software (' + R.labs.map(function (x) { return UAE.shortProduct(x.pid); }).join(', ') + ')' : '') +
       (R.diversified.length ? ', ' + R.diversified.length + ' new business line' + (R.diversified.length === 1 ? '' : 's') + ' (' + R.diversified.map(function (x) { return x.name; }).join(', ') + ')' : '') + '. The rest goes to the financial portfolio.', 'firm');
   }
 };

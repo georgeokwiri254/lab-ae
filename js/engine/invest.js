@@ -352,7 +352,17 @@ UAE.isAutoName = function (f) {
   if (f.autoNamed) return true;
   var co = UAE.co(f.owner), d = UAE.geo.district(f.district); if (!co || !d || !UAE.AI.firmName) return false;
   var old = UAE.AI.firmName(co, f.type, d);
-  return f.name === old || f.name.replace(/\s+/g, ' ') === old.replace(/\s+/g, ' ') || f.name === co.name + ' ' + UAE.FIRM_TYPES[f.type].name;
+  if (f.name === old || f.name.replace(/\s+/g, ' ') === old.replace(/\s+/g, ' ') || f.name === co.name + ' ' + UAE.FIRM_TYPES[f.type].name) return true;
+  // older patterns: "<brand|company> <type name|label> <place>" with an optional " #7" (e.g. "Realm Software Company Business Bay")
+  var nm = f.name.replace(/\s+#\d+$/, '').replace(/\s+/g, ' '), place = d.name.split(/[\/(]/)[0].trim(), T = UAE.FIRM_TYPES[f.type].name, lab = old.slice(co.name.split(' ')[0].length + 1, old.length - place.length).trim();
+  return [co.name.split(' ')[0], co.name].some(function (b) { return [T, lab].some(function (t) { return t && (nm === b + ' ' + t + ' ' + place || nm === b + ' ' + t + ' ' + d.name || nm === b + ' ' + t || (nm.indexOf(b + ' ' + t + ' ') === 0 && UAE.placeNames()[nm.slice(b.length + t.length + 2)])); }); });
+};
+/** Every district (short and full) and city name - old firm names may carry the place where they were first planned. */
+UAE.placeNames = function () {
+  if (UAE._placeNames) return UAE._placeNames;
+  var m = {}; UAE.DISTRICTS.forEach(function (d) { m[d.name] = 1; m[d.name.split(/[\/(]/)[0].trim()] = 1; });
+  Object.keys(UAE.CITIES).forEach(function (k) { m[UAE.CITIES[k].name] = 1; });
+  return (UAE._placeNames = m);
 };
 UAE.nameSync = function (f) {
   if (!f || f.seed || f.type === 'hq' || f.type === 'mansion' || f.type === 'bankhq' || f.type === 'inshq' || !UAE.isAutoName(f)) return;
