@@ -409,3 +409,13 @@ table.t th.sort-desc::after { content: ' ▼'; color: var(--cyan); }
 /* app logo (title screen) */
 #title .applogo.big { width: 92px; height: 92px; display: block; margin: 0 0 14px; filter: drop-shadow(0 0 18px rgba(0,240,255,.35)) drop-shadow(0 0 30px rgba(255,43,214,.25)); }
 @media (max-height: 760px) { #title .applogo.big { width: 64px; height: 64px; margin-bottom: 8px; } }
+
+/* Future technology timeline (js/ui/futureui.js) */
+.futbar { position: relative; height: 10px; min-width: 150px; background: rgba(255,255,255,.05); border-radius: 5px; overflow: hidden; }
+.futbar i { position: absolute; top: 0; bottom: 0; }
+.futbar i.r { background: rgba(0,240,255,.22); }
+.futbar i.w { background: linear-gradient(90deg, #00f0ff, #ff2bd6); box-shadow: 0 0 8px #ff2bd6aa; }
+.futbar i.n { width: 2px; background: #fff; box-shadow: 0 0 6px #fff; }
+.futbar i.d { width: 8px; height: 8px; top: 1px; margin-left: -4px; border-radius: 50%; background: #b8ff2c; box-shadow: 0 0 8px #b8ff2c; }
+table.fut-t td { vertical-align: middle; }
+@media (max-width: 600px) { table.fut-t .fut-tl { display: none; } }

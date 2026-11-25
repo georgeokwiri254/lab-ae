@@ -13,7 +13,7 @@ UI.phasePill = function (p) {
 UI.R.economy = function () {
   UAE.econInit();
   var tab = UI.tabState.econTab || 'uae';
-  var h = UI.tabs('econTab', [['uae', '🇦🇪 UAE economy'], ['cb', '🏛 Central banks'], ['gov', '🧾 Government & taxes'], ['sca', '⚖ SCA regulator'], ['world', '🌍 World ranking'], ['dev', '🏗 Development & jobs'], ['race', '🚀 Global tech race'], ['vc', '💸 Venture capital']], tab);
+  var h = UI.tabs('econTab', [['uae', '🇦🇪 UAE economy'], ['cb', '🏛 Central banks'], ['gov', '🧾 Government & taxes'], ['sca', '⚖ SCA regulator'], ['world', '🌍 World ranking'], ['dev', '🏗 Development & jobs'], ['race', '🚀 Global tech race'], ['future', '🔮 Future tech'], ['vc', '💸 Venture capital']], tab);
   return h + (UI['econ_' + tab] || UI.econ_uae)();
 };
 

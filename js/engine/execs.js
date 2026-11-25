@@ -122,6 +122,7 @@ UAE.pickDistrict = function (ds, type) {
 };
 UAE.buildFor = function (co, type, pid, instant, onlyCity) {
   var T = UAE.FIRM_TYPES[type], R = UAE.rng, S = UAE.S;
+  if ((type === 'factory' || type === 'software') && pid && UAE.isFut && UAE.isFut(pid) && !UAE.futInvented(pid)) return null;   // not invented yet (engine/future.js)
   // a software title's world sales are split over the company's firms making it: a second copy only adds costs
   if (type === 'software' && UAE.isHuman(co) && UAE.firmsOf(co.id).some(function (g) { return g.type === 'software' && g.status !== 'closed' && g.lines.length && g.lines[0].pid === (pid || 'ai'); })) return null;
   var cities = onlyCity ? [onlyCity] : UAE.cityOrderFor(co, type);   // onlyCity: profit reinvestment fills a city gap (engine/profitgrow.js)           // market-weighted, spread across the emirates (was: HQ city first, always Dubai)
@@ -224,6 +225,7 @@ UAE.ctoMonth = function (co) {
     if (f.status !== 'open' || f.project) { if (f.project) used[f.project.pid] = (used[f.project.pid] || 0) + 1; return; }
     if (f.type === 'software') { f.autoResearch = true; swCands.push(f); return; }
     if (f.type !== 'rnd') return;
+    if (f.futFor) return;                                  // invention lab (engine/future.js)
     if (f.entryFor) { f.target = f.entryFor; if (co.bs.cash > UAE.researchQuote(f, f.entryFor).cost * 0.5) { UAE.startResearch(f, f.entryFor); used[f.entryFor] = (used[f.entryFor] || 0) + 1; } return; }
     rndIdle.push(f);
   });
@@ -372,6 +374,7 @@ UAE.execsDay = function () {
     UAE.cmoMonth(co); UAE.ctoMonth(co);
     if (UAE.hqDeptMonth) UAE.hqDeptMonth(co);         // HQ department budgets: CEO analysis or the % sliders (engine/pay.js)
     if (UAE.ceoTechRace) UAE.ceoTechRace(co);         // research to beat the world leaders (engine/worldmkt.js)
+    if (UAE.futureMonth) UAE.futureMonth(co);         // invention research on future products, 2-year cash rule (engine/future.js)
     if (UAE.syncTraits) UAE.syncTraits(co);            // your companies act with their CEO's personality
     UAE.aggressiveExpand(co);
     if (UAE.profitReinvest) UAE.profitReinvest(co);   // most profitable businesses -> cities that lack them, diversify (engine/profitgrow.js)

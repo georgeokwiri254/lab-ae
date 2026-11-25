@@ -168,18 +168,20 @@ UAE.fillIdlePlants = function (co, max) {
   var plants = co._idle.plants, An = UAE.investAnalysis(co), n = 0, used = {}, lim = max || 400;
   var cands = An.list.filter(function (c) { return c.type === 'factory' && c.pid && UAE.P[c.pid] && UAE.P[c.pid].rec; });
   if (!plants.length || !cands.length) return 0;
-  var maxL = UAE.FIRM_TYPES.factory.lines || 3;
+  var maxL = UAE.FIRM_TYPES.factory.lines || 3, prodOf = {};
+  UAE.firmsOf(co.id).forEach(function (g) { if (g.status === 'open') g.lines.forEach(function (m) { if (!prodOf[m.pid]) prodOf[m.pid] = g; }); });   // one pass: own producer per product
   plants.forEach(function (f) {
     while (n < lim && f.lines.length < maxL) {
       var c = cands.filter(function (x) { return !f.lines.some(function (l) { return l.pid === x.pid; }); })
         .sort(function (a, b) { return (used[a.pid] || 0) - (used[b.pid] || 0) || b.score - a.score; })[0];
       if (!c) break;
       UAE.addLine(f, c.pid); var l = f.lines[f.lines.length - 1];
-      if (UAE.linkOwnBuyers) UAE.linkOwnBuyers(f, c.pid);
-      UAE.P[c.pid].rec.in.forEach(function (x) {
-        var own = UAE.firmsOf(co.id).find(function (g) { return g !== f && g.status === 'open' && g.lines.some(function (m) { return m.pid === x[0]; }); });
-        if (own) { l.inSup = l.inSup || {}; l.inSup[x[0]] = own.id; }
+      if (!l || l.pid !== c.pid) break;
+      UAE.P[c.pid].rec.in.forEach(function (x) {             // own suppliers for its inputs (buyers already buy own-first)
+        var own = prodOf[x[0]];
+        if (own && own !== f) { l.inSup = l.inSup || {}; l.inSup[x[0]] = own.id; }
       });
+      if (!prodOf[c.pid]) prodOf[c.pid] = f;
       used[c.pid] = (used[c.pid] || 0) + 1; n++;
     }
     if (UAE.nameSync) UAE.nameSync(f);
