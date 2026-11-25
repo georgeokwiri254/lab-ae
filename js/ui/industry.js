@@ -131,8 +131,18 @@ UI.softwareBox = function (f, mine) {
     titles.map(function (p) { return '<option value="' + p.id + '"' + (p.id === pid ? ' selected' : '') + '>' + p.name + (p.grow >= 0.15 ? ' 🔥' : '') + ' · AED ' + p.ref + '</option>'; }).join('') + '</select>' +
     '<span class="muted">changing title keeps your technology for each title</span></div>';
   h += UI.researchBox(f, pid, mine);
-  h += '<h4>Sales</h4><div class="cards">' + UI.card('Online sales / day', UAE.fmt.num(f.online || 0, 0), 'demand ' + UAE.fmt.num(f.onlineDemand || 0, 0) + ' · capacity ' + UAE.fmt.num(f.onlineCap || 0, 0)) +
-    UI.card('Online market share', UAE.fmt.pct(f.onlineShare || 0, 1), 'vs global vendors') + UI.card('Quality', Math.round(f.quality || 0)) +
+  var subT = UAE.SUBS && UAE.SUBS[pid], wmT = !subT && UAE.WM && UAE.WM[pid], salesCards;
+  if (subT) {           // AI subscriptions: income = subscribers x plan price (aistack.js subsDay), not online licence sales
+    var myS = 0, mk = f.subMarket || 0; UAE.firmsOf(co.id).forEach(function (g) { if (g.type === 'software' && g.status === 'open' && UAE.swPid(g) === pid) myS += g.subs || 0; });
+    salesCards = UI.card('Subscribers (this studio)', UAE.fmt.num(f.subs || 0, 0), 'heading for ' + UAE.fmt.num(f.subTarget || 0, 0)) +
+      UI.card('Subscription revenue / day', UAE.fmt.aed((f.subs || 0) * (f.subPrice || P.ref) / 30), 'avg AED ' + Math.round(f.subPrice || P.ref) + ' / subscriber / month') +
+      UI.card('World share (' + UI.esc(co.name.split(' ')[0]) + ')', mk ? UAE.fmt.pct(myS / mk, 1) : '—', UAE.fmt.num(myS, 0) + ' of ' + UAE.fmt.num(mk, 0) + ' subscribers worldwide');
+  } else if (wmT && (f.worldRev || f.worldUnits)) {
+    salesCards = UI.card('World sales / day', UAE.fmt.aed(f.worldRev || 0), UAE.fmt.num(f.worldUnits || 0, 0) + ' licences abroad (tech index × brand × reach)') +
+      UI.card('Online sales / day', UAE.fmt.num(f.online || 0, 0), 'UAE online · share ' + UAE.fmt.pct(f.onlineShare || 0, 1));
+  } else salesCards = UI.card('Online sales / day', UAE.fmt.num(f.online || 0, 0), 'demand ' + UAE.fmt.num(f.onlineDemand || 0, 0) + ' · capacity ' + UAE.fmt.num(f.onlineCap || 0, 0)) +
+    UI.card('Online market share', UAE.fmt.pct(f.onlineShare || 0, 1), 'vs global vendors');
+  h += '<h4>Sales</h4><div class="cards">' + salesCards + UI.card('Quality', Math.round(f.quality || 0)) +
     UI.card('Licence stock', UAE.fmt.num(s ? s.q : 0), 'for stores &amp; factories') + UI.card('B2B / store sales this month', UAE.fmt.num(l.sold || 0)) +
     UI.card('Demand growth', '+' + Math.round((P.grow || 0) * 100) + '% / yr', P.b2b ? 'plus enterprise licences' : '') + '</div>';
   h += '<div class="row"><label>Online price (incl. VAT)</label><input class="in num" id="swPrice" value="' + Math.round(f.retailPrice || P.ref) + '"' + dis + '><button class="btn sm" data-act="fSet" data-arg="' + f.id + '|retailPrice|swPrice"' + dis + '>Set</button><span class="muted">reference AED ' + P.ref + '</span></div>' +

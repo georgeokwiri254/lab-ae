@@ -246,5 +246,10 @@ UAE.futureMonth = function (co) {
   var baseNew = UAE.newGame;
   UAE.newGame = function () { var r = baseNew.apply(this, arguments); UAE.futInit(); return r; };
   var baseLoad = UAE.afterLoad;
-  UAE.afterLoad = function () { var r = baseLoad ? baseLoad.apply(this, arguments) : undefined; UAE.futInit(); return r; };
+  UAE.afterLoad = function () { var r = baseLoad ? baseLoad.apply(this, arguments) : undefined; UAE.futInit(); UAE.fixRunawayDemand(); return r; };
+  /** Saves from before the software-demand cap (sim.js b2bAndExport): smoothed UAE use of 1e12+ units a day is reset once; it rebuilds in days. */
+  UAE.fixRunawayDemand = function () {
+    var W = UAE.S && UAE.S.wmkt; if (!W) return;
+    Object.keys(W).forEach(function (pid) { var w = W[pid]; if (w && w.used > 1e12) w.used = 0; if (w && w.made > 1e12) w.made = 0; });
+  };
 })();

@@ -507,11 +507,11 @@ UAE.b2bAndExport = function (open) {
     if (!P.b2b) return;
     var sellers = producers.filter(function (f) { return f.lines.some(function (l) { return l.pid === P.id; }) && UAE.stockQ(f, P.id) > 0; });
     if (!sellers.length) {                          // nobody local sells it: the whole city demand is imported
-      Object.keys(S.cities).forEach(function (city) { UAE.wmCount(P.id, 'used', S.cities[city].gdp * P.b2b / 365 * (P.kind === 'software' ? S.macro.tech * Math.pow(1 + (P.grow || 0), S.day / 365) : S.macro.property)); });
+      Object.keys(S.cities).forEach(function (city) { UAE.wmCount(P.id, 'used', S.cities[city].gdp * P.b2b / 365 * (P.kind === 'software' ? S.macro.tech * (UAE.capGrowth ? UAE.capGrowth(P.grow || 0, 6, S.day / 365) : 1) : S.macro.property)); });
       return;
     }
     Object.keys(S.cities).forEach(function (city) {
-      var D = S.cities[city].gdp * P.b2b / 365 * (P.kind === 'software' ? S.macro.tech * Math.pow(1 + (P.grow || 0), S.day / 365) : S.macro.property);
+      var D = S.cities[city].gdp * P.b2b / 365 * (P.kind === 'software' ? S.macro.tech * (UAE.capGrowth ? UAE.capGrowth(P.grow || 0, 6, S.day / 365) : 1) : S.macro.property);
       var ctr = UAE.CITIES[city].center, imp = UAE.importBase(P.id) * (1 + UAE.RULES.customs) * 1.06;
       // a seller may have sold out in an earlier city today: skip it (its stock record is gone)
       var sum = 1.5, w = sellers.filter(function (f) { return f.stock[P.id] && f.stock[P.id].q > 0; }).map(function (f) {
