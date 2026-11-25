@@ -266,7 +266,7 @@ UAE.AI.operate = function (co, slice, review) {
     if (k === 'sports') { if (f.visitors > 1500 * f.size) f.price *= 1.03; else f.price *= 0.99; }
     if (k === 'mall' && f.mallPol) { f.mallPol.rentNew = f.occ > 0.92 ? Math.min(1.3, f.mallPol.rentNew + 0.02) : f.occ < 0.7 ? Math.max(0.8, f.mallPol.rentNew - 0.02) : f.mallPol.rentNew; }
     if (['retail', 'service', 'hotel', 'internet', 'mall'].indexOf(k) >= 0 && !(f.adByCmo && co.cmo && pol.cmoAuto !== false)) f.adBudget = Math.max(0, f.last.rev * m.adPct / 100);
-    f.trainBudget = f.eff < 0.95 ? Math.max(0, f.last.rev * m.trainPct / 100) : 0;
+    f.trainBudget = UAE.isHuman(co) && UAE.fullEffBudget ? UAE.fullEffBudget(f) : f.eff < 0.95 ? Math.max(0, f.last.rev * m.trainPct / 100) : 0;   // your firms: kept at 100%+ (engine/profitgrow.js)
   });
   // product campaigns for the best-selling consumer products (AI only, modest)
   if (review && (co.controller !== 'PLAYER' || co.ceoAuto)) UAE.AI.marketing(co);

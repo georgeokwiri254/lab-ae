@@ -149,3 +149,44 @@ UAE.PRODUCTS.forEach(function (p) { UAE.P[p.id] = p; });
   W.orbitdc   = { size: 0.4, grow: 0.90, cap: 300, margin: 'pre-revenue: R&D and demonstration satellites (EST)', leaders: [['Starcloud', 'US', 72, 6.0, 0.30], ['SpaceX', 'US', 74, 6.5, 0.20], ['Google Project Suncatcher', 'US', 66, 6.0, 0.10], ['ADA Space (Three-Body Computing)', 'CN', 68, 6.0, 0.20], ['Axiom Space', 'US', 60, 5.0, 0.05]] };
 })(UAE.WORLD_MKT);
 UAE.NATION_FLAG.LU = '🇱🇺'; UAE.NATION_FLAG.KE = '🇰🇪';
+
+/* ============================================================================
+ * FUTURE TECH (added 2026-11-25): frontier industries with small 2026 markets that grow fast and sell at
+ * high margins - quantum computers & quantum cloud, quantum navigation sensors, brain-computer interfaces,
+ * bionic prosthetic limbs, powered exoskeletons (human augmentation), gene therapies, eVTOL air taxis and
+ * enterprise AI agents. Leaders are real companies; market sizes (AED bn 2026), prices, recipes and
+ * margins are EST from public reporting. Same rules as every world market: research to the frontier,
+ * then plants (or software) sell worldwide.
+ * ==========================================================================*/
+UAE.PRODUCTS.push(
+  { id:'qpu',      name:'Quantum Computer System',            cls:'Quantum Computing', kind:'inter', unit:'system', world:5.5e7, imp:6e7, t:2, src:'factory', qImp:80, b2b:0.0002,
+    rec:{ in:[['chips',2500],['optics',25],['sensor',250],['titanium',120],['rareearth',60],['nickel',40]], cap:0.04, lab:1.2e7 } },
+  { id:'qsensor',  name:'Quantum Navigation Sensor',          cls:'Quantum Computing', kind:'inter', unit:'pc', world:1.8e6, imp:1.95e6, t:0.05, src:'factory', qImp:75, b2b:0.01,
+    rec:{ in:[['optics',2],['chips',120],['sensor',4],['rareearth',2]], cap:1.2, lab:3e5 } },
+  { id:'bci',      name:'Brain-Computer Interface Implant',   cls:'Human Augmentation', kind:'inter', unit:'implant', world:3.7e5, imp:4e5, t:0.01, src:'factory', qImp:80, b2b:0.05,
+    rec:{ in:[['chips',220],['sensor',25],['titanium',0.3],['optics',0.5],['gold',0.5]], cap:4, lab:6e4 } },
+  { id:'bionic',   name:'Bionic Prosthetic Limb',             cls:'Human Augmentation', kind:'inter', unit:'limb', world:2.2e5, imp:2.4e5, t:0.005, src:'factory', qImp:75, b2b:0.1,
+    rec:{ in:[['motor',6],['sensor',12],['chips',45],['titanium',2],['battery',1]], cap:8, lab:3.5e4 } },
+  { id:'exo',      name:'Powered Exoskeleton',                cls:'Human Augmentation', kind:'inter', unit:'suit', world:3e5, imp:3.2e5, t:0.02, src:'factory', qImp:75, b2b:0.1,
+    rec:{ in:[['motor',12],['sensor',20],['chips',80],['battery',3],['titanium',8],['aluminium',0.05]], cap:6, lab:5e4 } },
+  { id:'genether', name:'Gene Therapy (one-time treatment)',  cls:'Gene Therapy',  kind:'inter', unit:'dose', world:7e6, imp:7.5e6, t:0.000001, src:'factory', qImp:80, b2b:0.002,
+    rec:{ in:[['biologic',20],['api',0.5]], cap:0.6, lab:9e5 } },
+  { id:'evtol',    name:'eVTOL Air Taxi',                     cls:'Advanced Air Mobility', kind:'inter', unit:'aircraft', world:1.3e7, imp:1.4e7, t:2.5, src:'factory', qImp:75, b2b:0.001,
+    rec:{ in:[['motor',8],['battery',600],['sensor',80],['chips',1500],['aluminium',0.8],['titanium',200]], cap:0.06, lab:2.6e6 } },
+  { id:'aiagent',  name:'Enterprise AI Agents (seat-year)',   cls:'AI Agents', kind:'software', unit:'seat-year', ref:7300, imp:6000, t:0.000001, src:'software', perCap:0, tour:0, el:-0.5, cap:60, qImp:75, b2b:6, sw:'Enterprise AI Agents' },
+  { id:'qcloud',   name:'Quantum Cloud Computing (QPU-hour)', cls:'Quantum Computing', kind:'software', unit:'QPU-hour', ref:5500, imp:4500, t:0.000001, src:'software', perCap:0, tour:0, el:-0.4, cap:40, qImp:75, b2b:0.5, sw:'Quantum Cloud' }
+);
+UAE.PRODUCTS.forEach(function (p) { UAE.P[p.id] = p; });
+if (UAE.SW_PID) { UAE.SW_PID['Enterprise AI Agents'] = 'aiagent'; UAE.SW_PID['Quantum Cloud'] = 'qcloud'; }
+(function (W) {
+  W.qpu      = { size: 5.5, grow: 0.35, cap: 40, margin: '~55-65% gross once at scale (EST; IBM, IonQ guidance)', leaders: [['IBM Quantum', 'US', 100, 3.5, 0.30], ['Google Quantum AI', 'US', 98, 3.5, 0.15], ['Quantinuum', 'US', 97, 3.5, 0.15], ['IonQ', 'US', 92, 3.5, 0.10], ['PsiQuantum', 'US', 88, 4.0, 0.05], ['Origin Quantum', 'CN', 85, 3.5, 0.08]] };
+  W.qcloud   = { size: 3.5, grow: 0.40, cap: 60, margin: '~70% gross (cloud access to quantum hardware, EST)', leaders: [['IBM Quantum Network', 'US', 100, 3.5, 0.35], ['AWS Braket', 'US', 95, 3.5, 0.20], ['Azure Quantum', 'US', 95, 3.5, 0.18], ['Google Quantum AI', 'US', 97, 3.5, 0.10], ['Alibaba / Origin Cloud', 'CN', 85, 3.0, 0.07]] };
+  W.qsensor  = { size: 2.0, grow: 0.25, cap: 15, margin: '~60% gross (defence & navigation, EST)', leaders: [['SandboxAQ', 'US', 95, 3.0, 0.20], ['Infleqtion', 'US', 94, 3.0, 0.18], ['Q-CTRL', 'AU', 95, 3.0, 0.15], ['Exail (Muquans)', 'FR', 92, 2.5, 0.15], ['AOSense', 'US', 90, 2.5, 0.10]] };
+  W.bci      = { size: 9,   grow: 0.25, cap: 30, margin: '~70% gross at scale (implants + software, EST)', leaders: [['Neuralink', 'US', 100, 4.0, 0.30], ['Synchron', 'US', 92, 3.5, 0.15], ['Blackrock Neurotech', 'US', 90, 3.0, 0.20], ['Precision Neuroscience', 'US', 88, 3.5, 0.10], ['BrainCo', 'CN', 82, 3.0, 0.08]] };
+  W.bionic   = { size: 5.5, grow: 0.12, cap: 5,  margin: '~60-65% gross (Ossur, Ottobock)', leaders: [['Össur (Embla)', 'IS', 100, 1.5, 0.30], ['Ottobock', 'DE', 99, 1.5, 0.30], ['Open Bionics', 'GB', 88, 2.0, 0.06], ['PSYONIC', 'US', 86, 2.0, 0.05], ['Esper Bionics', 'US', 84, 2.0, 0.04]] };
+  W.exo      = { size: 3.5, grow: 0.20, cap: 12, margin: '~50-60% gross (EST)', leaders: [['Cyberdyne', 'JP', 95, 2.0, 0.15], ['Lifeward (ReWalk)', 'IL', 90, 2.0, 0.10], ['Ekso Bionics', 'US', 92, 2.0, 0.10], ['German Bionic', 'DE', 90, 2.5, 0.08], ['Sarcos', 'US', 88, 2.0, 0.06]] };
+  W.genether = { size: 40,  grow: 0.20, cap: 8,  margin: '~80-85% gross on approved therapies (EST)', leaders: [['Novartis Gene Therapies', 'CH', 100, 2.0, 0.25], ['Vertex / CRISPR Therapeutics', 'US', 99, 2.5, 0.15], ['Sarepta', 'US', 93, 2.0, 0.15], ['BioMarin', 'US', 92, 1.8, 0.08], ['CSL Behring', 'AU', 91, 1.8, 0.08]] };
+  W.evtol    = { size: 2,   grow: 0.45, cap: 60, margin: 'pre-scale: aircraft + air-taxi service, ~35% target gross (EST)', leaders: [['Joby Aviation', 'US', 100, 4.0, 0.25], ['EHang', 'CN', 96, 4.0, 0.25], ['Archer Aviation', 'US', 95, 4.0, 0.20], ['BETA Technologies', 'US', 90, 3.5, 0.08], ['Vertical Aerospace', 'GB', 85, 3.0, 0.05]] };
+  W.aiagent  = { size: 30,  grow: 0.45, cap: 40, margin: '~75-80% gross (software seats on AI models, EST)', leaders: [['Microsoft Copilot', 'US', 99, 4.0, 0.25], ['Salesforce Agentforce', 'US', 96, 3.5, 0.15], ['OpenAI', 'US', 100, 4.0, 0.15], ['Anthropic', 'US', 100, 4.0, 0.10], ['ServiceNow', 'US', 94, 3.5, 0.08]] };
+})(UAE.WORLD_MKT);
+UAE.NATION_FLAG.IS = '🇮🇸';

@@ -6,7 +6,6 @@
  *  2. for the most profitable ones, checks every city: where the business is missing (or thin per
  *     million people) it opens one there, in the city with the best appeal (engine/execs.js cityAppeal);
  *     where every city already has it, it upgrades the best-earning existing firm instead;
- *  2b. software titles (top earners): more copies earn nothing extra, so their profit funds R&D labs on the title;
  *  3. diversifies: no business gets more than DIV_CAP of the month's moves, and every 4th move goes to a
  *     business type the company does not own yet that passes the investment analysis (engine/invest.js).
  * Budget: pol.bizPct (default 40)% of the cash above the cushion, at most pol.bizMax (default 20) new firms
@@ -82,13 +81,13 @@ UAE.profitReinvest = function (co) {
   var pol = UAE.policy(co); if (pol.profitGrow === false) return;
   var A = UAE.fmt.aed, cushion = UAE.cashCushion(co), excess = UAE.groupFreeCash(co) - cushion;
   var budget = Math.min(excess, co.bs.cash - cushion * 0.5) * (pol.bizPct == null ? UAE.PG.bizPct : pol.bizPct) / 100;
-  var maxNew = pol.bizMax == null ? UAE.PG.bizMax : pol.bizMax, maxUp = maxNew * 2;
+  var maxNew = pol.bizMax != null ? pol.bizMax : pol.maxNewPerMonth != null ? pol.maxNewPerMonth : UAE.PG.bizMax,   // follows the CEO 'new firms per month' slider
+      maxUp = maxNew * 2;
   var R = co.prGrow = { day: UAE.S.day, budget: Math.max(0, budget), spent: 0, built: [], upgraded: [], diversified: [], top: [] };
   if (!(budget > 5e7) || !maxNew) return;
+  R.slots = UAE.fillIdlePlants(co);                    // idle plants first: free production slots get a paying product
   var list = UAE.pgAnalysis(co);
   R.top = list.map(function (b) { return { key: b.key, label: UAE.pgLabel(b.key), n: b.n, avg: b.avg, margin: b.margin, ret: b.ret, cities: Object.keys(b.cities).length, gaps: b.gaps.slice(0, 4).map(function (g) { return { city: g.city, have: g.have }; }) }; });
-  var sw = UAE.pgSoftware(co);
-  R.software = sw.map(function (b) { return { label: UAE.shortProduct(b.pid) + ' software', n: b.n, profit: b.profit, avg: b.avg, margin: b.margin, teams: b.teams, cap: b.cap }; });
   var moves = 0, per = {}, cap = Math.max(1, Math.ceil(maxNew * UAE.PG.divCap)), spend0 = co.bs.cash;
   var spent = function () { return Math.max(0, spend0 - co.bs.cash); };
   var log = function (f, b, why) { co.expLog = co.expLog || []; co.expLog.unshift({ day: UAE.S.day, firm: f.name, fid: f.id, type: f.type, pid: b && b.pid, invest: b ? b.cost : UAE.invBuildCost(f.type), profitM: b ? b.avg : 0, payback: b ? b.cost / b.avg : 0, margin: b ? b.margin : 0, why: why }); if (co.expLog.length > 80) co.expLog.length = 80; };
@@ -98,16 +97,6 @@ UAE.profitReinvest = function (co) {
     if (!c) return null;
     var f = UAE.invBuild(co, c); if (f) R.diversified.push({ name: f.name, why: c.why }); return f;
   };
-  // pass 0: top-earning software titles -> one more R&D lab each (below the team cap): tech index is what grows their sales
-  R.labs = [];
-  sw.forEach(function (b) {
-    if (moves >= Math.ceil(maxNew / 4) || spent() >= budget || b.teams >= b.cap || co.bs.cash <= UAE.invBuildCost('rnd') * 3) return;
-    var f = UAE.buildFor(co, 'rnd', b.pid, false); if (!f) return;
-    f.target = b.pid; f.autoResearch = true; if (UAE.nameSync) UAE.nameSync(f);
-    if (UAE.researchQuote && co.bs.cash > UAE.researchQuote(f, b.pid).cost * 0.5) UAE.startResearch(f, b.pid);
-    moves++; R.labs.push({ name: f.name, pid: b.pid });
-    log(f, null, 'Profit reinvestment: ' + UAE.shortProduct(b.pid) + ' software earns ' + A(b.profit) + '/mo. More copies of a title earn nothing extra (sales follow tech index x brand x reach), so its profit funds another R&D team (' + (b.teams + 1) + ' of max ' + b.cap + ')' + (b.gap > 0 ? ' - ' + b.gap.toFixed(0) + ' points behind the world leader.' : ' to stay ahead of the world.'));
-  });
   // pass 1: open the best businesses in the cities that lack them (round-robin over the top earners)
   for (var round = 0; round < 3 && moves < maxNew; round++) {
     for (var i = 0; i < list.length && moves < maxNew; i++) {
@@ -133,10 +122,68 @@ UAE.profitReinvest = function (co) {
   });
   R.spent = spent();
   if (UAE._idx) UAE._idx.invProd = null;
-  if (R.built.length || R.upgraded.length || R.diversified.length || R.labs.length) {
+  if (R.built.length || R.upgraded.length || R.diversified.length || R.slots) {
     var cities = {}; R.built.forEach(function (x) { cities[x.city] = 1; });
     UAE.news('💹 ' + UAE.ceoPerson(co).name + ' (CEO, ' + co.name + ') reinvested ' + A(R.spent) + ' in the most profitable businesses: ' + R.built.length + ' new firm' + (R.built.length === 1 ? '' : 's') +
-      (R.built.length ? ' in cities that lacked them (' + Object.keys(cities).join(', ') + ')' : '') + ', ' + R.upgraded.length + ' upgraded' + (R.labs.length ? ', ' + R.labs.length + ' R&D lab' + (R.labs.length === 1 ? '' : 's') + ' on top software (' + R.labs.map(function (x) { return UAE.shortProduct(x.pid); }).join(', ') + ')' : '') +
+      (R.built.length ? ' in cities that lacked them (' + Object.keys(cities).join(', ') + ')' : '') + ', ' + R.upgraded.length + ' upgraded' + (R.slots ? ', ' + R.slots + ' idle plant slot' + (R.slots === 1 ? '' : 's') + ' put to work' : '') +
       (R.diversified.length ? ', ' + R.diversified.length + ' new business line' + (R.diversified.length === 1 ? '' : 's') + ' (' + R.diversified.map(function (x) { return x.name; }).join(', ') + ')' : '') + '. The rest goes to the financial portfolio.', 'firm');
   }
+};
+
+/* ------------------------------------------------ 100% productivity (your firms) */
+/** Training budget (AED / month) that keeps a firm's efficiency target at 102%, so it climbs to and stays at 100%+. */
+UAE.fullEffBudget = function (f) {
+  var T = UAE.FIRM_TYPES[f.type], c = UAE.S.cities[f.city], C = UAE.CITIES[f.city], co = UAE.co(f.owner);
+  if (!T || !c || !C || (f.seed && co && co.legacy)) return 0;
+  var wages = T.staff * (1 + 0.8 * (f.size - 1)) * C.wage * c.wageIdx * T.wageMult / 30 + (f.manager && UAE.person(f.manager) ? UAE.person(f.manager).salary / 30 : 0);
+  var mgr = f.manager && UAE.person(f.manager) ? UAE.person(f.manager).skill.mgmt / 1000 : 0;
+  var x = 1.02 - 0.9 - mgr - 0.05 * (UAE.expertLevels ? UAE.expertLevels(f) : 0);
+  if (x <= 0) return 0;
+  return Math.min(0.25, x) / (1.5 * UAE.trainingMult(f)) * wages * 30;
+};
+
+/* ------------------------------------------------ idle plants: every production slot at work */
+/** Products whose own plants stand idle (stock over 10 days of output - production paused). Cached per company per day. */
+UAE.pgIdlePids = function (co) {
+  var S = UAE.S;
+  if (co._idle && co._idle.day === S.day) return co._idle.pids;
+  var pids = {}, plants = [];
+  UAE.firmsOf(co.id).forEach(function (f) {
+    if (f.type !== 'factory' || f.status !== 'open' || !f.lines.length) return;
+    var idle = f.lines.every(function (l) {
+      var P = UAE.P[l.pid]; if (!P || !P.rec) return false;
+      var maxOut = P.rec.cap * (1 + 0.8 * (f.size - 1)) * f.eff / Math.max(1, f.lines.length) * 1.5;
+      return UAE.stockQ(f, l.pid) > maxOut * 10;
+    });
+    if (idle) { plants.push(f); f.lines.forEach(function (l) { pids[l.pid] = 1; }); }
+  });
+  co._idle = { day: S.day, pids: pids, plants: plants };
+  Object.defineProperty(co, '_idle', { enumerable: false, writable: true, configurable: true, value: co._idle });   // not saved
+  return pids;
+};
+/** Free production slots of idle plants get the best paying factory product of the investment analysis
+ *  (a product whose own plants are not idle, not already in the plant). Returns the number of slots filled. */
+UAE.fillIdlePlants = function (co, max) {
+  UAE.pgIdlePids(co);
+  var plants = co._idle.plants, An = UAE.investAnalysis(co), n = 0, used = {}, lim = max || 400;
+  var cands = An.list.filter(function (c) { return c.type === 'factory' && c.pid && UAE.P[c.pid] && UAE.P[c.pid].rec; });
+  if (!plants.length || !cands.length) return 0;
+  var maxL = UAE.FIRM_TYPES.factory.lines || 3;
+  plants.forEach(function (f) {
+    while (n < lim && f.lines.length < maxL) {
+      var c = cands.filter(function (x) { return !f.lines.some(function (l) { return l.pid === x.pid; }); })
+        .sort(function (a, b) { return (used[a.pid] || 0) - (used[b.pid] || 0) || b.score - a.score; })[0];
+      if (!c) break;
+      UAE.addLine(f, c.pid); var l = f.lines[f.lines.length - 1];
+      if (UAE.linkOwnBuyers) UAE.linkOwnBuyers(f, c.pid);
+      UAE.P[c.pid].rec.in.forEach(function (x) {
+        var own = UAE.firmsOf(co.id).find(function (g) { return g !== f && g.status === 'open' && g.lines.some(function (m) { return m.pid === x[0]; }); });
+        if (own) { l.inSup = l.inSup || {}; l.inSup[x[0]] = own.id; }
+      });
+      used[c.pid] = (used[c.pid] || 0) + 1; n++;
+    }
+    if (UAE.nameSync) UAE.nameSync(f);
+  });
+  if (n && UAE._idx) UAE._idx.invProd = null;   // addLine keeps the day cache of suppliers in step
+  return n;
 };

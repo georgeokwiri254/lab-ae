@@ -122,6 +122,8 @@ UAE.pickDistrict = function (ds, type) {
 };
 UAE.buildFor = function (co, type, pid, instant, onlyCity) {
   var T = UAE.FIRM_TYPES[type], R = UAE.rng, S = UAE.S;
+  // a software title's world sales are split over the company's firms making it: a second copy only adds costs
+  if (type === 'software' && UAE.isHuman(co) && UAE.firmsOf(co.id).some(function (g) { return g.type === 'software' && g.status !== 'closed' && g.lines.length && g.lines[0].pid === (pid || 'ai'); })) return null;
   var cities = onlyCity ? [onlyCity] : UAE.cityOrderFor(co, type);   // onlyCity: profit reinvestment fills a city gap (engine/profitgrow.js)           // market-weighted, spread across the emirates (was: HQ city first, always Dubai)
   for (var c = 0; c < cities.length; c++) {
     var ds = UAE.DISTRICTS.filter(function (d) { return d.city === cities[c] && T.zones.indexOf(d.zone) >= 0; });

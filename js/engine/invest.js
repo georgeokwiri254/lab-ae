@@ -115,6 +115,7 @@ UAE.investAnalysis = function (co, force) {
   // 1 factories (every manufactured product)
   if (ok('factory')) UAE.PRODUCTS.forEach(function (P) {
     if (!P.rec || P.src !== 'factory' || (UAE.inScope && !UAE.inScope(co, P.id))) return;
+    if (UAE.pgIdlePids && UAE.pgIdlePids(co)[P.id]) return;                         // own plants of it stand idle (stock full): no new plant
     var capU = P.rec.cap * 1.5 * 30, uc = UAE.invUnitCost(P.id), w = UAE.invWorld(co, P.id);
     var localPx = P.kind === 'consumer' ? UAE.importBase(P.id) * 0.97 : UAE.wholesalePrice(P.id), localU = 0;
     if (P.kind === 'consumer') localU = UAE.invUaeOpen(P.id).bg * 30 * 0.25 / (1 + UAE.invProducers(P.id));   // a quarter of the background sellers' sales, shared with existing UAE factories

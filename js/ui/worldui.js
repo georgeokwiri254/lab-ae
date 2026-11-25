@@ -173,3 +173,10 @@ UI.wmStatus = function (pid) {
   if (sellsLocal) return best < F - 30 ? 'too far behind to export' : 'no spare output';
   return 'not started';
 };
+
+UI.WM_GROUPS.push(['🔮 Future tech', ['qpu', 'qcloud', 'qsensor', 'bci', 'bionic', 'exo', 'genether', 'evtol', 'aiagent']]);
+(function (W) {
+  var add = { qpu: 'IBM_Quantum_System_One', qcloud: 'Cloud-based_quantum_computing', qsensor: 'Quantum_sensor', bci: 'Brain–computer_interface',
+    bionic: 'Prosthesis', exo: 'Powered_exoskeleton', genether: 'Gene_therapy', evtol: 'Joby_Aviation_S4', aiagent: 'Intelligent_agent' };
+  for (var k in add) if (!W[k]) W[k] = add[k];
+})(UAE.PRODUCT_WIKI || (UAE.PRODUCT_WIKI = {}));
