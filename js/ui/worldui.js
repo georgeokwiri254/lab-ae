@@ -48,7 +48,7 @@ UI.R.worldProd = function (pid) {
   if (!UAE.WM[pid]) pid = 'aichip';
   var A = UAE.fmt.aed, M = UAE.WM[pid], P = UAE.P[pid], R = UAE.wmRanking(pid), st = UAE.S.world2 && UAE.S.world2[pid];
   var me = R.find(function (r) { return r.human; });
-  var h = '<div class="cards">' + UI.card('World market', M.subs ? 'subscriptions' : A(UAE.wmSize(pid)) + '/yr', M.subs ? 'see the software company page' : '+' + Math.round((M.grow || 0) * 100) + '%/yr early, levels off at ' + M.cap + '× 2026') +
+  var h = '<div class="cards">' + UI.card('World market', M.subs ? UAE.fmt.num(R.subsMarket || 0) + ' subs' : A(UAE.wmSize(pid)) + '/yr', M.subs ? 'subscribers worldwide · your share = your subscribers / all' : '+' + Math.round((M.grow || 0) * 100) + '%/yr early, levels off at ' + M.cap + '× 2026') +
     UI.card('World frontier', UI.wmIdx(UAE.wmFrontier(pid)), R[0].name) + UI.card('Your best', me ? UI.wmIdx(me.idx) + ' · #' + me.rank : '—', me ? me.name : 'not in this market') +
     UI.card('Real-world margins', M.margin || '—') + '</div>';
   h += '<div class="box"><h3>World ranking</h3><table class="t wm-rank"><tr><th class="n">#</th><th>Company</th><th class="n">Tech index</th><th class="n">Gains / yr</th><th class="n">World share</th><th class="n">Global reach</th><th class="n">Exports / day</th><th class="n">Price vs world</th></tr>' +
@@ -56,8 +56,9 @@ UI.R.worldProd = function (pid) {
       var c = r.co && st && st.cos[r.co.id], L = r.leader ? M.leaders.find(function (x) { return x[0] === r.name; }) : null;
       return '<tr' + (r.human ? ' class="me"' : '') + '><td class="n">' + r.rank + '</td><td>' + r.flag + ' ' + (r.co ? '<a data-act="company" data-arg="' + r.co.id + '">' + UI.esc(r.name) + '</a>' : UI.esc(r.name)) + '</td>' +
         '<td class="n"><b>' + UI.wmIdx(r.idx) + '</b></td><td class="n">' + (L ? '+' + L[3].toFixed(1) : 'your R&amp;D') + '</td>' +
-        '<td class="n">' + UI.pc(r.share, 2) + '</td><td class="n">' + (r.co ? UI.pc(UAE.reach(r.co, pid), 0) : 'global') + '</td>' +
-        '<td class="n">' + (c ? A(c.rev) : '—') + '</td><td class="n">' + (c ? (c.price / UAE.wmBase(pid)).toFixed(2) + '×' : '—') + '</td></tr>';
+        '<td class="n">' + UI.pc(r.share, 2) + '</td><td class="n">' + (r.co ? (M.subs ? 'global (online)' : UI.pc(UAE.reach(r.co, pid), 0)) : 'global') + '</td>' +
+        (M.subs && r.co ? '<td class="n">' + (r.subRev ? A(r.subRev) : '—') + '</td><td class="n">' + (r.subPx ? r.subPx.toFixed(2) + '×' : '—') + '</td></tr>'
+          : '<td class="n">' + (c ? A(c.rev) : '—') + '</td><td class="n">' + (c ? (c.price / UAE.wmBase(pid)).toFixed(2) + '×' : '—') + '</td></tr>');
     }).join('') + '</table></div>';
   if (me && me.co) {
     var c = st && st.cos[me.co.id], teams = UAE.rndTeams(me.co, pid), q = null;

@@ -184,9 +184,30 @@ UAE.wmRanking = function (pid) {
     if (!makes) return;
     rows.push({ name: co.name, flag: '🇦🇪', idx: UAE.gtech(co, pid), share: sells ? sells.share : 0, co: co, human: UAE.isHuman(co), rev: sells ? sells.rev : 0 });
   });
+  if (M.subs) UAE.wmSubsShares(pid, rows);            // AI models sell subscriptions (aistack.js subsDay), not shipped goods
   rows.sort(function (a, b) { return b.idx - a.idx; });
   rows.forEach(function (r, i) { r.rank = i + 1; });
   return rows;
+};
+/** Subscription markets (ai, llm): real share = the company's subscribers / world subscribers; the world labs share what is left. */
+UAE.wmSubsShares = function (pid, rows) {
+  var by = {}, rev = {}, px = {}, mk = 0, P = UAE.P[pid];
+  UAE.allFirms().forEach(function (f) {
+    if (f.type !== 'software' || f.status !== 'open' || UAE.swPid(f) !== pid || !f.subs) return;
+    by[f.owner] = (by[f.owner] || 0) + f.subs; rev[f.owner] = (rev[f.owner] || 0) + f.subs * (f.subPrice || 0) / 30;
+    if (f.subMarket > mk) mk = f.subMarket;
+  });
+  var tot = 0; Object.keys(by).forEach(function (k) { tot += by[k]; }); mk = Math.max(mk, tot, 1);
+  var lead = 0; rows.forEach(function (r) { if (r.leader) lead += r.share; });
+  rows.forEach(function (r) {
+    if (r.leader) { r.share = lead > 0 ? r.share / lead * Math.max(0, 1 - tot / mk) : 0; return; }
+    var n = by[r.co.id] || 0; r.share = n / mk; r.subs = n; r.subRev = rev[r.co.id] || 0; r.subPx = n && P && P.ref ? r.subRev * 30 / n / P.ref : 0;
+  });
+  UAE.allCos().forEach(function (co) {                  // companies selling subscriptions without a world-race entry
+    if (!by[co.id] || rows.some(function (r) { return r.co && r.co.id === co.id; })) return;
+    rows.push({ name: co.name, flag: '🇦🇪', idx: UAE.gtech(co, pid), share: by[co.id] / mk, co: co, human: UAE.isHuman(co), subs: by[co.id], subRev: rev[co.id] || 0, subPx: P && P.ref ? (rev[co.id] || 0) * 30 / by[co.id] / P.ref : 0 });
+  });
+  rows.subsMarket = mk;
 };
 /** Best UAE company (by index) of a group - the player's companies when human=true. */
 UAE.wmBestUAE = function (pid, human) {

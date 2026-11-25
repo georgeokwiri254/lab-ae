@@ -120,9 +120,9 @@ UAE.pickDistrict = function (ds, type) {
   var traffic = type === 'retail' || type === 'service';
   return UAE.AI.pickWeighted(ds, function (d) { return (traffic ? 0.2 + d.foot : 1) * Math.sqrt(5000 / Math.max(500, d.land)) * (d.gov ? 1.5 : 1); });
 };
-UAE.buildFor = function (co, type, pid, instant) {
+UAE.buildFor = function (co, type, pid, instant, onlyCity) {
   var T = UAE.FIRM_TYPES[type], R = UAE.rng, S = UAE.S;
-  var cities = UAE.cityOrderFor(co, type);           // market-weighted, spread across the emirates (was: HQ city first, always Dubai)
+  var cities = onlyCity ? [onlyCity] : UAE.cityOrderFor(co, type);   // onlyCity: profit reinvestment fills a city gap (engine/profitgrow.js)           // market-weighted, spread across the emirates (was: HQ city first, always Dubai)
   for (var c = 0; c < cities.length; c++) {
     var ds = UAE.DISTRICTS.filter(function (d) { return d.city === cities[c] && T.zones.indexOf(d.zone) >= 0; });
     for (var tries = 0; tries < 8 && ds.length; tries++) {
@@ -372,6 +372,7 @@ UAE.execsDay = function () {
     if (UAE.ceoTechRace) UAE.ceoTechRace(co);         // research to beat the world leaders (engine/worldmkt.js)
     if (UAE.syncTraits) UAE.syncTraits(co);            // your companies act with their CEO's personality
     UAE.aggressiveExpand(co);
+    if (UAE.profitReinvest) UAE.profitReinvest(co);   // most profitable businesses -> cities that lack them, diversify (engine/profitgrow.js)
     if (UAE.segAutoCapital) UAE.segAutoCapital(co);
     if (UAE.ensureHQs) UAE.ensureHQs(co);              // reopen a missing Bank / Insurance HQ
     if (UAE.ceoInvestMonth) UAE.ceoInvestMonth(co);    // excess cash -> bank / insurer, stock picks (engine/ceoinvest.js)
