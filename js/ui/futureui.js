@@ -23,12 +23,27 @@ UI.futBar = function (pid) {
   return '<div class="futbar" title="' + (T.from - UAE.FUT.preYears) + ' research opens · ' + T.from + '-' + T.to + ' invention window"><i class="r" style="left:' + W(T.from - UAE.FUT.preYears) + '%;width:' + (W(T.from) - W(T.from - UAE.FUT.preYears)) + '%"></i>' +
     '<i class="w" style="left:' + W(T.from) + '%;width:' + Math.max(1, W(T.to) - W(T.from)) + '%"></i>' + (inv != null ? '<i class="d" style="left:' + W(inv) + '%"></i>' : '') + '<i class="n" style="left:' + W(now) + '%"></i></div>';
 };
+/** Invention year: the year it was invented, or the year the world's labs are expected to invent it (your research can beat it). */
+UI.futInvYearTxt = function (pid) {
+  if (UAE.FUTURE_PRE && UAE.FUTURE_PRE[pid]) return 'Invented ' + UAE.FUTURE_PRE[pid][0];
+  if (!UAE.isFut || !UAE.isFut(pid)) return '';
+  var st = UAE.futState(pid);
+  if (UAE.futInvented(pid)) return 'Invented ' + Math.floor(UAE.futYear(st.inv)) + (st.byName ? ' by ' + st.byName : '');
+  return st.worldDay != null ? 'Expected invention ' + Math.floor(UAE.futYear(st.worldDay)) + ' (world labs; your research can beat it)' : '';
+};
 UI.futStatusTxt = function (pid) {
-  var T = UAE.FUTURE_TECH[pid], st = UAE.S.fut && UAE.S.fut[pid], s = UAE.futStatus(pid);
-  if (s === 'locked') return '<span class="muted">🔒 research opens ' + (T.from - UAE.FUT.preYears) + '</span>';
-  if (s === 'research') return '<span class="t-a">🔬 open for invention research</span>';
+  var T = UAE.FUTURE_TECH[pid], st = UAE.futState(pid), s = UAE.futStatus(pid);
+  var exp = st.worldDay != null ? ' · expected invention <b>' + Math.floor(UAE.futYear(st.worldDay)) + '</b>' : '';
+  if (s === 'locked') return '<span class="muted">🔒 research opens ' + (T.from - UAE.FUT.preYears) + exp + '</span>';
+  if (s === 'research') return '<span class="t-a">🔬 open for invention research' + exp + '</span>';
   var mine = st && st.human, by = st && st.byName ? st.byName : '';
-  return '<span class="' + (mine ? 'pos' : '') + '">💡 invented ' + Math.floor(UAE.futYear(st.inv)) + (by ? ' · ' + UI.esc(by) : '') + (mine ? ' (you)' : '') + '</span>';
+  return '<span class="' + (mine ? 'pos' : '') + '">💡 invented <b>' + Math.floor(UAE.futYear(st.inv)) + '</b>' + (by ? ' · ' + UI.esc(by) : '') + (mine ? ' (you)' : '') + '</span>';
+};
+/** Big invention-year cell for the timeline table. */
+UI.futYearCell = function (pid) {
+  var st = UAE.futState(pid);
+  if (UAE.futInvented(pid)) return '<b class="pos" style="font-size:1.15em">' + Math.floor(UAE.futYear(st.inv)) + '</b><br><span class="muted">invented</span>';
+  return '<b class="t-a" style="font-size:1.15em">~' + Math.floor(UAE.futYear(st.worldDay)) + '</b><br><span class="muted">expected</span>';
 };
 
 UI.econ_future = function () {
@@ -50,13 +65,13 @@ UI.econ_future = function () {
     var list = ids.filter(function (pid) { return UAE.FUTURE_TECH[pid].field === fk; });
     if (!list.length) return;
     list.sort(function (a, b) { return UAE.FUTURE_TECH[a].from - UAE.FUTURE_TECH[b].from || UAE.FUTURE_TECH[a].to - UAE.FUTURE_TECH[b].to; });
-    h += '<div class="box"><h3>' + UAE.FUTURE_FIELDS[fk] + '</h3><table class="t nosort fut-t"><tr><th></th><th>Product · status</th><th>Window</th><th class="fut-tl">2026 ─ timeline ─ 2100</th><th class="n">Your teams · chance</th><th class="n">World market</th></tr>' +
+    h += '<div class="box"><h3>' + UAE.FUTURE_FIELDS[fk] + '</h3><table class="t nosort fut-t"><tr><th></th><th>Product · status</th><th>Invention year</th><th>Window</th><th class="fut-tl">2026 ─ timeline ─ 2100</th><th class="n">Your teams · chance</th><th class="n">World market</th></tr>' +
       list.map(function (pid) {
         var T = UAE.FUTURE_TECH[pid], P = UAE.P[pid], s = UAE.futStatus(pid), tm = UI.futTeams(pid);
         var mk = s === 'invented' ? A(UAE.wmSize(pid)) + '/yr' : 'opens ~' + A(UAE.futLaunchSize(pid)) + '/yr';
         return '<tr' + (s === 'invented' ? ' class="click" data-act="worldProd" data-arg="' + pid + '"' : '') + '><td>' + UI.productImg(pid, 56) + '</td>' +
           '<td><b>' + UI.esc(P.name) + '</b><br>' + UI.futStatusTxt(pid) + '<br><span class="muted">' + UI.esc(T.stage) + ' · ' + (P.kind === 'software' ? 'software' : A(P.world) + ' / ' + UI.esc(P.unit)) + ' · ' + UI.esc(UAE.WM[pid].margin) + '</span></td>' +
-          '<td>' + T.from + '-' + T.to + '</td><td class="fut-tl">' + UI.futBar(pid) + '</td>' +
+          '<td>' + UI.futYearCell(pid) + '</td><td>' + T.from + '-' + T.to + '</td><td class="fut-tl">' + UI.futBar(pid) + '</td>' +
           '<td class="n">' + (s === 'research' ? (tm ? '<b>' + tm + '</b>' : '0') + '<br><span class="muted">' + (UAE.futChance(pid, co) * 100).toFixed(1) + '% / project</span>' : s === 'invented' ? (tm ? tm + ' innovating' : '—') : '—') + '</td>' +
           '<td class="n">' + mk + '<br><span class="muted">' + UAE.WM[pid].leaders.slice(0, 2).map(function (L) { return (UAE.NATION_FLAG[L[1]] || '') + ' ' + UI.esc(L[0]); }).join(', ') + '</span></td></tr>';
       }).join('') + '</table></div>';
@@ -107,3 +122,14 @@ UI.R.worldProd = function (pid) {
   return '<div class="note">🔮 <b>Future technology</b> · invention window ' + T.from + '-' + T.to + ' · ' + UI.futStatusTxt(pid) +
     (inv ? '' : ' · the market opens at about ' + UAE.fmt.aed(UAE.futLaunchSize(pid)) + ' a year when someone invents it (put R&amp;D centres on it: each finished project is a ' + (UAE.futChance(pid, UAE.player()) * 100).toFixed(1) + '% chance)') + '</div>' + h;
 };
+
+/* invention year in the product hover tip, the product page and the tech race list */
+UI._tipFut = UI._tipFut || UI.productTip;
+UI.productTip = function (pid) {
+  var h = UI._tipFut(pid), y = UI.futInvYearTxt(pid);
+  return y ? h.replace(/data-help="/, 'data-help="' + UI.esc(y) + String.fromCharCode(10)) : h;
+};
+UI._heroFutY = UI._heroFutY || UI.productHero;
+UI.productHero = function (pid, extra) { var y = UI.futInvYearTxt(pid); return UI._heroFutY(pid, (y ? '<div class="t-a">🔮 ' + UI.esc(y) + '</div>' : '') + (extra || '')); };
+UI._wmStFut = UI._wmStFut || UI.wmStatus;
+if (UI._wmStFut) UI.wmStatus = function (pid) { var h = UI._wmStFut(pid), y = UI.futInvYearTxt(pid); return y ? h + ' · ' + UI.esc(y.replace(/ \(world labs.*\)/, '')) : h; };
