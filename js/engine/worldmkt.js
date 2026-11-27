@@ -345,3 +345,24 @@ UAE.ceoExportCapacity = function (co) {
     }
   }
 };
+
+/** Every world market with YOUR standing (all your companies together): size, growth, your share and rank, the
+ *  biggest rival, your best tech vs the frontier, revenue not captured yet, and how involved you are
+ *  ('none' | 'research' | 'low' (<1%) | 'in'). Used by Product Details -> Market overview and the AI fact sheet. */
+UAE.wmOverview = function () {
+  var act = UAE.wmActive(), mine = UAE.allCos().filter(function (c) { return UAE.isHuman(c) && !c.foreign && c.status !== 'BANKRUPT'; }), ids = {};
+  mine.forEach(function (c) { ids[c.id] = 1; });
+  return Object.keys(UAE.WM || {}).filter(function (pid) { return UAE.P[pid] && UAE.wmSize(pid) > 0; }).map(function (pid) {
+    var R = UAE.wmRanking(pid), my = 0, best = null, top = null, inv = false;
+    R.forEach(function (r) {
+      if (r.co && ids[r.co.id]) { my += r.share || 0; if (!best || r.idx > best.idx) best = r; }
+      else if (!top || (r.share || 0) > (top.share || 0)) top = r;
+    });
+    Object.keys(act[pid] || {}).forEach(function (id) { if (ids[id]) inv = true; });
+    var W = UAE.wmSize(pid), F = UAE.wmFrontier(pid);
+    var tech = best ? best.idx : mine.reduce(function (m, c) { return Math.max(m, UAE.gtech(c, pid)); }, 0);
+    var cap = Math.min(UAE.WORLD.maxShare || 0.5, Math.max(top ? top.share || 0 : 0, 0.05));
+    return { pid: pid, W: W, grow: UAE.WM[pid].grow || 0, my: my, top: top, tech: tech, F: F, gap: Math.max(0, cap - my) * W / 12,
+      status: !inv ? 'none' : my <= 0 ? 'research' : my < 0.01 ? 'low' : 'in', rank: best ? best.rank : null, n: R.length };
+  });
+};

@@ -23,7 +23,10 @@ UI.act.adFor = function (arg) { var p = arg.split('|'); UI.tabState.pdTab = 'mkt
 
 UI.R.pdetail = function () {
   var pid = UI.tabState.pdPid || 'phone', P = UAE.P[pid], city = UI.tabState.pdCity || UAE.player().hq, tab = UI.tabState.pdTab || 'ov';
-  var h = UI.productBrowser(pid);
+  var view = UI.tabState.pdView || 'one';
+  var h = UI.tabs('pdView', [['one', '📦 Product'], ['mk', '🌍 Market overview – biggest markets & your share']], view);
+  if (view === 'mk') return h + UI.pdMarkets();
+  h += UI.productBrowser(pid);
   h += UI.productHero(pid, '<div style="margin-top:6px">' + (P.ref ? 'Shelf price ' + UAE.fmt.aed(P.ref) : 'World price ' + UAE.fmt.aed(P.world || P.imp)) + (P.grow ? ' · demand +' + Math.round(P.grow * 100) + '%/yr 🔥' : '') + (P.rec ? '<br><span class="muted">Made from: ' + UI.recipeText(pid) + '</span>' : '') + '</div>');
   h += UI.tabs('pdCity', Object.keys(UAE.CITIES).map(function (k) { return [k, UAE.CITIES[k].name]; }), city);
   h += UI.tabs('pdTab', [['ov', 'Overview'], ['sd', 'Supply & Demand'], ['brand', 'Brand'], ['tech', 'Technology'], ['chain', 'Supply Chain'], ['mkt', 'Marketing']], tab);
@@ -189,3 +192,53 @@ UI.R.marketing = function () {
   });
   return h + '</table></div>';
 };
+
+/* ============================================================================
+ * MARKET OVERVIEW (Product Details -> 🌍 Market overview)
+ * Every world market, biggest first: size, growth, a pie of YOUR share next to the biggest rival, your technology vs
+ * the frontier and the revenue you are not capturing yet. Sort by size / uncaptured / your share / growth and filter
+ * to markets with no or low involvement - the places to venture into next. Data: UAE.wmOverview (engine/worldmkt.js).
+ * ==========================================================================*/
+UI.pie = function (mine, rival, size) {     // tiny donut: your share (acid), biggest rival (magenta), the rest (dim)
+  var s = size || 34, c = s / 2, r = c - 4, C = 2 * Math.PI * r, a = Math.max(0, Math.min(1, mine || 0)), b = Math.max(0, Math.min(1 - a, rival || 0));
+  var seg = function (v, off, col) {
+    return v > 0 ? '<circle r="' + r + '" cx="' + c + '" cy="' + c + '" fill="none" stroke="' + col + '" stroke-width="7" stroke-dasharray="' + (v * C).toFixed(2) + ' ' + C.toFixed(2) +
+      '" stroke-dashoffset="' + (-off * C).toFixed(2) + '" transform="rotate(-90 ' + c + ' ' + c + ')"/>' : '';
+  };
+  return '<svg width="' + s + '" height="' + s + '" viewBox="0 0 ' + s + ' ' + s + '" style="vertical-align:middle;flex:0 0 auto"><circle r="' + r + '" cx="' + c + '" cy="' + c + '" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="7"/>' +
+    seg(b, a, 'var(--magenta)') + seg(a > 0 ? Math.max(a, 0.012) : 0, 0, 'var(--acid)') + '</svg>';
+};
+UI.pdMarkets = function () {
+  var sort = UI.tabState.pdMkSort || 'size', filt = UI.tabState.pdMkFilter || 'all';
+  var rows = UAE.wmOverview(), all = rows.length, cnt = { none: 0, research: 0, low: 0, 'in': 0 };
+  rows.forEach(function (r) { cnt[r.status]++; });
+  var totW = rows.reduce(function (s, r) { return s + r.W; }, 0), myW = rows.reduce(function (s, r) { return s + r.W * r.my; }, 0);
+  if (filt === 'none') rows = rows.filter(function (r) { return r.status === 'none'; });
+  else if (filt === 'low') rows = rows.filter(function (r) { return r.status !== 'in'; });
+  else if (filt === 'in') rows = rows.filter(function (r) { return r.status === 'in' || r.status === 'low'; });
+  var key = { size: function (r) { return -r.W; }, share: function (r) { return r.my; }, gap: function (r) { return -r.gap; }, growth: function (r) { return -r.grow; } }[sort] || function (r) { return -r.W; };
+  rows.sort(function (a, b) { return key(a) - key(b) || b.W - a.W; });
+  var lbl = { none: '<span class="muted">not in it</span>', research: '<span style="color:var(--gold)">researching</span>', low: '<span style="color:var(--gold)">low (&lt;1%)</span>', 'in': '<span class="pos">selling</span>' };
+  var btn = function (k, v, t, cur) { return '<button class="btn sm' + (cur === v ? ' a' : '') + '" data-act="tab" data-arg="' + k + '|' + v + '">' + t + '</button>'; };
+  var h = '<div class="cards">' + UI.card('World markets', all, 'together ' + UAE.fmt.aed(totW) + '/yr') +
+    UI.card('Your world sales', UAE.fmt.aed(myW / 12) + '/mo', UAE.fmt.pct(totW ? myW / totW : 0, 3) + ' of all world markets') +
+    UI.card('Not involved', cnt.none, 'markets you could enter') + UI.card('Low / researching', cnt.low + cnt.research, 'share under 1%') + UI.card('Selling 1%+', cnt['in']) + '</div>';
+  h += '<div class="row" style="gap:6px;flex-wrap:wrap;margin:6px 0"><span class="muted">Sort</span>' +
+    btn('pdMkSort', 'size', 'Biggest market', sort) + btn('pdMkSort', 'gap', 'Most uncaptured', sort) + btn('pdMkSort', 'share', 'Lowest share', sort) + btn('pdMkSort', 'growth', 'Fastest growth', sort) +
+    '<span class="muted" style="margin-left:10px">Show</span>' +
+    btn('pdMkFilter', 'all', 'All', filt) + btn('pdMkFilter', 'none', 'Not involved', filt) + btn('pdMkFilter', 'low', 'No or low involvement', filt) + btn('pdMkFilter', 'in', 'Where I sell', filt) + '</div>';
+  h += '<table class="t"><tr><th>#</th><th>Product</th><th class="n">World market /yr</th><th class="n">Growth</th><th>Your share</th><th>Biggest rival</th><th>Your tech</th><th class="n">Uncaptured /mo</th><th>You</th></tr>' +
+    rows.map(function (r, i) {
+      var t = r.F ? Math.round(r.tech / r.F * 100) : 0;
+      return '<tr class="click" data-act="pdMkOpen" data-arg="' + r.pid + '"><td class="muted">' + (i + 1) + '</td><td>' + UI.esc(UAE.shortProduct(r.pid)) + '</td>' +
+        '<td class="n">' + UAE.fmt.aed(r.W) + '</td><td class="n">' + (r.grow ? '+' + Math.round(r.grow * 100) + '%' : '–') + '</td>' +
+        '<td style="white-space:nowrap">' + UI.pie(r.my, r.top ? r.top.share : 0) + ' <b>' + UAE.fmt.pct(r.my, 2) + '</b>' + (r.rank ? ' <span class="muted">#' + r.rank + '/' + r.n + '</span>' : '') + '</td>' +
+        '<td>' + (r.top ? UI.esc(r.top.name) + ' <span class="muted">' + UAE.fmt.pct(r.top.share || 0, 1) + '</span>' : '–') + '</td>' +
+        '<td>' + UI.bar(t, t >= 97 ? 'var(--acid)' : t >= 80 ? 'var(--gold)' : 'var(--red)', Math.round(r.tech) + ' / ' + Math.round(r.F)) + '</td>' +
+        '<td class="n">' + UAE.fmt.aed(r.gap) + '</td><td>' + lbl[r.status] + '</td></tr>';
+    }).join('') + '</table>' +
+    '<div class="note">Pie: <b style="color:var(--acid)">your share</b> (all your companies) · <b style="color:var(--magenta)">biggest rival</b> · grey = everyone else. ' +
+    'Uncaptured = revenue a month you would add by reaching the biggest rival&#39;s share (capped at the world maximum). Your tech = your best index vs the world leader: far below it you cannot win share abroad, research first. Click a row for that product.</div>';
+  return h;
+};
+UI.act.pdMkOpen = function (pid) { UI.tabState.pdView = 'one'; UI.tabState.pdPid = pid; UI.tabState.pdGroup = UAE.productGroup(UAE.P[pid]); UI.tabState.pdTab = 'tech'; UI.render(); };
