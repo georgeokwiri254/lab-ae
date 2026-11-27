@@ -26,7 +26,7 @@ UAE.CLOUD = { pricePerServer: 6000, baseDemand: 12000, grow: 0.4, hyperscalers: 
  * S-curve: it starts at 'adoption' (2026), grows ~'grow' a year early on and levels off at 'max' (share of the world
  * that pays for it at the reference price - EST). 'labs' = weight of the global AI labs (OpenAI, Google, Anthropic...)
  * already serving the market: new firms win share with quality, price and brand. */
-UAE.SUBS = { ai: { ref: 75, adoption: 0.05, grow: 0.35, max: 0.35, labs: 40 }, llm: { ref: 220, adoption: 0.01, grow: 0.6, max: 0.10, labs: 40 } };
+UAE.SUBS = { ai: { ref: 75, adoption: 0.05, grow: 0.35, max: 0.60, labs: 40 }, llm: { ref: 220, adoption: 0.01, grow: 0.6, max: 0.25, labs: 40 } };
 /* Subscription plans (tiers). mix = share of subscribers on that plan at typical prices; q = model quality the plan
  * needs (below it the plan barely sells). Prices are monthly, typical market levels (EST). */
 UAE.SUB_TIERS = {
