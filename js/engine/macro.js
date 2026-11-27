@@ -81,6 +81,7 @@ UAE.monthEnd = function () {
     f.last = { rev: f.m.rev, cost: f.m.cost, profit: f.m.rev - f.m.cost, va: UAE.firmVA(f) };
     f.hist.push(f.last.profit); if (f.hist.length > 24) f.hist.shift();
     f.m = { rev: 0, cost: 0 };
+    f.supplied = f.lines.some(function (l) { return (l.sold || 0) > 0; });   // remembered: did it deliver last month? (supplier test after the reset)
     f.lines.forEach(function (l) { l.made = 0; l.exported = 0; if (UAE.FIRM_TYPES[f.type].kind !== 'retail') l.sold = 0; });   // producers: monthly counters
   });
   if (UAE.financeMonth) UAE.financeMonth();      // bank & insurer division books (engine/finance2.js)

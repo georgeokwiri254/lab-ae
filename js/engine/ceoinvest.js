@@ -23,7 +23,7 @@ UAE.neverCloseAsLoser = function (f) {
   // producers that supply your own firms deliver at cost (no revenue of their own): their profit shows at the store, so a
   // factory / farm / mine / warehouse that delivered goods this month is not a loser
   var k = UAE.FIRM_TYPES[f.type].kind;
-  return ['factory', 'farm', 'mine', 'oil', 'warehouse'].indexOf(k) >= 0 && f.lines.some(function (l) { return (l.sold || 0) > 0; });
+  return ['factory', 'farm', 'mine', 'oil', 'warehouse'].indexOf(k) >= 0 && (f.supplied || f.lines.some(function (l) { return (l.sold || 0) > 0; }));   // f.supplied: delivered last month (counters reset at month end)
 };
 UAE.ceoPerson = function (co) { var p = co && co.ceo && UAE.person(co.ceo); return p && !p.isPlayer ? p : null; };
 /** The company takes on its hired CEO's personality. */
