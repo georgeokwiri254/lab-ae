@@ -329,7 +329,9 @@ svg.logo.lg2 { border: 1px solid; background: #05060a; padding: 0; }
 .help-body { font-size: 14px; line-height: 1.6; } .help-body li { margin: 6px 0; }
 
 /* rail: buttons shrink to fit short screens so every button stays visible */
-#rail button { flex: 1 1 40px; height: auto; max-height: 40px; min-height: 26px; }
+#rail { gap: 2px; }
+#rail button { flex: 1 1 40px; height: auto; max-height: 40px; min-height: 22px; font-size: clamp(14px, 2.6vh, 18px); }
+#rail .applogo { flex: 0 1 40px; height: auto; min-height: 24px; max-height: 40px; margin-bottom: 4px; }
 #rail .sep { margin: 3px 0; flex: 0 0 1px; }
 #rail .logo { flex: 0 0 auto; }
 body.helpon #rail button::after { display: none; }      /* the beginner tooltip already shows the name + explanation */
