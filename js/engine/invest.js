@@ -60,8 +60,9 @@ UAE.invWorld = function (co, pid) {
   var share = Math.min(UAE.WORLD.maxShare, A / (lead + rivals + A)), base = UAE.wmBase(pid);
   var price = base * Math.max(0.5, Math.min(2.2, Math.exp((g - avg) / 25)));
   var demandM = share * W / 12, shippedM = me ? me.units * base * 30 : 0;
-  var credible = g >= F - 30;                       // world buyers ignore products far behind the leaders: research first
-  return { share: share, price: price, base: base, demandM: credible ? demandM : 0, unmetM: credible ? Math.max(0, demandM - shippedM) : 0, g: g, F: F, sells: !!me, rev: me ? me.rev * 30 : 0, credible: credible };
+  // products far behind the leaders still sell abroad, but to fewer buyers: demand fades smoothly beyond 30 points behind
+  var credible = g >= F - 30, credF = credible ? 1 : Math.max(0.05, Math.exp(-(F - 30 - g) / 12));
+  return { share: share, price: price, base: base, demandM: demandM * credF, unmetM: Math.max(0, demandM * credF - shippedM), g: g, F: F, sells: !!me, rev: me ? me.rev * 30 : 0, credible: credible, credF: credF };
 };
 UAE.invFmt = function (v) { return UAE.fmt.aed(v); };
 
@@ -128,7 +129,7 @@ UAE.investAnalysis = function (co, force) {
     push({ type: 'factory', pid: P.id, group: 'industry', invest: UAE.invBuildCost('factory'), revM: rev, varM: varC, fixedM: fixed, profitM: rev - varC - fixed,
       margin: (rev - varC) / rev, nec: UAE.invNecessity(P), share: w ? w.share : null, demandM: (w ? w.unmetM : 0) + localU * localPx, need: need,
       why: 'margin ' + Math.round((rev - varC) / rev * 100) + '% (unit cost ' + A(uc) + ' vs price ' + A(rev / units) + ')' +
-        (w && w.credible ? ', unmet world demand ' + A(w.unmetM) + '/mo at tech index ' + w.g.toFixed(0) + ' vs leader ' + w.F.toFixed(0) : w ? ', no exports yet (tech ' + w.g.toFixed(0) + ' vs leader ' + w.F.toFixed(0) + ': research first)' : '') +
+        (w && w.credible ? ', unmet world demand ' + A(w.unmetM) + '/mo at tech index ' + w.g.toFixed(0) + ' vs leader ' + w.F.toFixed(0) : w ? ', small exports only (' + A(w.unmetM) + '/mo; tech ' + w.g.toFixed(0) + ' vs leader ' + w.F.toFixed(0) + ' - R&D lifts it)' : '') +
         (localU ? ', UAE demand open ' + A(localU * localPx) + '/mo' : '') + ', necessity ' + Math.round(UAE.invNecessity(P) * 100) + '%' });
   });
   // 2 software titles with a world market the company does not publish yet

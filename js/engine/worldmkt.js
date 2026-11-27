@@ -80,6 +80,7 @@ UAE.wmSellers = function (pid, open) {
   return open.filter(function (f) { return f.type === 'factory' && f.lines.some(function (l) { return l.pid === pid; }); });
 };
 
+UAE.WORLD_CLEAR_DAYS = 20;   // stock above this many days of output is sold abroad even below cost (clearance)
 /** Daily world sales for every product with a world market. */
 UAE.worldDay = function (open) {
   var S = UAE.S; S.world2 = S.world2 || {};
@@ -132,9 +133,11 @@ UAE.worldDay = function (open) {
           var l = f.lines.find(function (y) { return y.pid === pid; }), s = f.stock[pid];
           var daily = l ? Math.max(1, l.made / Math.max(1, (S.day % 30) + 1)) : 1;
           var netPx = price * exp - gwCost(f);
-          // Do not dump exports below unit manufacturing cost (hold stock until R&D lifts world pricing or sell locally)
+          // Normal exports only above unit cost. Below cost the plant still CLEARS stock piled above ~20 days of output at
+          // the market price (like selling last generation's inventory while R&D catches up) instead of holding it forever.
           var ok = s && (netPx >= s.cost * 1.02 || (l && l.forceExport));
-          return { f: f, l: l, q: ok ? Math.max(0, s.q - daily * 3) : 0, netPx: Math.max(0, netPx) };
+          var clear = s && !ok && netPx > 0 ? Math.max(0, s.q - daily * UAE.WORLD_CLEAR_DAYS) : 0;
+          return { f: f, l: l, q: ok ? Math.max(0, s.q - daily * 3) : clear, netPx: Math.max(0, netPx), clearance: !ok && clear > 0 };
         });
         var have = avail.reduce(function (s, a) { return s + a.q; }, 0), fill = have > 0 ? Math.min(1, want / have) : 0;
         avail.forEach(function (a) {
@@ -349,17 +352,26 @@ UAE.ceoExportCapacity = function (co) {
 /** Every world market with YOUR standing (all your companies together): size, growth, your share and rank, the
  *  biggest rival, your best tech vs the frontier, revenue not captured yet, and how involved you are
  *  ('none' | 'research' | 'low' (<1%) | 'in'). Used by Product Details -> Market overview and the AI fact sheet. */
+/** Market size in AED/yr for any world market: goods & software from the S-curve, subscription markets (ai, llm)
+ *  = world subscribers x reference price x 12. */
+UAE.wmMarketSize = function (pid) {
+  var M = UAE.WM[pid]; if (!M) return 0;
+  if (M.subs && UAE.SUBS && UAE.SUBS[pid] && UAE.sCurve && UAE.worldPop) {
+    var C = UAE.SUBS[pid]; return UAE.worldPop() * UAE.sCurve(C.adoption, C.grow, C.max, UAE.S.day / 365) * C.ref * 12;
+  }
+  return UAE.wmSize(pid);
+};
 UAE.wmOverview = function () {
   var act = UAE.wmActive(), mine = UAE.allCos().filter(function (c) { return UAE.isHuman(c) && !c.foreign && c.status !== 'BANKRUPT'; }), ids = {};
   mine.forEach(function (c) { ids[c.id] = 1; });
-  return Object.keys(UAE.WM || {}).filter(function (pid) { return UAE.P[pid] && UAE.wmSize(pid) > 0; }).map(function (pid) {
+  return Object.keys(UAE.WM || {}).filter(function (pid) { return UAE.P[pid] && UAE.wmMarketSize(pid) > 0; }).map(function (pid) {
     var R = UAE.wmRanking(pid), my = 0, best = null, top = null, inv = false;
     R.forEach(function (r) {
       if (r.co && ids[r.co.id]) { my += r.share || 0; if (!best || r.idx > best.idx) best = r; }
       else if (!top || (r.share || 0) > (top.share || 0)) top = r;
     });
     Object.keys(act[pid] || {}).forEach(function (id) { if (ids[id]) inv = true; });
-    var W = UAE.wmSize(pid), F = UAE.wmFrontier(pid);
+    var W = UAE.wmMarketSize(pid), F = UAE.wmFrontier(pid);
     var tech = best ? best.idx : mine.reduce(function (m, c) { return Math.max(m, UAE.gtech(c, pid)); }, 0);
     var cap = Math.min(UAE.WORLD.maxShare || 0.5, Math.max(top ? top.share || 0 : 0, 0.05));
     return { pid: pid, W: W, grow: UAE.WM[pid].grow || 0, my: my, top: top, tech: tech, F: F, gap: Math.max(0, cap - my) * W / 12,
