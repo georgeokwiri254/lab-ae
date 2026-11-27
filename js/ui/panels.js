@@ -516,7 +516,7 @@ UI.R.factions = function () {
   h += '<div class="grid2"><div>';
   h += box('FA01', 'Bank loan', '<div class="row">Rate ' + F().pct(UAE.loanRate(co), 2) + ' (base ' + F().pct(UAE.S.macro.rate, 2) + ' + spread) · limit ' + F().aed(UAE.creditLimit(co)) + ' · owed ' + F().aed(co.bs.loans) + '</div>' +
     '<div class="row"><input class="in num" id="faLoan" value="50m"> over <select class="in" id="faYears">' + [1, 2, 3, 5, 7, 10].map(function (y) { return '<option value="' + y + '"' + (y === 5 ? ' selected' : '') + '>' + y + ' year' + (y > 1 ? 's' : '') + '</option>'; }).join('') + '</select>' +
-    '<button class="btn a sm" data-act="fa" data-arg="loan">Borrow</button><button class="btn sm" data-act="fa" data-arg="repay">Repay early</button></div>' +
+    '<button class="btn a sm" data-act="fa" data-arg="loan">Borrow</button><button class="btn a sm" data-act="fa" data-arg="loanmax" title="Borrow the whole credit line left (' + F().aed(UAE.creditLimit(co)) + ') over the chosen term">Borrow max</button><button class="btn sm" data-act="fa" data-arg="repay">Repay early</button></div>' +
     '<div class="note">Loans are repaid in equal monthly instalments over the term. Your CEO never repays loans you took yourself early – only you can.</div>');
   h += box('FA11', 'Issue bonds (5 years)', '<div class="row">Coupon ≈ ' + F().pct(UAE.S.macro.rate + UAE.RULES.bondSpread + UAE.creditSpread(co) - 0.012, 2) + ' · 1% fee</div><div class="row"><input class="in num" id="faBond" value="100m"><button class="btn a sm" data-act="fa" data-arg="bond">Issue</button></div>');
   h += box('FA12', 'Bank deposits', '<div class="row">Deposit rate ' + F().pct(Math.max(0.005, UAE.S.macro.rate + UAE.RULES.depositSpread), 2) + ' · held ' + F().aed(co.bs.deposits) + '</div><div class="row"><input class="in num" id="faDep" value="20m"><button class="btn a sm" data-act="fa" data-arg="deposit">Deposit</button><button class="btn sm" data-act="fa" data-arg="withdraw">Withdraw</button></div>');
@@ -541,6 +541,9 @@ UI.R.factions = function () {
 UI.act.fa = function (kind) {
   var co = UAE.player(), r;
   switch (kind) {
+    case 'loanmax': var mx = Math.floor(UAE.creditLimit(co) / 1e3) * 1e3;
+      if (mx < 1e6) { r = { ok: false, why: 'No credit line left (limit ' + F().aed(UAE.creditLimit(co)) + ').' }; break; }
+      r = UAE.takeLoan(co, mx, false, { years: +UI.$('faYears').value, by: 'player' }); if (r.ok) { r.why = ''; UI.toast('Borrowed the maximum: ' + F().aed(mx) + ' over ' + r.years + ' years at ' + F().pct(r.rate, 2) + (r.bank ? ' from ' + UI.esc(r.bank) : '') + ' – instalment ' + F().aed(r.instalment) + '/month (last month net profit ' + F().aed(UAE.netIncome(co.is.months[co.is.months.length - 1] || {})) + '). Spare cash above the cushion is invested by your CEO.', 'good'); } break;
     case 'loan': r = UAE.takeLoan(co, UI.num('faLoan'), false, { years: +UI.$('faYears').value, by: 'player' }); if (r.ok) r.why = ''; if (r.ok) UI.toast('Loan of ' + F().aed(UI.num('faLoan')) + ' over ' + r.years + ' years at ' + F().pct(r.rate, 2) + (r.bank ? ' from ' + UI.esc(r.bank) : '') + ' – instalment ' + F().aed(r.instalment) + '/month.', 'good'); break;
     case 'repay': r = UAE.repayLoan(co, UI.num('faLoan')); break;
     case 'bond': r = UAE.issueBond(co, UI.num('faBond'), 5); break;
