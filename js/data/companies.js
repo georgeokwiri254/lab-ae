@@ -220,7 +220,7 @@ UAE.CO_NAME_PARTS = {
 /* Executives (SYN): English / US style names. */
 UAE.FIRST_NAMES = ['James','Emma','Michael','Olivia','William','Sophia','Benjamin','Charlotte','Daniel','Amelia','Matthew','Grace','Henry','Lily',
   'Jack','Hannah','Samuel','Ella','Thomas','Chloe','Andrew','Lucy','Christopher','Abigail','Ryan','Madison','Nathan','Emily','Ethan','Victoria',
-  'Alexander','Natalie','Jonathan','Rachel','David','Sarah','Patrick','Megan','Robert','Elizabeth','Edward','Caroline','George','Katherine',
+  'Alexander','Natalie','Jonathan','Rachel','David','Sarah','Patrick','Megan','Robert','Elizabeth','Edward','Caroline','Arthur','Katherine',
   'Lucas','Harper','Owen','Ava','Connor','Zoe','Tyler','Brooke','Jason','Claire','Mark','Laura','Brian','Rebecca','Kevin','Jessica','Scott','Hailey'];
 UAE.LAST_NAMES = ['Smith','Johnson','Williams','Brown','Taylor','Anderson','Thompson','Walker','Wright','Mitchell','Carter','Turner','Parker','Collins',
   'Edwards','Stewart','Morris','Murphy','Cook','Rogers','Morgan','Cooper','Peterson','Bailey','Reed','Kelly','Howard','Ward','Cox','Richardson',
