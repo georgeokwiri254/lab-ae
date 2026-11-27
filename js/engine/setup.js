@@ -320,9 +320,14 @@ UAE.randomCompanyName = function (sector, rnd) {
   if (UAE.S && UAE.S.companies) Object.keys(UAE.S.companies).forEach(function (k) { used[UAE.S.companies[k].name] = true; });
   var bySector = { retail: 'Retail', trading: 'Trading', industrial: 'Industries', property: 'Properties', hospitality: 'Hospitality', logistics: 'Logistics',
     media: 'Media', internet: 'Digital', tech: 'Tech', holding: 'Capital' };
+  var L = 'ABCDEFGHJKLMNPRSTW';
   for (var i = 0; i < 40; i++) {
-    var core = sector && bySector[sector] && R.next() < 0.6 ? bySector[sector] : (R.next() < 0.75 ? pick(N.core) : '');
-    var name = [pick(N.prefix), core, pick(N.suffix)].filter(Boolean).join(' ');
+    var core = sector && bySector[sector] && R.next() < 0.6 ? bySector[sector] : (R.next() < 0.75 ? pick(N.core) : ''), r = R.next(), name;
+    if (!N.surname || r < 0.45) name = [pick(N.prefix), core, pick(N.suffix)].filter(Boolean).join(' ');              // Northfield Robotics Inc.
+    else if (r < 0.65) name = [pick(N.surname), core, pick(N.suffix)].filter(Boolean).join(' ');                      // Whitmore Analytics Group
+    else if (r < 0.80) { var a1 = pick(N.surname), a2 = pick(N.surname); if (a1 === a2) continue; name = a1 + ' & ' + a2 + (core && R.next() < 0.5 ? ' ' + core : ''); }   // Harrison & Clarke
+    else if (r < 0.90) name = pick(N.surname) + ' ' + pick(N.family);                                                 // Bennett & Sons
+    else name = L[Math.floor(R.next() * L.length)] + '.' + L[Math.floor(R.next() * L.length)] + '. ' + pick(N.surname) + ' ' + (core || 'Industries') + ' Co.';   // J.R. Caldwell Foods Co.
     if (!used[name]) return name;
   }
   return pick(N.prefix) + ' ' + pick(N.core) + ' ' + (100 + Math.floor(R.next() * 900));

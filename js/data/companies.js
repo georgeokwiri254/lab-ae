@@ -190,26 +190,41 @@ UAE.SECTORS = {
 /* Names for fictional AI start-ups and executives (SYN - any resemblance to real
  * persons is coincidental; real company leadership is NOT modelled). */
 UAE.FICTIONAL_COMPANIES = [
-  ['Falcon Crest Retail','retail'], ['Desert Rose Trading','trading'], ['Marina Bay Foods','retail'],
-  ['Oasis Dairy Co.','industrial'], ['Khaleej Electronics','retail'], ['Pearl Coast Properties','property'],
-  ['Saffron Hospitality','hospitality'], ['Dhow Logistics','logistics'], ['Sandstone Cement','industrial'],
-  ['Mirage Media Group','media'], ['Najm Digital','internet'], ['Sidra Software','tech'],
-  ['Wadi Farms','industrial'], ['Gulf Horizon Holdings','holding'], ['Al Noor Perfumes','retail'],
-  ['Zayed Road Ventures','holding'], ['Creekside Apparel','retail'], ['Hatta Springs Water','industrial']
+  ['Brightwater Retail','retail'], ['Harrison Trading Co.','trading'], ['Maplewood Foods','retail'],
+  ['Oakridge Dairy Co.','industrial'], ['Sterling Electronics','retail'], ['Bayview Properties','property'],
+  ['Kensington Hospitality','hospitality'], ['Atlas Freight & Logistics','logistics'], ['Granite Peak Cement','industrial'],
+  ['Lakeview Media Group','media'], ['Northstar Digital','internet'], ['Redwood Software','tech'],
+  ['Green Valley Farms','industrial'], ['Kingsbridge Holdings','holding'], ['Whitmore Fragrances','retail'],
+  ['Westbrook Ventures','holding'], ['Fairfield Apparel','retail'], ['Clearwater Springs','industrial']
 ];
-/** Random company name parts (SYN): prefix + optional core + suffix, e.g. "Sahara Quantum Holdings". */
+/** Random company name parts (SYN), English / US style. Patterns (UAE.randomCompanyName):
+ *  place + core + suffix ("Northfield Robotics Inc."), surname + suffix ("Whitmore Group"),
+ *  two surnames ("Harrison & Clarke"), surname + family ("Bennett & Sons"), initials ("J.R. Caldwell Co."). */
 UAE.CO_NAME_PARTS = {
-  prefix: ['Falcon','Oasis','Dune','Sahara','Pearl','Dhow','Saffron','Mirage','Najm','Sidra','Wadi','Khaleej','Hatta','Creek','Marina','Jumeirah','Liwa',
-    'Corniche','Qasr','Noor','Zahra','Sarab','Bayan','Rimal','Majlis','Souq','Ghaf','Barakah','Tamr','Areej','Yas','Saadiyat','Hajar','Murjan','Lulu',
-    'Emerald','Sapphire','Crescent','Horizon','Summit','Apex','Vertex','Aurora','Nova','Zenith','Atlas','Orion','Titan','Vega','Neon','Helix','Nexus',
-    'Silverline','Goldcrest','Bluewave','Redsand','Skyline','Sunrise','Starlight','Desert Wind','Seven Seas','Gulfstream','Palmgrove','Sandstone','Lighthouse'],
+  prefix: ['Northfield','Brightwater','Oakridge','Silver Creek','Redwood','Granite Peak','Bluestone','Lakeshore','Westbrook','Pinecrest','Ironwood',
+    'Stonebridge','Riverside','Maplewood','Highland','Cedar Point','Fairview','Kingsbridge','Pioneer','Frontier','Keystone','Heritage','Sterling',
+    'Evergreen','Summit','Bayview','Harbor','Clearwater','Blackstone Ridge','Copper Hill','Golden Gate','Willow Creek','Eastgate','Southport',
+    'Hawthorne','Ashford','Thornbury','Wellington','Kensington','Chesterfield','Brookline','Hamilton','Lexington','Cambridge','Windsor',
+    'Northstar','Lighthouse','Eagle Rock','Red Oak','Elm Street','Crescent Bay','Falcon Ridge','Mountain View','Prairie','Canyon','Liberty Bell',
+    'Atlas','Orion','Titan','Apex','Vertex','Aurora','Nova','Zenith','Horizon','Meridian','Beacon','Paragon','Vanguard','Sentinel','Crestview'],
   core: ['Quantum','Digital','Dynamics','Energy','Logistics','Foods','Retail','Tech','Labs','Robotics','Capital','Industries','Systems','Networks','Media',
-    'Pharma','Motors','Materials','Trading','Properties','Hospitality','Electronics','Aerospace','Biotech','Analytics','Mobility','Solar','Water','Textiles'],
-  suffix: ['Holdings','Group','Co.','Corporation','LLC','PJSC','Enterprises','International','Ventures','Partners','& Sons','Global','Investments','Company']
+    'Pharma','Motors','Materials','Trading','Properties','Hospitality','Electronics','Aerospace','Biotech','Analytics','Mobility','Solar','Water','Textiles',
+    'Brands','Software','Semiconductor','Health','Data','Manufacturing','Instruments','Devices'],
+  suffix: ['Inc.','Corp.','Holdings','Group','Co.','LLC','Industries','Enterprises','International','Partners','Global','Company','Brands','& Co.'],
+  surname: ['Whitmore','Harrison','Caldwell','Bennett','Clarke','Hargrove','Prescott','Sullivan','Montgomery','Fletcher','Donovan','Whitaker','Ellison',
+    'Bradford','Lancaster','Sinclair','Pemberton','Thornton','Holloway','Beaumont','Carrington','Hale','Mercer','Sterling','Langford','Ashby','Crawford',
+    'Davenport','Garrison','Kensington','Maxwell','Norwood','Radcliffe','Stanton','Walsh','Barrett','Callahan','Fitzgerald','Grayson','Hudson','Kendall',
+    'Lawson','Merritt','Prentice','Quinn','Rutherford','Sheridan','Tate','Vaughn','Wyatt','Calloway','Ellsworth','Hollis','Kingsley','Marlowe','Whitfield'],
+  family: ['& Sons','Brothers','& Daughters','Family Holdings','& Partners','& Associates']
 };
-UAE.FIRST_NAMES = ['Omar','Layla','Hamdan','Mariam','Khalid','Fatima','Yousef','Noura','Saeed','Aisha','Rashid',
-  'Hessa','Faisal','Reem','Tariq','Sara','Arjun','Priya','James','Elena','Chen','Sofia','Karim','Nadia','Ivan','Leila'];
-UAE.LAST_NAMES = ['Al Fardan','Al Kaabi','Al Mazrouei','Al Shamsi','Al Nuaimi','Bin Saeed','Al Hashimi','Al Qasimi',
-  'Haddad','Mehta','Fernandes','Clarke','Rossi','Wang','Novak','Khoury','Rahman','Saleh','Nair','Okafor'];
+/* Executives (SYN): English / US style names. */
+UAE.FIRST_NAMES = ['James','Emma','Michael','Olivia','William','Sophia','Benjamin','Charlotte','Daniel','Amelia','Matthew','Grace','Henry','Lily',
+  'Jack','Hannah','Samuel','Ella','Thomas','Chloe','Andrew','Lucy','Christopher','Abigail','Ryan','Madison','Nathan','Emily','Ethan','Victoria',
+  'Alexander','Natalie','Jonathan','Rachel','David','Sarah','Patrick','Megan','Robert','Elizabeth','Edward','Caroline','George','Katherine',
+  'Lucas','Harper','Owen','Ava','Connor','Zoe','Tyler','Brooke','Jason','Claire','Mark','Laura','Brian','Rebecca','Kevin','Jessica','Scott','Hailey'];
+UAE.LAST_NAMES = ['Smith','Johnson','Williams','Brown','Taylor','Anderson','Thompson','Walker','Wright','Mitchell','Carter','Turner','Parker','Collins',
+  'Edwards','Stewart','Morris','Murphy','Cook','Rogers','Morgan','Cooper','Peterson','Bailey','Reed','Kelly','Howard','Ward','Cox','Richardson',
+  'Wood','Watson','Brooks','Bennett','Gray','Hughes','Price','Sanders','Myers','Long','Foster','Powell','Jenkins','Perry','Russell','Sullivan',
+  'Bell','Coleman','Butler','Henderson','Barnes','Fisher','Hayes','Graham','Wallace','Hamilton','Ellis','Harrison','Fletcher','Whitmore','Caldwell','Prescott'];
 /* CEO traits drive AI decisions: aggression (expansion speed), risk (leverage),
  * pricing (discount vs premium), diversify (chance to enter new industries). */
